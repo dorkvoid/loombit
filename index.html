@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LoomBit — Pixel Sprite & World Engine</title>
+  <title>LoomBit</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.cdnfonts.com/css/perfect-dos-vga-437');
@@ -22,12 +22,20 @@
       background-color: #141417;
       color: #d4d4d8;
       font-family: 'Perfect DOS VGA 437', 'VT323', 'Consolas', monospace;
-      font-size: 12px;
+      font-size: 14px;
       overflow: hidden;
       height: 100vh;
       width: 100vw;
       letter-spacing: 0.01em;
     }
+
+    /* Scaled-up text sizes across the entire engine for crisp readability */
+    .text-\[7px\] { font-size: 10px !important; line-height: 1.15 !important; }
+    .text-\[8px\] { font-size: 11px !important; line-height: 1.2 !important; }
+    .text-\[9px\] { font-size: 12px !important; line-height: 1.25 !important; }
+    .text-\[10px\] { font-size: 13px !important; line-height: 1.3 !important; }
+    .text-\[11px\] { font-size: 14px !important; line-height: 1.35 !important; }
+    .text-xs { font-size: 15px !important; line-height: 1.4 !important; }
 
     .mono {
       font-family: 'Perfect DOS VGA 437', 'VT323', 'Consolas', monospace;
@@ -59,14 +67,27 @@
     }
 
     #right-drawer {
-      width: 264px;
+      width: 288px;
       transition: margin-right 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s ease;
       will-change: margin-right;
     }
     #right-drawer.drawer-closed {
-      margin-right: -264px !important;
+      margin-right: -288px !important;
       opacity: 0;
       pointer-events: none;
+    }
+
+    /* Slide-in appear animation for the in-world Motion Bar */
+    #world-motion-bar {
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, -10px) scale(0.95);
+      transition: opacity 0.16s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    #world-motion-bar.motion-bar-open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translate(-50%, 0) scale(1);
     }
 
     /* Subtle checkerboard for transparency in the pixel editor */
@@ -176,8 +197,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 10px;
-      font-size: 13px;
+      padding: 7px 12px;
+      font-size: 15px;
       letter-spacing: 0.03em;
       cursor: pointer;
       border-bottom: 1px solid #26262e;
@@ -208,11 +229,11 @@
       flex-shrink: 0;
     }
     .ase-cel-num {
-      height: 18px;
+      height: 20px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
+      font-size: 13px;
       background: #1c1c22;
       color: #71717a;
       border-bottom: 1px solid #2a2a32;
@@ -258,11 +279,18 @@
     <canvas id="world-canvas" class="block w-full h-full cursor-crosshair"></canvas>
 
     <!-- Minimal Top-Left Engine & Build Bar -->
-    <div class="absolute top-3 left-3 flex flex-wrap items-center gap-1.5 bg-[#1b1b1f]/95 border border-[#2e2e36] rounded-sm px-2.5 py-1.5 text-[11px] shadow-lg">
-      <!-- Brand Badge -->
-      <div class="flex items-center gap-1.5 pr-2 mr-0.5 border-r border-[#2e2e36] text-blue-400 font-bold tracking-tight select-none">
-        <span class="inline-block w-2 h-2 bg-blue-500 rounded-xs"></span>
-        <span>LOOMBIT</span>
+    <div id="top-engine-bar" class="absolute top-3 left-3 flex flex-wrap items-center gap-1.5 bg-[#1b1b1f]/95 border border-[#2e2e36] rounded-sm px-2.5 py-1.5 text-[11px] shadow-lg transition-all duration-200">
+      <!-- Custom Pixel-Exact LOOMBIT Logo (No grey, O's as eyes) -->
+      <div class="flex items-center pr-2 mr-0.5 border-r border-[#2e2e36] select-none" title="LoomBit">
+        <svg viewBox="0 0 47 10" class="h-[18px] w-auto block" shape-rendering="crispEdges">
+          <!-- Black Background Plate -->
+          <rect width="47" height="10" fill="#000000" />
+          <!-- White Pixel Lettering: L O O M B I T (O's shaped as eyes with vertical pupils) -->
+          <path fill="#ffffff" d="M1,1h2v6H1z M1,7h4v2H1z M8,1h4v1H8z M7,2h6v1H7z M7,3h2v3H7z M10,3h3v3h-3z M7,6h6v2H7z M8,8h4v1H8z M15,1h4v1h-4z M14,2h6v1h-6z M14,3h2v3h-2z M17,3h3v3h-3z M14,6h6v2h-6z M15,8h4v1h-4z M21,1h6v2h-6z M21,3h2v6h-2z M24,3h1v4h-1z M26,3h2v6h-2z M29,1h5v1h-5z M29,2h2v7h-2z M33,2h2v2h-2z M31,4h3v1h-3z M33,5h2v3h-2z M31,8h3v1h-3z M36,4h2v5h-2z M39,1h6v2h-6z M41,3h2v6h-2z" />
+          <!-- Blue 'i' Tittle & Highlight -->
+          <rect x="36" y="1" width="2" height="2" fill="#639bff" />
+          <rect x="36" y="3" width="2" height="1" fill="#c7dcff" />
+        </svg>
       </div>
 
       <!-- Mode Switcher: Play vs Build -->
@@ -314,7 +342,7 @@
 
     <!-- Minimal Bottom-Left Coordinates & Chat Input -->
     <div class="absolute bottom-3 left-3 flex items-center gap-2">
-      <div class="bg-[#1b1b1f]/90 border border-[#2e2e36] rounded px-2 py-1 text-[11px] mono text-zinc-400">
+      <div id="bottom-coords-pill" class="bg-[#1b1b1f]/90 border border-[#2e2e36] rounded px-2 py-1 text-[11px] mono text-zinc-400 transition-all duration-200">
         <span id="world-coords-readout">0, 0</span>
       </div>
 
@@ -331,12 +359,12 @@
     <!-- In-World Motion Bar Box Below the Player (Opens with Down / S or when dragging a Motion) -->
     <div
       id="world-motion-bar"
-      class="hidden absolute z-30 -translate-x-1/2 bg-[#16161c]/95 border-2 border-[#3f3f4e] rounded-sm px-2 py-1.5 shadow-2xl flex-col items-center gap-1 transition-colors"
+      class="flex absolute z-30 bg-[#16161c]/95 border-2 border-[#3f3f4e] rounded-sm px-2.5 py-1.5 shadow-2xl flex-col items-center gap-1"
       style="left: 50%; top: 60%;"
     >
       <div class="w-full flex items-center justify-between gap-3 text-[9px] text-zinc-400 border-b border-[#2a2a34] pb-0.5">
         <span id="motion-bar-title" class="text-blue-300 font-bold truncate">BODY MOTIONS</span>
-        <span class="text-zinc-500">Drag Motion / Dynamic here</span>
+        <span class="text-zinc-500">Arrows + Enter / Esc</span>
         <button id="close-motion-bar-btn" class="text-zinc-400 hover:text-white px-1">X</button>
       </div>
       <div id="motion-bar-slots" class="flex items-center gap-1.5 min-h-[38px] px-1 py-0.5 overflow-x-auto max-w-[360px]">
@@ -402,6 +430,12 @@
     <!-- Saved Sprites Grid (Starts Completely Empty) -->
     <div id="sprite-list" class="flex-1 overflow-y-auto p-3">
       <div id="empty-state" class="h-full flex flex-col items-center justify-center text-center px-4">
+        <svg viewBox="0 0 47 10" class="h-5 w-auto mb-2.5 opacity-60" shape-rendering="crispEdges">
+          <rect width="47" height="10" fill="#000000" />
+          <path fill="#ffffff" d="M1,1h2v6H1z M1,7h4v2H1z M8,1h4v1H8z M7,2h6v1H7z M7,3h2v3H7z M10,3h3v3h-3z M7,6h6v2H7z M8,8h4v1H8z M15,1h4v1h-4z M14,2h6v1h-6z M14,3h2v3h-2z M17,3h3v3h-3z M14,6h6v2h-6z M15,8h4v1h-4z M21,1h6v2h-6z M21,3h2v6h-2z M24,3h1v4h-1z M26,3h2v6h-2z M29,1h5v1h-5z M29,2h2v7h-2z M33,2h2v2h-2z M31,4h3v1h-3z M33,5h2v3h-2z M31,8h3v1h-3z M36,4h2v5h-2z M39,1h6v2h-6z M41,3h2v6h-2z" />
+          <rect x="36" y="1" width="2" height="2" fill="#639bff" />
+          <rect x="36" y="3" width="2" height="1" fill="#c7dcff" />
+        </svg>
         <p class="text-xs text-zinc-500">No saved creations.</p>
         <p class="text-[11px] text-zinc-600 mt-1">Click "+ Create" to draw or paste sprites from Aseprite.</p>
       </div>
@@ -611,7 +645,7 @@
             <div class="flex items-center bg-[#1b1b22]/90 border border-[#2e2e38] px-2 py-0.5 rounded-sm gap-1.5 text-[9px] text-zinc-400">
               <span id="active-tool-readout" class="text-zinc-200">Pencil (1px ■)</span>
               <span class="text-zinc-600">|</span>
-              <span>MMB / Space+Drag: Pan</span>
+              <span>Alt: Fill</span>
               <span class="text-zinc-600">|</span>
               <span>Ctrl+Drag: Move</span>
               <span class="text-zinc-600">|</span>
@@ -677,14 +711,14 @@
               <button id="canvas-zoom-fit-btn" class="px-1.5 text-[9px] text-zinc-400 hover:text-white border-l border-[#2e2e36]" title="Reset Canvas Zoom & Center">Fit</button>
             </div>
             <label class="flex items-center gap-1.5 cursor-pointer pointer-events-auto bg-[#18181d]/90 px-1.5 py-0.5 rounded border border-[#2a2a32]">
-              <input id="auto-resize-paste" type="checkbox" checked class="accent-blue-500" />
+              <input id="auto-resize-paste" type="checkbox" class="accent-blue-500" />
               <span>Fit on paste</span>
             </label>
           </div>
         </div>
 
         <!-- Right Panel: Aseprite-Style Color Bar & Context-Aware Preview -->
-        <div class="w-64 bg-[#17171b] border-l border-[#2a2a32] p-3 flex flex-col justify-between gap-3 overflow-y-auto">
+        <div class="w-72 bg-[#17171b] border-l border-[#2a2a32] p-3 flex flex-col justify-between gap-3 overflow-y-auto">
           <!-- Aseprite-Style Dynamic Used Color Bar + Spectrum -->
           <div class="flex flex-col gap-2">
             <div class="flex items-center justify-between">
@@ -732,8 +766,16 @@
           <!-- Live Animation / Context-Aware Preview -->
           <div class="border-t border-[#2a2a32] pt-2.5">
             <div class="flex items-center justify-between text-[11px] text-zinc-400 mb-1.5">
-              <span>Preview</span>
-              <span id="preview-state-label" class="mono text-zinc-300">Cycle</span>
+              <div class="flex items-center gap-1.5">
+                <span>Preview</span>
+                <button id="preview-play-toggle-btn" title="Play / Pause Preview Animation" class="ase-btn px-1.5 py-0 text-[9px] text-zinc-200">Pause</button>
+              </div>
+              <div class="flex items-center gap-1">
+                <span id="preview-state-label" class="mono text-zinc-300 text-[10px] mr-1">Cycle</span>
+                <button id="preview-fps-down-btn" title="Slower Animation FPS" class="ase-btn px-1 py-0 text-[9px] mono">-</button>
+                <input id="preview-fps-input" type="number" min="1" max="60" value="8" title="Animation Speed (FPS)" class="w-9 bg-[#121216] border border-[#34343e] rounded-sm px-0.5 py-0 text-center mono text-[10px] text-zinc-100 focus:outline-none focus:border-blue-500" />
+                <button id="preview-fps-up-btn" title="Faster Animation FPS" class="ase-btn px-1 py-0 text-[9px] mono">+</button>
+              </div>
             </div>
             <div id="preview-box-bg" class="h-28 checkerboard border border-[#2e2e36] rounded flex items-center justify-center relative overflow-hidden">
               <canvas id="preview-canvas" width="96" height="96" class="w-24 h-24"></canvas>
@@ -860,7 +902,13 @@
       <!-- Header -->
       <div class="px-4 py-2.5 bg-[#121216] border-b border-[#2e2e38] flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <span class="text-xs font-bold text-blue-400">WORLDS & ASSET VAULT</span>
+          <svg viewBox="0 0 47 10" class="h-4 w-auto block" shape-rendering="crispEdges">
+            <rect width="47" height="10" fill="#000000" />
+            <path fill="#ffffff" d="M1,1h2v6H1z M1,7h4v2H1z M8,1h4v1H8z M7,2h6v1H7z M7,3h2v3H7z M10,3h3v3h-3z M7,6h6v2H7z M8,8h4v1H8z M15,1h4v1h-4z M14,2h6v1h-6z M14,3h2v3h-2z M17,3h3v3h-3z M14,6h6v2h-6z M15,8h4v1h-4z M21,1h6v2h-6z M21,3h2v6h-2z M24,3h1v4h-1z M26,3h2v6h-2z M29,1h5v1h-5z M29,2h2v7h-2z M33,2h2v2h-2z M31,4h3v1h-3z M33,5h2v3h-2z M31,8h3v1h-3z M36,4h2v5h-2z M39,1h6v2h-6z M41,3h2v6h-2z" />
+            <rect x="36" y="1" width="2" height="2" fill="#639bff" />
+            <rect x="36" y="3" width="2" height="1" fill="#c7dcff" />
+          </svg>
+          <span class="text-xs font-bold text-zinc-300">WORLDS & ASSET VAULT</span>
           <span id="autosave-status-badge" class="text-[9px] text-emerald-400 bg-emerald-950/60 border border-emerald-700/50 px-2 py-0.5 rounded-sm">Auto-Saved Locally</span>
         </div>
         <button id="close-worlds-modal-btn" class="ase-btn px-2.5 py-0.5 text-xs">X</button>
@@ -1166,13 +1214,20 @@
         onSticky: false,
         sitting: false,
         lying: false,
+        autoPoseTimer: 0,
+        poseSettleAnim: 0,
         motionBarOpen: false,
+        motionBarIndex: 0,
         activeMotionId: null,
         activeMotionTick: 0,
         wireframeMotions: [],
         deadTimer: 0,
         deathX: 0,
         deathY: 0,
+        deathVx: 0,
+        deathVy: 0,
+        deathRot: 0,
+        deathVr: 0,
         facing: 1,
         visualScaleX: 1,      // Smoothly flips facing without hard cut if desired
         animTimer: 0,
@@ -1182,6 +1237,7 @@
         grappleTarget: null,  // For Holdable: Swing Line
         speech: '',
         speechTimer: 0,
+        speechBubbles: [],    // Floating spoken text bubbles above body pixel limit
         blinkTimer: 0,
         downKeyLatch: false
       },
@@ -1260,6 +1316,7 @@
       lineStart: null,
       hoverPixel: null,
       ctrlHeld: false,
+      altHeld: false,
       spaceHeld: false,
       panX: 0,
       panY: 0,
@@ -1267,6 +1324,10 @@
       panStartMouse: { x: 0, y: 0 },
       panStartOffset: { x: 0, y: 0 }
     };
+
+    // Custom SVG Data-URI Cursors for Fill Bucket & Eyedropper
+    const FILL_BUCKET_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M19 11l-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11z' fill='%233b82f6' stroke='%23ffffff' stroke-width='1.5'/%3E%3Cpath d='M21 19c0 1.7-1.3 3-3 3s-3-1.3-3-3c0-1.3 1.8-2.7 3-5 1.2 2.3 3 3.7 3 5z' fill='%2360a5fa' stroke='%23ffffff' stroke-width='1.2'/%3E%3C/svg%3E") 20 20, pointer`;
+    const EYEDROPPER_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M2 22l1-1h3l9-9-4-4-9 9v3l-1 1z' fill='%23fde047' stroke='%23000000' stroke-width='1.5'/%3E%3Cpath d='M15 6l3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l-3-3z' fill='%23ffffff' stroke='%23000000' stroke-width='1.5'/%3E%3C/svg%3E") 2 22, crosshair`;
 
     // DOM Elements
     const worldCanvas = document.getElementById('world-canvas');
@@ -1283,6 +1344,8 @@
     const rightDrawer = document.getElementById('right-drawer');
     const collapseDrawerBtn = document.getElementById('collapse-drawer-btn');
     const expandDrawerBtn = document.getElementById('expand-drawer-btn');
+    const topEngineBar = document.getElementById('top-engine-bar');
+    const bottomCoordsPill = document.getElementById('bottom-coords-pill');
 
     const spriteGrid = document.getElementById('sprite-grid');
     const emptyState = document.getElementById('empty-state');
@@ -1379,10 +1442,22 @@
         rightDrawer.classList.add('drawer-closed');
         expandDrawerBtn.classList.remove('hidden');
         expandDrawerBtn.classList.add('flex');
+        if (topEngineBar) {
+          topEngineBar.classList.add('opacity-0', 'pointer-events-none', '-translate-y-2');
+        }
+        if (bottomCoordsPill) {
+          bottomCoordsPill.classList.add('opacity-0', 'pointer-events-none', 'translate-y-2');
+        }
       } else {
         rightDrawer.classList.remove('drawer-closed');
         expandDrawerBtn.classList.add('hidden');
         expandDrawerBtn.classList.remove('flex');
+        if (topEngineBar) {
+          topEngineBar.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-2');
+        }
+        if (bottomCoordsPill) {
+          bottomCoordsPill.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-2');
+        }
       }
     }
 
@@ -1653,7 +1728,7 @@
           <span class="text-[10px] opacity-60">${t.frames.length}f</span>
         `;
         cell.addEventListener('click', () => {
-          applyEditorCreationType(t.id);
+          applyEditorCreationType(t.id, true, true);
           closeTypePickerModal();
         });
         typePickerGrid.appendChild(cell);
@@ -1719,34 +1794,33 @@
       lightAlphaLabel.textContent = `${editor.lightAlpha}%`;
     });
 
-    function getFrameDimsForSubtype(typeId, subtype, count) {
-      // Manyland Wiki: Light Glow has 2 cells, with Cell 1 being 19x19 and Cell 2 being 38x38
+    function getFrameDimsForSubtype(typeId, subtype, frameCount) {
       if (typeId === 'light' && subtype === 'Light Glow') {
-        return [{ w: 19, h: 19 }, { w: 38, h: 38 }];
+        const out = [];
+        for (let i = 0; i < frameCount; i++) {
+          out.push(i === 0 ? { w: 19, h: 19 } : { w: 38, h: 38 });
+        }
+        return out;
       }
-      const dims = getDimensionsForSubtype(typeId, subtype);
-      const arr = [];
-      for (let i = 0; i < count; i++) arr.push({ w: dims.w, h: dims.h });
-      return arr;
+      const base = getDimensionsForSubtype(typeId, subtype);
+      return Array.from({ length: frameCount }, () => ({ w: base.w, h: base.h }));
     }
 
     function syncActiveFrameDimensions() {
-      const fd = editor.frameDims[editor.activeFrame] || { w: editor.w || 19, h: editor.h || 19 };
-      editor.w = Math.max(1, fd.w || 19);
-      editor.h = Math.max(1, fd.h || 19);
-      const expectedLen = editor.w * editor.h * 4;
-      const curBuf = editor.frames[editor.activeFrame];
-      if (!curBuf || curBuf.length !== expectedLen) {
-        const fixed = new Uint8ClampedArray(expectedLen);
-        if (curBuf) fixed.set(curBuf.subarray(0, expectedLen));
-        editor.frames[editor.activeFrame] = fixed;
+      if (!editor.frameDims || !editor.frameDims[editor.activeFrame]) {
+        const d = getDimensionsForSubtype(editor.type, editor.subtype);
+        editor.w = d.w;
+        editor.h = d.h;
+      } else {
+        editor.w = editor.frameDims[editor.activeFrame].w;
+        editor.h = editor.frameDims[editor.activeFrame].h;
       }
       canvasWInput.value = editor.w;
       canvasHInput.value = editor.h;
       setupPaintCanvasSize();
     }
 
-    function applyEditorCreationType(typeId, preserveFrames = false) {
+    function applyEditorCreationType(typeId, preserveFrames = false, adaptToTypeDims = false) {
       const spec = getTypeSpec(typeId);
       editor.type = spec.id;
       currentTypeLabel.textContent = spec.name;
@@ -1788,20 +1862,53 @@
 
       commitMarqueeSelection();
 
-      if (!preserveFrames) {
-        const labels = getFrameLabelsForSubtype(spec.id, editor.subtype);
+      const labels = getFrameLabelsForSubtype(spec.id, editor.subtype);
+      if (!preserveFrames || !editor.frames || editor.frames.length === 0) {
         editor.frameDims = getFrameDimsForSubtype(spec.id, editor.subtype, labels.length);
         editor.frames = editor.frameDims.map(d => new Uint8ClampedArray(d.w * d.h * 4));
         editor.frameStates = [...labels];
         editor.activeFrame = 0;
         syncActiveFrameDimensions();
+      } else if (adaptToTypeDims) {
+        // Preserve all drawn pixels when switching creation object types!
+        const targetCount = Math.max(labels.length, editor.frames.length);
+        const targetDims = getFrameDimsForSubtype(spec.id, editor.subtype, targetCount);
+        const nextFrames = [];
+        const nextDims = [];
+        const nextStates = [];
+
+        for (let i = 0; i < targetCount; i++) {
+          const td = targetDims[i] || targetDims[0];
+          const stLabel = labels[Math.min(i, labels.length - 1)] || 'Cell 1';
+          if (i < editor.frames.length) {
+            const oldDim = (editor.frameDims && editor.frameDims[i]) || { w: editor.w, h: editor.h };
+            const hasArt = isBufferNonEmpty(editor.frames[i]);
+            // Keep frame if it's within the new type's frame count OR if the user drew pixels on it
+            if (i < labels.length || hasArt) {
+              nextFrames.push(resizeSingleBuffer(editor.frames[i], oldDim.w, oldDim.h, td.w, td.h));
+              nextDims.push({ w: td.w, h: td.h });
+              nextStates.push(stLabel);
+            }
+          } else {
+            nextFrames.push(new Uint8ClampedArray(td.w * td.h * 4));
+            nextDims.push({ w: td.w, h: td.h });
+            nextStates.push(stLabel);
+          }
+        }
+
+        editor.frames = nextFrames;
+        editor.frameDims = nextDims;
+        editor.frameStates = nextStates;
+        if (editor.activeFrame >= editor.frames.length) {
+          editor.activeFrame = Math.max(0, editor.frames.length - 1);
+        }
+        syncActiveFrameDimensions();
       } else {
         if (!editor.frameDims || editor.frameDims.length !== editor.frames.length) {
           editor.frameDims = editor.frames.map(() => ({ w: editor.w, h: editor.h }));
         }
-        const defaultLabels = getFrameLabelsForSubtype(spec.id, editor.subtype);
         if (!editor.frameStates || editor.frameStates.length !== editor.frames.length) {
-          editor.frameStates = editor.frames.map((_, i) => defaultLabels[Math.min(i, defaultLabels.length - 1)] || 'Cell 1');
+          editor.frameStates = editor.frames.map((_, i) => labels[Math.min(i, labels.length - 1)] || 'Cell 1');
         }
         syncActiveFrameDimensions();
       }
@@ -2088,14 +2195,17 @@
       p.invulnTimer = 30;
       p.hurtFlash = 0;
       p.deadTimer = 0;
+      p.deathRot = 0;
+      p.deathVr = 0;
       p.respawnAnim = 0.05;
       p.grappleTarget = null;
       p.sitting = false;
       p.lying = false;
+      p.autoPoseTimer = 0;
+      p.poseSettleAnim = 0;
       p.activeMotionId = null;
       p.motionBarOpen = false;
       updateWorldMotionBarUI();
-      spawnWorldParticles(p.x + p.w / 2, p.y + p.h / 2, '#60a5fa', 10);
     }
 
     /********************************************************************
@@ -2164,6 +2274,10 @@
       ) || null;
     }
 
+    function getAllMotionBarEntries() {
+      return ['__builtin_sit__', '__builtin_sleep__', ...getEquippedBodyMotionIds()];
+    }
+
     function spawnSmokePuff(x, y) {
       for (let i = 0; i < 14; i++) {
         state.particles.push({
@@ -2185,6 +2299,7 @@
         p.sitting = !p.sitting;
         p.lying = false;
         p.activeMotionId = null;
+        if (p.sitting) p.poseSettleAnim = 18;
         renderWorldMotionBarSlots();
         return;
       }
@@ -2193,6 +2308,7 @@
         p.sitting = p.lying;
         const sleepMotion = findBodySleepOrLayMotion();
         p.activeMotionId = (p.lying && sleepMotion) ? sleepMotion.id : null;
+        if (p.lying) p.poseSettleAnim = 18;
         renderWorldMotionBarSlots();
         return;
       }
@@ -2225,29 +2341,43 @@
       const bodySp = state.sprites.find(s => s.id === state.activeBodyId);
       motionBarTitle.textContent = bodySp ? `${bodySp.name.toUpperCase()} MOTIONS` : 'WIREFRAME MOTIONS';
 
+      const entries = getAllMotionBarEntries();
+      if (p.motionBarIndex >= entries.length) p.motionBarIndex = 0;
+      if (p.motionBarIndex < 0) p.motionBarIndex = Math.max(0, entries.length - 1);
+
       // Built-in Sit & Sleep/Lay buttons
-      const makeBuiltinSlot = (id, label, sub, isActive) => {
+      const makeBuiltinSlot = (id, label, sub, isActive, slotIdx) => {
+        const isFocused = p.motionBarOpen && p.motionBarIndex === slotIdx;
         const btn = document.createElement('button');
         btn.className = `w-9 h-9 rounded-sm border flex flex-col items-center justify-center shrink-0 transition-transform ${
-          isActive ? 'border-blue-400 bg-blue-950/70 text-white scale-105' : 'border-[#383846] bg-[#1c1c24] text-zinc-300 hover:border-zinc-400'
+          isFocused
+            ? 'border-sky-300 ring-2 ring-sky-400 bg-sky-950/80 text-white scale-105'
+            : (isActive ? 'border-blue-400 bg-blue-950/70 text-white scale-105' : 'border-[#383846] bg-[#1c1c24] text-zinc-300 hover:border-zinc-400')
         }`;
         btn.innerHTML = `<span class="text-[9px] font-bold">${label}</span><span class="text-[7px] text-zinc-400">${sub}</span>`;
-        btn.addEventListener('click', () => triggerPlayerMotion(id));
+        btn.addEventListener('click', () => {
+          p.motionBarIndex = slotIdx;
+          triggerPlayerMotion(id);
+        });
         return btn;
       };
 
-      motionBarSlots.appendChild(makeBuiltinSlot('__builtin_sit__', 'SIT', 'Pose', p.sitting && !p.lying && !p.activeMotionId));
-      motionBarSlots.appendChild(makeBuiltinSlot('__builtin_sleep__', 'ZZZ', 'Lay', p.lying));
+      motionBarSlots.appendChild(makeBuiltinSlot('__builtin_sit__', 'SIT', 'Pose', p.sitting && !p.lying && !p.activeMotionId, 0));
+      motionBarSlots.appendChild(makeBuiltinSlot('__builtin_sleep__', 'ZZZ', 'Lay', p.lying, 1));
 
       const ids = getEquippedBodyMotionIds();
       ids.forEach((id, idx) => {
         const sp = state.sprites.find(s => s.id === id);
         if (!sp) return;
+        const slotIdx = idx + 2;
+        const isFocused = p.motionBarOpen && p.motionBarIndex === slotIdx;
         const isActive = p.activeMotionId === sp.id;
         const slot = document.createElement('div');
-        slot.title = `${idx + 1}: ${sp.name} (Click to perform, R-Click to remove from Body)`;
+        slot.title = `${idx + 1}: ${sp.name} (Click or Enter to perform, R-Click to remove from Body)`;
         slot.className = `group relative w-9 h-9 checkerboard rounded-sm border flex items-center justify-center shrink-0 cursor-pointer transition-transform ${
-          isActive ? 'border-amber-400 ring-1 ring-amber-400 scale-105' : 'border-[#383846] hover:border-zinc-300'
+          isFocused
+            ? 'border-sky-300 ring-2 ring-sky-400 scale-105'
+            : (isActive ? 'border-amber-400 ring-1 ring-amber-400 scale-105' : 'border-[#383846] hover:border-zinc-300')
         }`;
 
         const img = document.createElement('img');
@@ -2261,7 +2391,10 @@
         numTag.textContent = idx + 1;
         slot.appendChild(numTag);
 
-        slot.addEventListener('click', () => triggerPlayerMotion(sp.id));
+        slot.addEventListener('click', () => {
+          p.motionBarIndex = slotIdx;
+          triggerPlayerMotion(sp.id);
+        });
         slot.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           removeMotionFromCurrentBody(sp.id);
@@ -2279,16 +2412,18 @@
     function updateWorldMotionBarUI() {
       if (!worldMotionBar) return;
       const p = state.player;
-      if (state.mode !== 'play' || !p.motionBarOpen || editor.isOpen) {
-        worldMotionBar.classList.add('hidden');
-        worldMotionBar.classList.remove('flex');
+      const shouldShow = state.mode === 'play' && p.motionBarOpen && !editor.isOpen && p.deadTimer === 0;
+
+      if (!shouldShow) {
+        worldMotionBar.classList.remove('motion-bar-open');
         return;
       }
-      if (worldMotionBar.classList.contains('hidden')) {
-        worldMotionBar.classList.remove('hidden');
-        worldMotionBar.classList.add('flex');
+
+      if (!worldMotionBar.classList.contains('motion-bar-open')) {
         renderWorldMotionBarSlots();
+        worldMotionBar.classList.add('motion-bar-open');
       }
+
       const zoom = state.renderZoom;
       const camScreenX = Math.floor(worldCanvas.width / 2 - state.camera.x * zoom);
       const camScreenY = Math.floor(worldCanvas.height / 2 - state.camera.y * zoom);
@@ -2325,41 +2460,29 @@
 
     function damagePlayer(amount, sourceX, isInstantDeadly = false) {
       const p = state.player;
-      if (p.deadTimer > 0) return;
-      if (!isInstantDeadly && p.invulnTimer > 0) return;
+      if (p.deadTimer > 0 || p.invulnTimer > 0) return;
 
-      const dmg = isInstantDeadly ? p.hp : amount;
-      p.hp = Math.max(0, p.hp - dmg);
-      p.hurtFlash = 16;
-      p.invulnTimer = 28;
-      p.regenDelay = 210; // Regenerate after 3.5s out of danger
+      p.hp = 0;
+      p.hurtFlash = 14;
+      p.motionBarOpen = false;
+      p.activeMotionId = null;
+      p.grappleTarget = null;
+      updateWorldMotionBarUI();
 
-      state.floatingTexts.push({
-        x: p.x + p.w / 2,
-        y: p.y - 6,
-        vy: -0.7,
-        text: isInstantDeadly ? 'KO!' : `-${amount}`,
-        color: '#f87171',
-        life: 42,
-        maxLife: 42
-      });
+      // Launch player as a physics object that arcs up and falls off the screen
+      const dir = (sourceX !== undefined && p.x + p.w / 2 < sourceX)
+        ? -1
+        : (sourceX !== undefined ? 1 : -p.facing);
 
-      spawnWorldParticles(p.x + p.w / 2, p.y + p.h / 2, '#ef4444', isInstantDeadly ? 14 : 6);
-
-      if (p.hp <= 0) {
-        // Trigger smooth non-freezing death animation
-        p.deadTimer = 50;
-        p.deathX = p.x;
-        p.deathY = p.y;
-        p.vx = 0;
-        p.vy = 0;
-        p.grappleTarget = null;
-      } else {
-        // Knockback away from hazard
-        const dir = (sourceX !== undefined && p.x + p.w / 2 < sourceX) ? -1 : (sourceX !== undefined ? 1 : -p.facing);
-        p.vy = -3.4;
-        p.vx = dir * 2.8;
-      }
+      p.deadTimer = 1;
+      p.deathX = p.x;
+      p.deathY = p.y;
+      p.deathVx = dir * 2.1;
+      p.deathVy = -4.8;
+      p.deathRot = 0;
+      p.deathVr = dir * 0.13;
+      p.vx = 0;
+      p.vy = 0;
     }
 
     toggleFloorBtn.addEventListener('click', () => {
@@ -2509,26 +2632,24 @@
       // Smooth health bar interpolation & regeneration
       if (p.invulnTimer > 0) p.invulnTimer--;
       if (p.hurtFlash > 0) p.hurtFlash--;
-      if (p.respawnAnim < 1) p.respawnAnim = Math.min(1, p.respawnAnim + 0.1);
-      if (p.deadTimer === 0 && p.hp < p.maxHp) {
-        if (p.regenDelay > 0) {
-          p.regenDelay--;
-        } else if (worldTickCount % 12 === 0) {
-          p.hp = Math.min(p.maxHp, p.hp + 2);
-        }
-      }
-      p.displayHp += (p.hp - p.displayHp) * 0.2;
+      if (p.respawnAnim < 1) p.respawnAnim = Math.min(1, p.respawnAnim + 0.12);
+      p.displayHp += (p.hp - p.displayHp) * 0.25;
 
-      // Non-freezing Death Animation: ghost floats up & emits soul particles before respawning
+      // Physics-object death fall: player tumbles off the bottom of the screen while camera stays still
       if (p.deadTimer > 0) {
-        p.deadTimer--;
-        p.deathY -= 0.45;
-        p.renderX += (p.deathX - p.renderX) * 0.3;
-        p.renderY += (p.deathY - p.renderY) * 0.3;
-        if (p.deadTimer % 6 === 0) {
-          spawnWorldParticles(p.renderX + p.w / 2, p.renderY + p.h / 2, '#93c5fd', 2);
+        p.deadTimer++;
+        p.deathVy = Math.min(9.5, p.deathVy + 0.25);
+        p.deathX += p.deathVx;
+        p.deathY += p.deathVy;
+        p.deathRot += p.deathVr;
+        p.renderX = p.deathX;
+        p.renderY = p.deathY;
+
+        const camScreenY = Math.floor(worldCanvas.height / 2 - state.camera.y * state.renderZoom);
+        const playerScreenTop = camScreenY + p.deathY * state.renderZoom;
+        if (playerScreenTop > worldCanvas.height + 64 || p.deadTimer > 180) {
+          respawnPlayer();
         }
-        if (p.deadTimer === 0) respawnPlayer();
         return;
       }
 
@@ -2575,13 +2696,15 @@
         if (p.vx > maxSpeed) p.vx = maxSpeed;
         if (p.vx < -maxSpeed) p.vx = -maxSpeed;
 
-        // Pressing Down/S while standing still opens the Motion Box below the player and sits/lies on Pose objects
+        // Pressing Down/S while standing still opens the Motion Box below the player without forcing the Sit pose
         if (state.keys.down && p.onGround && !p.onLadder && Math.abs(p.vx) < 0.1) {
           if (!p.downKeyLatch) {
             p.downKeyLatch = true;
-            p.motionBarOpen = !p.motionBarOpen;
-            if (!p.lying) p.sitting = true;
-            renderWorldMotionBarSlots();
+            if (!p.motionBarOpen) {
+              p.motionBarOpen = true;
+              p.motionBarIndex = 0;
+              renderWorldMotionBarSlots();
+            }
           }
         } else {
           p.downKeyLatch = false;
@@ -2591,7 +2714,10 @@
           p.sitting = false;
           p.lying = false;
           p.activeMotionId = null;
-          p.motionBarOpen = false;
+          if (p.motionBarOpen) {
+            p.motionBarOpen = false;
+            updateWorldMotionBarUI();
+          }
         }
 
         if (p.grappleTarget) {
@@ -2638,6 +2764,38 @@
       p.y += p.vy;
       resolveWorldCollisions(p, false);
 
+      // Auto-Sit / Auto-Lay after standing still on a sittable or layable object for 2 seconds (120 ticks at 60Hz)
+      if (p.poseSettleAnim > 0) p.poseSettleAnim--;
+      const poseTarget = getSittableOrLayableAtPlayer(p);
+      const isStandingIdle =
+        p.onGround &&
+        !p.onLadder &&
+        Math.abs(p.vx) < 0.1 &&
+        Math.abs(p.vy) < 0.1 &&
+        !state.keys.left &&
+        !state.keys.right &&
+        !state.keys.up;
+
+      if (poseTarget && isStandingIdle && !p.sitting && !p.lying) {
+        p.autoPoseTimer = (p.autoPoseTimer || 0) + 1;
+        if (p.autoPoseTimer >= 120) {
+          p.autoPoseTimer = 0;
+          p.poseSettleAnim = 18;
+          if (poseTarget === 'lay') {
+            p.lying = true;
+            p.sitting = true;
+            const sleepM = findBodySleepOrLayMotion();
+            if (sleepM) p.activeMotionId = sleepM.id;
+          } else {
+            p.sitting = true;
+            p.lying = false;
+          }
+          if (p.motionBarOpen) renderWorldMotionBarSlots();
+        }
+      } else {
+        p.autoPoseTimer = 0;
+      }
+
       // Holdable: Liner trail drawing
       const heldSp = state.sprites.find(s => s.id === state.activeHoldableId);
       if (heldSp && heldSp.subtype === 'Liner' && p.usingHoldable > 0) {
@@ -2651,17 +2809,10 @@
         p.onGround = true;
       }
 
-      // Respawn if falling way below the lowest block
-      let lowestY = 600;
-      for (const [, cell] of state.worldCells.entries()) {
-        if (cell.y + cell.h + 500 > lowestY) lowestY = cell.y + cell.h + 500;
-      }
-      if (p.y > lowestY) {
-        respawnPlayer();
-      }
-
-      // Walk cycle cadence
-      const ticksPerFrame = Math.max(2, Math.round(60 / state.walkFps));
+      // Walk cycle cadence (uses equipped Body's custom animFps if set, else global walkFps)
+      const activeBodySp = state.sprites.find(s => s.id === state.activeBodyId);
+      const effectiveWalkFps = (activeBodySp && activeBodySp.animFps) ? activeBodySp.animFps : state.walkFps;
+      const ticksPerFrame = Math.max(1, Math.round(60 / Math.max(1, effectiveWalkFps)));
       if ((Math.abs(p.vx) > 0.15 || (p.onLadder && Math.abs(p.vy) > 0.1)) && (p.onGround || p.onLadder || p.inLiquid)) {
         p.animTimer++;
         if (p.animTimer >= ticksPerFrame) {
@@ -2696,16 +2847,28 @@
         if (p.speechTimer === 0) p.speech = '';
       }
 
+      // Slowly float spoken text bubbles upwards and fade them out
+      if (Array.isArray(p.speechBubbles)) {
+        for (let i = p.speechBubbles.length - 1; i >= 0; i--) {
+          const sb = p.speechBubbles[i];
+          sb.age++;
+          sb.floatOffset += 0.14; // Slowly float upwards in world pixels
+          if (sb.age >= sb.maxAge) {
+            p.speechBubbles.splice(i, 1);
+          }
+        }
+      }
+
       // Smooth sub-pixel avatar position & facing interpolation
-      p.renderX += (p.x - p.renderX) * 0.45;
-      p.renderY += (p.y - p.renderY) * 0.45;
-      p.visualScaleX += (p.facing - p.visualScaleX) * 0.32;
+      p.renderX = p.x;
+      p.renderY = p.y;
+      p.visualScaleX += (p.facing - p.visualScaleX) * 0.35;
 
       // Smooth camera follow in Play Mode
       const targetCamX = p.renderX + p.w / 2;
       const targetCamY = p.renderY + p.h / 2 - 12;
-      state.camera.x += (targetCamX - state.camera.x) * 0.14;
-      state.camera.y += (targetCamY - state.camera.y) * 0.14;
+      state.camera.x += (targetCamX - state.camera.x) * 0.16;
+      state.camera.y += (targetCamY - state.camera.y) * 0.16;
     }
 
     function spawnWorldParticles(x, y, color, count) {
@@ -2749,32 +2912,34 @@
       }
     }
 
-    // Thrown Holdables & Emitter Projectiles (Matches Manyland Wiki rules!)
     function updateProjectiles() {
       for (let i = state.projectiles.length - 1; i >= 0; i--) {
         const pr = state.projectiles[i];
-        pr.vy += pr.gravity;
+        pr.vy += pr.gravity || 0.15;
         pr.x += pr.vx;
         pr.y += pr.vy;
         pr.life--;
 
         let remove = pr.life <= 0;
+
         for (const [, cell] of state.worldCells.entries()) {
-          if (pr.x < cell.x + cell.w && pr.x + pr.w > cell.x && pr.y < cell.y + cell.h && pr.y + pr.h > cell.y) {
-            // Wiki: "If they collide with a Liquid object or a Harmful/Deadly object, they disappear immediately."
+          if (
+            pr.x < cell.x + cell.w &&
+            pr.x + pr.w > cell.x &&
+            pr.y < cell.y + cell.h &&
+            pr.y + pr.h > cell.y
+          ) {
+            if (cell.type === 'crumbling' && cell.subtype !== 'Flexible' && cell.crumbleState === 0) {
+              cell.crumbleState = 2;
+              cell.timer = 0;
+              remove = true;
+              break;
+            }
             if (cell.type === 'liquid' || cell.type === 'harmful') {
               remove = true;
               break;
             }
-            // Wiki: "If they collide with a Crumbling object, the crumbling disintegrates."
-            if (cell.type === 'crumbling' && cell.crumbleState !== 2) {
-              cell.crumbleState = 2;
-              cell.timer = 0;
-              spawnWorldParticles(cell.x + cell.w / 2, cell.y + cell.h / 2, '#a1a1aa', 6);
-              remove = true;
-              break;
-            }
-            if (isCellSolid(cell) === true) {
+            if (cell.type === 'solid' || isCellSolid(cell) === true) {
               remove = true;
               break;
             }
@@ -2782,6 +2947,32 @@
         }
         if (remove) state.projectiles.splice(i, 1);
       }
+    }
+
+    // Detects if the player is overlapping or standing directly on top of a Sittable or Layable object
+    function getSittableOrLayableAtPlayer(p) {
+      let foundPose = null;
+      for (const [, cell] of state.worldCells.entries()) {
+        if (cell.spriteId === '__starter_ground__') continue;
+        const sp = state.sprites.find(s => s.id === cell.spriteId);
+        if (!sp) continue;
+
+        const horizOverlap = p.x + 3 < cell.x + cell.w && p.x + p.w - 3 > cell.x;
+        if (!horizOverlap) continue;
+
+        const insideVert = p.y < cell.y + cell.h && p.y + p.h > cell.y;
+        const standingOnTop = Math.abs((p.y + p.h) - cell.y) <= 3;
+        if (!insideVert && !standingOnTop) continue;
+
+        const lowerName = sp.name.toLowerCase();
+        if (sp.poseType === 'lay' || /\b(bed|mattress|hammock|cot|sleeping)\b/.test(lowerName)) {
+          return 'lay';
+        }
+        if (sp.poseType === 'sit' || /\b(chair|couch|sofa|toilet|stool|bench|seat|throne)\b/.test(lowerName)) {
+          foundPose = 'sit';
+        }
+      }
+      return foundPose;
     }
 
     function checkOverlapTriggers(p) {
@@ -2817,14 +3008,16 @@
             const lowerName = sp.name.toLowerCase();
             const isLayable = sp.poseType === 'lay' || /\b(bed|mattress|hammock|cot|sleeping)\b/.test(lowerName);
             const isSittable = sp.poseType === 'sit' || /\b(chair|couch|sofa|toilet|stool|bench|seat|throne)\b/.test(lowerName);
-            if (isLayable) {
+            if (isLayable && !p.lying) {
               p.lying = true;
               p.sitting = true;
+              p.poseSettleAnim = 18;
               const sleepM = findBodySleepOrLayMotion();
               if (sleepM) p.activeMotionId = sleepM.id;
-            } else if (isSittable) {
+            } else if (isSittable && !p.sitting) {
               p.sitting = true;
               p.lying = false;
+              p.poseSettleAnim = 18;
             }
           }
 
@@ -2925,13 +3118,15 @@
           const spTop = state.sprites.find(s => s.id === cell.spriteId);
           if (spTop) {
             const ln = spTop.name.toLowerCase();
-            if (spTop.poseType === 'lay' || /\b(bed|mattress|hammock|cot)\b/.test(ln)) {
+            if ((spTop.poseType === 'lay' || /\b(bed|mattress|hammock|cot)\b/.test(ln)) && !p.lying) {
               p.lying = true;
               p.sitting = true;
+              p.poseSettleAnim = 18;
               const sleepM = findBodySleepOrLayMotion();
               if (sleepM) p.activeMotionId = sleepM.id;
-            } else if (spTop.poseType === 'sit' || /\b(chair|couch|sofa|toilet|stool|bench|seat|throne)\b/.test(ln)) {
+            } else if ((spTop.poseType === 'sit' || /\b(chair|couch|sofa|toilet|stool|bench|seat|throne)\b/.test(ln)) && !p.sitting) {
               p.sitting = true;
+              p.poseSettleAnim = 18;
             }
           }
         }
@@ -3502,7 +3697,9 @@
       }
 
       // 3. Render Placed World Cells by Layer ('farback', 'back', 'main', 'front')
-      const ticksPerFrame = Math.max(2, Math.round(60 / state.walkFps));
+      const activeBodyForFps = state.sprites.find(s => s.id === state.activeBodyId);
+      const bodyWalkFps = (activeBodyForFps && activeBodyForFps.animFps) ? activeBodyForFps.animFps : state.walkFps;
+      const ticksPerFrame = Math.max(1, Math.round(60 / Math.max(1, bodyWalkFps)));
       const animStep = Math.floor(worldTickCount / ticksPerFrame);
 
       const farBackCells = [];
@@ -3525,6 +3722,8 @@
           const sy = Math.round(camScreenY + (cell.y + flexY) * zoom);
           const sxEnd = Math.round(camScreenX + (cell.x + cell.w) * zoom);
           const syEnd = Math.round(camScreenY + (cell.y + flexY + cell.h) * zoom);
+          // Fast viewport frustum culling so off-screen blocks cost zero draw time
+          if (sxEnd < -64 || sx > W + 64 || syEnd < -64 || sy > H + 64) continue;
           const sw = Math.max(1, sxEnd - sx);
           const sh = Math.max(1, syEnd - sy);
 
@@ -3692,12 +3891,12 @@
             const dist = Math.hypot((state.player.x + 9) - (cell.x + cell.w / 2), (state.player.y + 9) - (cell.y + cell.h / 2));
             if (dist < 48 || cell.type === 'places') {
               worldCtx.save();
-              worldCtx.font = '10px "Silkscreen", monospace';
+              worldCtx.font = '14px "Perfect DOS VGA 437", "VT323", monospace';
               worldCtx.textAlign = 'center';
               const txt = sp.code;
               const tw = worldCtx.measureText(txt).width;
               worldCtx.fillStyle = 'rgba(15, 15, 19, 0.88)';
-              worldCtx.fillRect(sx + sw / 2 - tw / 2 - 5, sy - 18, tw + 10, 15);
+              worldCtx.fillRect(sx + sw / 2 - tw / 2 - 6, sy - 20, tw + 12, 18);
               worldCtx.fillStyle = '#fde047';
               worldCtx.fillText(txt, sx + sw / 2, sy - 6);
               worldCtx.restore();
@@ -3845,14 +4044,30 @@
 
         worldCtx.save();
         if (p.deadTimer > 0) {
-          worldCtx.globalAlpha = Math.max(0.15, p.deadTimer / 50);
-        } else if (p.hurtFlash > 0 && Math.floor(p.hurtFlash / 2) % 2 === 0) {
-          worldCtx.filter = 'brightness(1.8) sepia(1) hue-rotate(-50deg) saturate(4)';
+          const cx = lx + lw / 2;
+          const cy = ly + lh / 2;
+          worldCtx.translate(cx, cy);
+          worldCtx.rotate(p.deathRot);
+          if (p.facing === -1) worldCtx.scale(-1, 1);
+          worldCtx.drawImage(fc, -lw / 2, -lh / 2, lw, lh);
+          worldCtx.restore();
+          return;
         }
         if (p.respawnAnim < 0.999) {
           worldCtx.translate(lx + lw / 2, ly + lh / 2);
           worldCtx.scale(p.respawnAnim, p.respawnAnim);
           worldCtx.translate(-(lx + lw / 2), -(ly + lh / 2));
+        }
+        if (p.poseSettleAnim > 0) {
+          const t = 1 - p.poseSettleAnim / 18;
+          const hopY = -Math.sin(t * Math.PI) * 4.5 * zoom;
+          const sqX = 1 + Math.sin(t * Math.PI * 2) * 0.14;
+          const sqY = 1 - Math.sin(t * Math.PI * 2) * 0.14;
+          const footX = lx + lw / 2;
+          const footY = ly + lh;
+          worldCtx.translate(footX, footY + hopY);
+          worldCtx.scale(sqX, sqY);
+          worldCtx.translate(-footX, -footY);
         }
         if (rotateLying) {
           // Rotate idle sprite 90 degrees so the avatar lies horizontally to sleep
@@ -3939,11 +4154,11 @@
             // Blink & Talk overlays on Stand state
             if (bodyStateName === 'Stand') {
               const blinkCels = getStateFrameIndices(wornBody, 'Blink');
-              if (blinkCels.length > 0 && p.blinkTimer > 224) {
+              if (blinkCels.length > 0 && p.blinkTimer > 224 && isBufferNonEmpty(wornBody.frames[blinkCels[0]])) {
                 drawCenteredAvatarSprite(wornBody, blinkCels[animStep % blinkCels.length], 0, 0, false);
               }
               const talkCels = getStateFrameIndices(wornBody, 'Talk');
-              if (talkCels.length > 0 && (state.chatOpen || p.speechTimer > 0)) {
+              if (talkCels.length > 0 && (state.chatOpen || p.speechTimer > 0) && isBufferNonEmpty(wornBody.frames[talkCels[0]])) {
                 drawCenteredAvatarSprite(wornBody, talkCels[animStep % talkCels.length], 0, 0, false);
               }
             }
@@ -3951,7 +4166,21 @@
         }
       } else {
         worldCtx.save();
-        if (p.lying) {
+        if (p.poseSettleAnim > 0 && p.deadTimer === 0) {
+          const t = 1 - p.poseSettleAnim / 18;
+          const hopY = -Math.sin(t * Math.PI) * 4.5 * zoom;
+          const sqX = 1 + Math.sin(t * Math.PI * 2) * 0.14;
+          const sqY = 1 - Math.sin(t * Math.PI * 2) * 0.14;
+          worldCtx.translate(px + pw / 2, py + ph + hopY);
+          worldCtx.scale(sqX, sqY);
+          worldCtx.translate(-(px + pw / 2), -(py + ph));
+        }
+        if (p.deadTimer > 0) {
+          worldCtx.translate(px + pw / 2, py + ph / 2);
+          worldCtx.rotate(p.deathRot);
+          worldCtx.strokeStyle = '#f87171';
+          worldCtx.strokeRect(-pw / 2, -ph / 2, pw - 1, ph - 1);
+        } else if (p.lying) {
           worldCtx.translate(px + pw / 2, py + ph * 0.7);
           worldCtx.rotate(-Math.PI / 2);
           worldCtx.strokeStyle = '#71717a';
@@ -4003,7 +4232,7 @@
         const fy = Math.round(camScreenY + ft.y * zoom);
         worldCtx.save();
         worldCtx.globalAlpha = Math.max(0, ft.life / ft.maxLife);
-        worldCtx.font = '10px "Silkscreen", monospace';
+        worldCtx.font = '14px "Perfect DOS VGA 437", "VT323", monospace';
         worldCtx.textAlign = 'center';
         worldCtx.fillStyle = ft.color;
         worldCtx.fillText(ft.text, fx, fy);
@@ -4037,23 +4266,76 @@
         renderWorldBrushPreview(camScreenX, camScreenY, zoom);
       }
 
-      // 11. Floating Speech Text Above Avatar (Smooth fade-in / fade-out)
-      if (p.speech) {
-        worldCtx.save();
-        const fadeAlpha = p.speechTimer < 30 ? p.speechTimer / 30 : 1;
-        worldCtx.globalAlpha = fadeAlpha;
-        worldCtx.font = '10px "Silkscreen", monospace';
-        worldCtx.textAlign = 'center';
-        const textWidth = worldCtx.measureText(p.speech).width;
-        const tx = Math.round(px + pw / 2);
-        const ty = Math.round(py - 12);
+      // 11. Spoken Text Above the Pixel Limit of the Body (Slowly floats upwards & slowly fades away)
+      if (Array.isArray(p.speechBubbles) && p.speechBubbles.length > 0) {
+        const bodyTopWorldY = getAvatarTopPixelWorldY(p, wornBody, wornWearable, activeMotionSprite);
+        const topScreenY = Math.round(camScreenY + bodyTopWorldY * zoom);
+        const centerScreenX = Math.round(px + pw / 2);
 
-        worldCtx.fillStyle = 'rgba(16, 16, 20, 0.88)';
-        worldCtx.fillRect(tx - textWidth / 2 - 6, ty - 14, textWidth + 12, 18);
-        worldCtx.fillStyle = '#f4f4f5';
-        worldCtx.fillText(p.speech, tx, ty);
-        worldCtx.restore();
+        for (let i = 0; i < p.speechBubbles.length; i++) {
+          const sb = p.speechBubbles[i];
+          const fadeStart = sb.maxAge * 0.4;
+          const fadeAlpha = sb.age < fadeStart
+            ? Math.min(1, sb.age / 8)
+            : Math.max(0, 1 - (sb.age - fadeStart) / (sb.maxAge - fadeStart));
+
+          const floatScreenOffset = Math.round(sb.floatOffset * zoom) + (p.speechBubbles.length - 1 - i) * 16;
+          const ty = topScreenY - 8 - floatScreenOffset;
+
+          worldCtx.save();
+          worldCtx.globalAlpha = fadeAlpha;
+          worldCtx.font = '15px "Perfect DOS VGA 437", "VT323", monospace';
+          worldCtx.textAlign = 'center';
+          const textWidth = worldCtx.measureText(sb.text).width;
+
+          worldCtx.fillStyle = 'rgba(14, 14, 18, 0.82)';
+          worldCtx.fillRect(Math.round(centerScreenX - textWidth / 2 - 6), ty - 14, Math.round(textWidth + 12), 18);
+          worldCtx.fillStyle = '#f4f4f5';
+          worldCtx.fillText(sb.text, centerScreenX, ty);
+          worldCtx.restore();
+        }
       }
+    }
+
+    // Finds the topmost non-transparent pixel row of the equipped Body/Wearable so speech spawns above the body's pixel limit
+    function getAvatarTopPixelWorldY(p, wornBody, wornWearable, activeMotionSprite) {
+      let highestTopWorldY = p.renderY; // Default top of 19x19 wireframe hitbox
+
+      const checkSpriteTop = (sp, extraOffsetY = 0) => {
+        if (!sp || !sp.frames || !sp.frames[0]) return;
+        const w = sp.w || 19;
+        const h = sp.h || 19;
+        const buf = sp.frames[0];
+        let minRow = h;
+        for (let y = 0; y < h; y++) {
+          let rowHasPixel = false;
+          for (let x = 0; x < w; x++) {
+            if (buf[(y * w + x) * 4 + 3] > 15) {
+              rowHasPixel = true;
+              break;
+            }
+          }
+          if (rowHasPixel) {
+            minRow = y;
+            break;
+          }
+        }
+        const spriteBottomWorldY = p.renderY + p.h + extraOffsetY;
+        const topPixelWorldY = spriteBottomWorldY - (h - minRow);
+        if (topPixelWorldY < highestTopWorldY) {
+          highestTopWorldY = topPixelWorldY;
+        }
+      };
+
+      if (activeMotionSprite) {
+        checkSpriteTop(activeMotionSprite, 0);
+      } else if (wornBody) {
+        checkSpriteTop(wornBody, 0);
+      }
+      if (wornWearable) {
+        checkSpriteTop(wornWearable, -3);
+      }
+      return highestTopWorldY;
     }
 
     function renderLightEffect(sx, sy, sw, sh, zoom, subtype) {
@@ -4474,17 +4756,16 @@
         : 'ase-btn px-2 py-0.5 text-zinc-500';
     });
 
-    toggleBoxBtn.addEventListener('click', () => {
-      state.showHitbox = !state.showHitbox;
-      toggleBoxBtn.className = state.showHitbox
-        ? 'px-2 py-0.5 bg-[#27272d] hover:bg-[#32323a] rounded text-zinc-300'
-        : 'px-2 py-0.5 bg-[#27272d] hover:bg-[#32323a] rounded text-zinc-500';
-    });
-
     worldAnimFpsInput.addEventListener('change', (e) => {
       const val = parseInt(e.target.value, 10);
-      if (!isNaN(val) && val >= 2 && val <= 24) {
+      if (!isNaN(val) && val >= 1 && val <= 60) {
         state.walkFps = val;
+        // Also sync the currently equipped Body's animFps so changing the top-bar FPS immediately changes avatar speed
+        const activeBodySp = state.sprites.find(s => s.id === state.activeBodyId);
+        if (activeBodySp) {
+          activeBodySp.animFps = val;
+          saveAutoBackup();
+        }
       }
     });
 
@@ -4522,6 +4803,39 @@
         return;
       }
 
+      // Keyboard Navigation when the In-World Motion Bar is Open (Arrow keys, Enter/Space, Up, and Esc)
+      if (state.mode === 'play' && state.player.motionBarOpen && !state.chatOpen && document.activeElement.tagName !== 'INPUT') {
+        const p = state.player;
+        const entries = getAllMotionBarEntries();
+        if (e.key === 'Escape' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+          e.preventDefault();
+          p.motionBarOpen = false;
+          p.sitting = false;
+          p.lying = false;
+          p.activeMotionId = null;
+          updateWorldMotionBarUI();
+          return;
+        }
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          p.motionBarIndex = (p.motionBarIndex - 1 + entries.length) % entries.length;
+          renderWorldMotionBarSlots();
+          return;
+        }
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          p.motionBarIndex = (p.motionBarIndex + 1) % entries.length;
+          renderWorldMotionBarSlots();
+          return;
+        }
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const chosen = entries[p.motionBarIndex];
+          if (chosen) triggerPlayerMotion(chosen);
+          return;
+        }
+      }
+
       if (e.key === 'Enter') {
         if (!state.chatOpen) {
           state.chatOpen = true;
@@ -4539,11 +4853,18 @@
                 triggerPlayerMotion('__builtin_sleep__');
               } else {
                 const matchM = state.sprites.find(s => s.name.toLowerCase() === cmd && ((s.type === 'body' && s.subtype === 'Motion') || s.type === 'dynamic'));
-                if (matchM) triggerPlayerMotion(matchM.id);
+              if (matchM) triggerPlayerMotion(matchM.id);
               }
             } else {
               state.player.speech = text;
-              state.player.speechTimer = 360;
+              state.player.speechTimer = 180;
+              if (!Array.isArray(state.player.speechBubbles)) state.player.speechBubbles = [];
+              state.player.speechBubbles.push({
+                text,
+                floatOffset: 0,
+                age: 0,
+                maxAge: 320
+              });
             }
           }
           state.chatOpen = false;
@@ -5248,6 +5569,7 @@
 
     function updateMoveVisualFeedback() {
       const isMoveActive = editor.tool === 'move' || editor.ctrlHeld || Boolean(editor.celMoveDrag);
+      const isFillActive = editor.tool === 'fill' || editor.altHeld;
       const pill = document.getElementById('move-mode-pill');
       const wrapper = document.getElementById('paint-wrapper');
       if (pill) {
@@ -5268,8 +5590,11 @@
         } else if (isMoveActive) {
           paintCanvas.style.cursor = 'move';
           paintStage.style.cursor = 'default';
+        } else if (isFillActive) {
+          paintCanvas.style.cursor = FILL_BUCKET_CURSOR;
+          paintStage.style.cursor = 'default';
         } else if (editor.tool === 'picker') {
-          paintCanvas.style.cursor = 'copy';
+          paintCanvas.style.cursor = EYEDROPPER_CURSOR;
           paintStage.style.cursor = 'default';
         } else {
           paintCanvas.style.cursor = 'crosshair';
@@ -5625,21 +5950,21 @@
       const buf = editor.frames[editor.activeFrame];
       const idx = (y * editor.w + x) * 4;
 
-      // Aseprite shorthand: Alt+Click or Eyedropper tool = Pick Color
-      if (e?.altKey || editor.tool === 'picker') {
+      // Eyedropper tool = Pick Color
+      if (editor.tool === 'picker') {
         if (buf[idx + 3] > 0) {
           const picked = rgbaToHex(buf[idx], buf[idx + 1], buf[idx + 2]);
           setEditorColor(picked, true);
           recordUsedColor(picked);
         }
-        if (editor.tool === 'picker') selectTool('pencil');
+        selectTool('pencil');
         return;
       }
 
-      // Bucket Fill tool
-      if (editor.tool === 'fill') {
-        const rgba = hexToRgba(editor.color);
-        recordUsedColor(editor.color);
+      // Manyland / LoomBit shorthand: Alt+Click or Bucket Fill tool = Fill
+      if (e?.altKey || editor.altHeld || editor.tool === 'fill') {
+        const rgba = button === 2 ? [0, 0, 0, 0] : hexToRgba(editor.color);
+        if (button !== 2) recordUsedColor(editor.color);
         floodFill(buf, editor.w, editor.h, x, y, rgba);
         renderPaintCanvas();
         return;
@@ -6073,8 +6398,42 @@
         return;
       }
 
-      // Interactive Whole-Cel Move (Ctrl+Drag or Move Tool)
+      if (editor.celMoveDrag || editor.marqueeAction) {
+        // Handled globally in window mousemove so dragging past canvas edges never locks up
+        return;
+      }
+
+      if (editor.tool === 'line' && editor.lineStart) {
+        const buf = editor.frames[editor.activeFrame];
+        buf.set(editor.lineStart.snapshot);
+        const rgba = editor.drawButton === 2 ? [0, 0, 0, 0] : hexToRgba(editor.color);
+        drawPixelLine(buf, editor.lineStart.x, editor.lineStart.y, x, y, rgba);
+        renderPaintCanvas();
+        return;
+      }
+
+      if (editor.tool !== 'fill' && editor.tool !== 'picker' && !e.altKey && !editor.altHeld) {
+        applyToolAt(x, y, editor.drawButton, e);
+      }
+    });
+
+    paintCanvas.addEventListener('mouseleave', () => {
+      editor.hoverPixel = null;
+      renderPaintCanvas();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (editor.isPanningCanvas) {
+        editor.panX = editor.panStartOffset.x + (e.clientX - editor.panStartMouse.x);
+        editor.panY = editor.panStartOffset.y + (e.clientY - editor.panStartMouse.y);
+        updatePaintWrapperTransform();
+        return;
+      }
+      if (!editor.isOpen || !editor.isDrawing) return;
+
+      // Global handling for Cel Move (Ctrl+Drag / V) and Marquee Move/Select so dragging past the top/side of the canvas never stops
       if (editor.celMoveDrag) {
+        const { x, y } = getPixelCoordFromEvent(e);
         const dx = x - editor.celMoveDrag.startX;
         const dy = y - editor.celMoveDrag.startY;
         const w = editor.w, h = editor.h;
@@ -6098,7 +6457,8 @@
         return;
       }
 
-      if (editor.marqueeAction) {
+      if (editor.marqueeAction && editor.marquee) {
+        const { x, y } = getPixelCoordFromEvent(e);
         if (editor.marqueeAction === 'selecting') {
           const cx = Math.max(0, Math.min(editor.w - 1, x));
           const cy = Math.max(0, Math.min(editor.h - 1, y));
@@ -6120,33 +6480,6 @@
           editor.marquee.y = editor.marqueeDragOrigin.oy + dy;
         }
         renderPaintCanvas();
-        return;
-      }
-
-      if (editor.tool === 'line' && editor.lineStart) {
-        const buf = editor.frames[editor.activeFrame];
-        buf.set(editor.lineStart.snapshot);
-        const rgba = editor.drawButton === 2 ? [0, 0, 0, 0] : hexToRgba(editor.color);
-        drawPixelLine(buf, editor.lineStart.x, editor.lineStart.y, x, y, rgba);
-        renderPaintCanvas();
-        return;
-      }
-
-      if (editor.tool !== 'fill' && editor.tool !== 'picker') {
-        applyToolAt(x, y, editor.drawButton, e);
-      }
-    });
-
-    paintCanvas.addEventListener('mouseleave', () => {
-      editor.hoverPixel = null;
-      renderPaintCanvas();
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (editor.isPanningCanvas) {
-        editor.panX = editor.panStartOffset.x + (e.clientX - editor.panStartMouse.x);
-        editor.panY = editor.panStartOffset.y + (e.clientY - editor.panStartMouse.y);
-        updatePaintWrapperTransform();
       }
     });
 
@@ -6177,7 +6510,20 @@
         }
       }
 
-      if (editor.onionSkin && editor.activeFrame > 0) {
+      // Automatic Idle ('Stand') Onion Skin reference when editing Body 'Sit', 'Blink', or 'Talk' cels!
+      const activeCelState = (editor.frameStates && editor.frameStates[editor.activeFrame]) || '';
+      const isBodyOverlayCel = editor.type === 'body' && ['Sit', 'Blink', 'Talk'].includes(activeCelState);
+
+      if (isBodyOverlayCel && editor.activeFrame !== 0) {
+        const standIdx = getStateFrameIndices(editor, 'Stand')[0] ?? 0;
+        const standBuf = editor.frames[standIdx];
+        const standDim = editor.frameDims[standIdx] || { w: editor.w, h: editor.h };
+        if (standBuf) {
+          const offsetX = Math.floor((editor.w - standDim.w) / 2) * scale;
+          const offsetY = Math.floor((editor.h - standDim.h) / 2) * scale;
+          drawBufferScaled(paintCtx, standBuf, standDim.w, standDim.h, scale, 0.32, offsetX, offsetY);
+        }
+      } else if (editor.onionSkin && editor.activeFrame > 0) {
         const prevBuf = editor.frames[editor.activeFrame - 1];
         const prevDim = editor.frameDims[editor.activeFrame - 1] || { w: editor.w, h: editor.h };
         const offsetX = Math.floor((editor.w - prevDim.w) / 2) * scale;
@@ -6467,8 +6813,45 @@
     });
 
     // Context-aware Preview Controls Bar tailored to each Manyland Creation Type
+    const previewPlayToggleBtn = document.getElementById('preview-play-toggle-btn');
+    const previewFpsDownBtn = document.getElementById('preview-fps-down-btn');
+    const previewFpsUpBtn = document.getElementById('preview-fps-up-btn');
+    const previewFpsInput = document.getElementById('preview-fps-input');
+
+    function syncPreviewHeaderFpsUI() {
+      if (previewFpsInput) previewFpsInput.value = editor.previewFps;
+      if (previewPlayToggleBtn) {
+        previewPlayToggleBtn.textContent = editor.previewPlaying ? 'Pause' : 'Play';
+        previewPlayToggleBtn.classList.toggle('active', !editor.previewPlaying);
+      }
+    }
+
+    previewPlayToggleBtn.addEventListener('click', () => {
+      editor.previewPlaying = !editor.previewPlaying;
+      syncPreviewHeaderFpsUI();
+    });
+
+    previewFpsDownBtn.addEventListener('click', () => {
+      editor.previewFps = Math.max(1, (editor.previewFps || 8) - 1);
+      syncPreviewHeaderFpsUI();
+    });
+
+    previewFpsUpBtn.addEventListener('click', () => {
+      editor.previewFps = Math.min(60, (editor.previewFps || 8) + 1);
+      syncPreviewHeaderFpsUI();
+    });
+
+    previewFpsInput.addEventListener('change', (e) => {
+      const v = parseInt(e.target.value, 10);
+      if (!isNaN(v)) {
+        editor.previewFps = Math.max(1, Math.min(60, v));
+      }
+      syncPreviewHeaderFpsUI();
+    });
+
     function renderPreviewControlsForType() {
       previewControlsBar.innerHTML = '';
+      syncPreviewHeaderFpsUI();
       const t = editor.type;
 
       const makeBtn = (label, isActive, onClick) => {
@@ -6482,9 +6865,9 @@
       };
 
       if (t === 'body') {
-        ['idle', 'walk', 'jump', 'sit'].forEach(mode => {
-          if (!['idle', 'walk', 'jump', 'sit'].includes(editor.previewMode)) editor.previewMode = 'walk';
-          const labels = { idle: 'Stand', walk: 'Walk', jump: 'Jump/Fall', sit: 'Sit/Climb' };
+        ['idle', 'walk', 'jump', 'sit', 'talk'].forEach(mode => {
+          if (!['idle', 'walk', 'jump', 'sit', 'talk'].includes(editor.previewMode)) editor.previewMode = 'walk';
+          const labels = { idle: 'Stand', walk: 'Walk', jump: 'Jump/Fall', sit: 'Sit/Climb', talk: 'Blink/Talk' };
           previewControlsBar.appendChild(makeBtn(labels[mode], editor.previewMode === mode, () => {
             editor.previewMode = mode;
             document.getElementById('preview-state-label').textContent = labels[mode];
@@ -6526,50 +6909,75 @@
         });
         previewControlsBar.appendChild(changeBtn);
       } else if (['dynamic', 'changing_thing', 'living', 'liquid', 'harmful', 'bouncy', 'activator', 'transporting', 'gatherable', 'holder', 'interacting'].includes(t)) {
-        document.getElementById('preview-state-label').textContent = `${editor.previewFps} FPS`;
-        previewControlsBar.appendChild(makeBtn(editor.previewPlaying ? 'Pause' : 'Play', editor.previewPlaying, () => {
-          editor.previewPlaying = !editor.previewPlaying;
-          renderPreviewControlsForType();
-        }));
-        previewControlsBar.appendChild(makeBtn(editor.previewLoopMode === 'pingpong' ? 'Ping-Pong' : 'Loop', editor.previewLoopMode === 'pingpong', () => {
+        document.getElementById('preview-state-label').textContent = editor.previewLoopMode === 'pingpong' ? 'Ping-Pong' : 'Loop';
+        previewControlsBar.appendChild(makeBtn(editor.previewLoopMode === 'pingpong' ? 'Mode: Ping-Pong' : 'Mode: Loop', editor.previewLoopMode === 'pingpong', () => {
           editor.previewLoopMode = editor.previewLoopMode === 'loop' ? 'pingpong' : 'loop';
           renderPreviewControlsForType();
         }));
-        const fpsMinus = makeBtn('-FPS', false, () => {
-          editor.previewFps = Math.max(2, editor.previewFps - 2);
-          renderPreviewControlsForType();
-        });
-        const fpsPlus = makeBtn('+FPS', false, () => {
-          editor.previewFps = Math.min(24, editor.previewFps + 2);
-          renderPreviewControlsForType();
-        });
-        previewControlsBar.appendChild(fpsMinus);
-        previewControlsBar.appendChild(fpsPlus);
       } else {
         document.getElementById('preview-state-label').textContent = `${editor.w}x${editor.h}`;
       }
     }
+
+    // Returns a frame buffer that includes any active floating Marquee pixels so moving a sprite updates the preview immediately!
+    function getCompositedEditorFrameBuffer(idx) {
+      const safeIdx = Math.max(0, Math.min(idx, editor.frames.length - 1));
+      const d = editor.frameDims[safeIdx] || { w: editor.w || 19, h: editor.h || 19 };
+      const w = Math.max(1, d.w || 19);
+      const h = Math.max(1, d.h || 19);
+      const rawBuf = editor.frames[safeIdx];
+      const out = new Uint8ClampedArray(w * h * 4);
+      if (rawBuf) out.set(rawBuf.subarray(0, out.length));
+
+      if (safeIdx === editor.activeFrame && editor.marquee && editor.marquee.floatingData) {
+        const { x, y, w: mw, h: mh, floatingData } = editor.marquee;
+        for (let py = 0; py < mh; py++) {
+          for (let px = 0; px < mw; px++) {
+            const dx = x + px;
+            const dy = y + py;
+            if (dx < 0 || dx >= w || dy < 0 || dy >= h) continue;
+            const si = (py * mw + px) * 4;
+            if (floatingData[si + 3] > 0) {
+              const di = (dy * w + dx) * 4;
+              out[di] = floatingData[si];
+              out[di + 1] = floatingData[si + 1];
+              out[di + 2] = floatingData[si + 2];
+              out[di + 3] = floatingData[si + 3];
+            }
+          }
+        }
+      }
+      return out;
+    }
+
+    const previewScratchCanvases = [];
 
     function createFrameCanvasFromEditor(idx) {
       const safeIdx = Math.max(0, Math.min(idx, editor.frames.length - 1));
       const d = editor.frameDims[safeIdx] || { w: editor.w || 19, h: editor.h || 19 };
       const w = Math.max(1, d.w || 19);
       const h = Math.max(1, d.h || 19);
-      const c = document.createElement('canvas');
-      c.width = w;
-      c.height = h;
-      const rawBuf = editor.frames[safeIdx];
-      const safeBuf = new Uint8ClampedArray(w * h * 4);
-      if (rawBuf) safeBuf.set(rawBuf.subarray(0, safeBuf.length));
+      let c = previewScratchCanvases[safeIdx];
+      if (!c) {
+        c = document.createElement('canvas');
+        previewScratchCanvases[safeIdx] = c;
+      }
+      if (c.width !== w || c.height !== h) {
+        c.width = w;
+        c.height = h;
+      }
+      const safeBuf = getCompositedEditorFrameBuffer(safeIdx);
       c.getContext('2d').putImageData(new ImageData(safeBuf, w, h), 0, 0);
       return c;
     }
 
     function updateEditorPreviewTick() {
-      editor.previewTick++;
+      if (editor.previewPlaying) {
+        editor.previewTick++;
+      }
       const t = editor.type;
-      const fps = (t === 'dynamic' || t === 'changing_thing') ? editor.previewFps : state.walkFps;
-      const ticksPerFrame = Math.max(2, Math.round(60 / fps));
+      const fps = Math.max(1, Math.min(60, editor.previewFps || state.walkFps || 8));
+      const ticksPerFrame = Math.max(1, Math.round(60 / fps));
 
       // 1. LIGHT PREVIEW (Manyland room box showing sky/walls/blocks + light effect)
       if (t === 'light') {
@@ -6703,31 +7111,38 @@
           previewCtx.save();
           previewCtx.globalAlpha = tr.opacity;
           if (tr.bright) previewCtx.globalCompositeOperation = 'lighter';
-          const cx = tr.dx + fc.width / 2 + tr.pivotX;
-          const cy = tr.dy + fc.height / 2 + tr.pivotY;
+          const cx = fc.width / 2 + tr.dx + tr.pivotX;
+          const cy = fc.height / 2 + tr.dy + tr.pivotY;
           previewCtx.translate(cx, cy);
           if (tr.rot !== 0) previewCtx.rotate((tr.rot * Math.PI) / 180);
           if (tr.flipH || tr.flipV) previewCtx.scale(tr.flipH ? -1 : 1, tr.flipV ? -1 : 1);
-          const drawX = -fc.width / 2 - tr.pivotX;
-          const drawY = -fc.height / 2 - tr.pivotY;
-          if (tr.crop && tr.crop.length >= 4) {
-            const [x1, y1, x2, y2] = tr.crop;
-            const sw = Math.max(1, x2 - x1);
-            const sh = Math.max(1, y2 - y1);
-            previewCtx.drawImage(fc, x1, y1, sw, sh, drawX + x1, drawY + y1, sw, sh);
-          } else {
-            previewCtx.drawImage(fc, drawX, drawY);
-          }
+          previewCtx.drawImage(fc, -fc.width / 2 - tr.pivotX, -fc.height / 2 - tr.pivotY);
           previewCtx.restore();
         }
         return;
       }
 
-      // 5. BODY & ANIMATED / MULTI-CELL PREVIEW (Uses Smart State-Grouped Cels!)
+      // 5. BODY & ANIMATED / MULTI-CELL PREVIEW (Uses Smart State-Grouped Cels & Composites Blink/Talk Over Stand!)
       let frameIdx = editor.activeFrame;
+      let compositeOverStand = false;
+      const activeCelState = (editor.frameStates && editor.frameStates[editor.activeFrame]) || '';
+
       if (t === 'body') {
         const step = Math.floor(editor.previewTick / ticksPerFrame);
-        if (editor.previewMode === 'idle') {
+        if (!editor.previewPlaying) {
+          frameIdx = editor.activeFrame;
+          if (['Blink', 'Talk'].includes(activeCelState)) compositeOverStand = true;
+        } else if (['Blink', 'Talk'].includes(activeCelState) || editor.previewMode === 'talk') {
+          const overlayState = activeCelState === 'Blink' ? 'Blink' : (activeCelState === 'Talk' ? 'Talk' : ((step % 4 < 2) ? 'Talk' : 'Blink'));
+          const ovCels = getStateFrameIndices(editor, overlayState);
+          const standCels = getStateFrameIndices(editor, 'Stand');
+          if (ovCels.length > 0 && (step % 2 === 0)) {
+            frameIdx = ovCels[step % ovCels.length];
+            compositeOverStand = true;
+          } else {
+            frameIdx = standCels.length > 0 ? standCels[step % standCels.length] : 0;
+          }
+        } else if (editor.previewMode === 'idle') {
           const standCels = getStateFrameIndices(editor, 'Stand');
           frameIdx = standCels.length > 0 ? standCels[step % standCels.length] : 0;
         } else if (editor.previewMode === 'jump') {
@@ -6735,7 +7150,9 @@
           frameIdx = jumpCels.length > 0 ? jumpCels[step % jumpCels.length] : Math.min(2, editor.frames.length - 1);
         } else if (editor.previewMode === 'sit') {
           const sitCels = [...getStateFrameIndices(editor, 'Sit'), ...getStateFrameIndices(editor, 'Climb')];
-          frameIdx = sitCels.length > 0 ? sitCels[step % sitCels.length] : Math.min(6, editor.frames.length - 1);
+          const nonEmptySit = sitCels.filter(idx => isBufferNonEmpty(getCompositedEditorFrameBuffer(idx)));
+          const pool = nonEmptySit.length > 0 ? nonEmptySit : sitCels;
+          frameIdx = pool.length > 0 ? pool[step % pool.length] : Math.min(6, editor.frames.length - 1);
         } else {
           // Walk mode: if multiple Walk cels exist, cycle them; if 1 Walk cel, alternate Walk and Stand[0]
           const walkCels = getStateFrameIndices(editor, 'Walk');
@@ -6768,11 +7185,16 @@
       const ph = Math.max(1, fDim.h || 19);
       previewCanvas.width = pw;
       previewCanvas.height = ph;
-      const rawBuf = editor.frames[frameIdx] || editor.frames[0];
-      const safeBuf = new Uint8ClampedArray(pw * ph * 4);
-      if (rawBuf) safeBuf.set(rawBuf.subarray(0, safeBuf.length));
       previewCtx.clearRect(0, 0, pw, ph);
-      previewCtx.putImageData(new ImageData(safeBuf, pw, ph), 0, 0);
+
+      if (compositeOverStand) {
+        const standIdx = getStateFrameIndices(editor, 'Stand')[0] ?? 0;
+        const standCanvas = createFrameCanvasFromEditor(standIdx);
+        previewCtx.drawImage(standCanvas, 0, 0);
+      }
+
+      const frameCanvas = createFrameCanvasFromEditor(frameIdx);
+      previewCtx.drawImage(frameCanvas, 0, 0);
     }
 
     /********************************************************************
@@ -6987,23 +7409,34 @@
         if (blob && navigator.clipboard && window.ClipboardItem) {
           await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
           btn.textContent = 'Copied PNG!';
-          setTimeout(() => { btn.textContent = 'Copy PNG'; }, 1400);
-          return;
+        } else {
+          btn.textContent = 'Copied Cel!';
         }
       } catch (err) {
-        // Fallback if iframe permissions block OS image clipboard: trigger instant PNG download
+        btn.textContent = 'Copied Cel!';
       }
-      const safeName = (spriteNameInput.value.trim() || 'sprite').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
-      downloadCanvasAsPng(celCanvas, `${safeName}_clipboard.png`);
-      btn.textContent = 'Saved PNG!';
-      setTimeout(() => { btn.textContent = 'Copy PNG'; }, 1400);
+      setTimeout(() => {
+        btn.textContent = 'Copy PNG';
+      }, 1400);
     });
 
-    function handleEditorShortcuts(e) {
+    function handleeditorAltAndCtrlKeys(e, isDown) {
       if (e.key === 'Control' || e.key === 'Meta') {
-        editor.ctrlHeld = true;
+        editor.ctrlHeld = isDown;
         updateMoveVisualFeedback();
         renderPaintCanvas();
+      }
+      if (e.key === 'Alt') {
+        editor.altHeld = isDown;
+        updateMoveVisualFeedback();
+        renderPaintCanvas();
+      }
+    }
+
+    function handleEditorShortcuts(e) {
+      handleeditorAltAndCtrlKeys(e, true);
+      if (e.key === 'Alt') {
+        e.preventDefault();
       }
       if (e.key === ' ' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
         e.preventDefault();
@@ -7096,12 +7529,8 @@
     }
 
     window.addEventListener('keyup', (e) => {
-      if (e.key === 'Control' || e.key === 'Meta') {
-        editor.ctrlHeld = false;
-        if (editor.isOpen) {
-          updateMoveVisualFeedback();
-          renderPaintCanvas();
-        }
+      if (e.key === 'Control' || e.key === 'Meta' || e.key === 'Alt') {
+        handleeditorAltAndCtrlKeys(e, false);
       }
       if (e.key === ' ') {
         editor.spaceHeld = false;

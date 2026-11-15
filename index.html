@@ -351,6 +351,38 @@
         <svg id="sfx-icon-on" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
         <svg id="sfx-icon-off" class="hidden" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
       </button>
+      <div class="relative flex items-center">
+        <button id="toggle-ambiance-btn" title="Background Sandbox Ambiance (YouTube)" class="ase-btn active p-1 text-blue-300 flex items-center justify-center">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        </button>
+        <!-- Compact YouTube Ambiance Studio Popover -->
+        <div id="ambiance-popover" class="hidden studio-panel absolute top-8 left-0 z-40 w-72 p-2.5 rounded-sm flex-col gap-2 text-[10px]">
+          <div class="flex items-center justify-between border-b border-[#282a36] pb-1.5">
+            <span class="text-zinc-200 font-semibold tracking-wide">SANDBOX AMBIANCE</span>
+            <button id="ambiance-play-toggle" class="ase-btn active px-2 py-0.5 text-[9px] text-blue-300">On</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-zinc-400 shrink-0">Vol</span>
+            <input id="ambiance-vol-slider" type="range" min="1" max="100" value="22" class="flex-1 accent-blue-500 h-1.5 bg-[#121318] rounded cursor-pointer" />
+            <span id="ambiance-vol-label" class="w-8 text-right mono text-zinc-300">22%</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <input
+              id="ambiance-yt-input"
+              type="text"
+              value="https://www.youtube.com/watch?v=OkNo_N85em0"
+              placeholder="Paste YouTube URL..."
+              class="flex-1 min-w-0 bg-[#0e0f14] border border-[#2e303e] rounded-sm px-2 py-1 text-[9px] text-zinc-200 mono focus:outline-none focus:border-blue-500"
+            />
+            <button id="ambiance-yt-load-btn" class="ase-btn-primary px-2 py-1 text-[9px] shrink-0">Load</button>
+          </div>
+          <div class="flex items-center gap-1 pt-0.5">
+            <button data-yt="https://www.youtube.com/watch?v=OkNo_N85em0" class="yt-preset-btn ase-btn flex-1 py-0.5 text-[8px] text-zinc-300">Soft Rain</button>
+            <button data-yt="https://www.youtube.com/watch?v=KuBCTi6NnNM" class="yt-preset-btn ase-btn flex-1 py-0.5 text-[8px] text-zinc-300">Indie Chill</button>
+            <button data-yt="https://www.youtube.com/watch?v=JLQsLNOHcxw" class="yt-preset-btn ase-btn flex-1 py-0.5 text-[8px] text-zinc-300">Space Drift</button>
+          </div>
+        </div>
+      </div>
       <button id="respawn-btn" title="Respawn at Spawn Point" class="ase-btn p-1 text-zinc-300 flex items-center justify-center">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
       </button>
@@ -388,6 +420,11 @@
         placeholder="Say..."
         class="hidden w-56 bg-[#14151b] border border-blue-500 rounded-sm px-2.5 py-1 text-xs text-zinc-100 focus:outline-none mono shadow-lg"
       />
+    </div>
+
+    <!-- Offscreen YouTube IFrame Host for Soft Sandbox Ambiance -->
+    <div class="fixed -bottom-20 -left-20 w-1 h-1 opacity-0 pointer-events-none overflow-hidden">
+      <div id="yt-ambiance-player"></div>
     </div>
 
     <!-- In-World Motion Bar Box Below the Player (Opens with Down / S or when dragging a Motion) -->
@@ -1207,6 +1244,9 @@
       hardFloorY0: false,
       showHitbox: false,
       soundEnabled: true,
+      ambianceEnabled: true,
+      ambianceVolume: 22,
+      ambianceVideoId: 'OkNo_N85em0',
       walkFps: 8,
       chatOpen: false,
       activatorTimer: 0,      // Timed activation from Activater blocks
@@ -1470,10 +1510,11 @@
     const spriteCanvasCache = new Map();
 
     /********************************************************************
-     * TACTILE WEB AUDIO SYNTHESIZER (Placing, Deleting, Buttons, Creation, Splash, Hurt)
+     * TACTILE WEB AUDIO SYNTHESIZER & YOUTUBE SANDBOX AMBIANCE
      ********************************************************************/
     const sfx = {
       ctx: null,
+      noiseBuf: null,
       lastPlaceTime: 0,
       lastEraseTime: 0,
       init() {
@@ -1484,44 +1525,55 @@
         if (this.ctx && this.ctx.state === 'suspended') {
           this.ctx.resume();
         }
+        if (this.ctx && !this.noiseBuf) {
+          const len = this.ctx.sampleRate * 1.0;
+          this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+          const out = this.noiseBuf.getChannelData(0);
+          for (let i = 0; i < len; i++) {
+            out[i] = Math.random() * 2 - 1;
+          }
+        }
       },
-      ui(pitch = 520) {
+      ui(pitch = 480) {
         if (!state.soundEnabled) return;
         this.init();
         if (!this.ctx) return;
         const now = this.ctx.currentTime;
+        // Soft woody mechanical tap
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = 'triangle';
+        osc.type = 'sine';
         osc.frequency.setValueAtTime(pitch, now);
-        osc.frequency.exponentialRampToValueAtTime(pitch * 0.72, now + 0.028);
-        gain.gain.setValueAtTime(0.06, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.028);
+        osc.frequency.exponentialRampToValueAtTime(pitch * 0.45, now + 0.022);
+        gain.gain.setValueAtTime(0.045, now);
+        gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.024);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(now);
-        osc.stop(now + 0.03);
+        osc.stop(now + 0.026);
       },
       place() {
         if (!state.soundEnabled) return;
         const perfNow = performance.now();
-        if (perfNow - this.lastPlaceTime < 45) return;
+        if (perfNow - this.lastPlaceTime < 42) return;
         this.lastPlaceTime = perfNow;
         this.init();
         if (!this.ctx) return;
         const now = this.ctx.currentTime;
+
+        // Warm tactile block thud + subtle crisp snap
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        const baseFreq = 180 + Math.random() * 35;
+        osc.type = 'triangle';
+        const baseFreq = 135 + Math.random() * 25;
         osc.frequency.setValueAtTime(baseFreq, now);
-        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.65, now + 0.055);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.45, now + 0.048);
         gain.gain.setValueAtTime(0.11, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.052);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(now);
-        osc.stop(now + 0.065);
+        osc.stop(now + 0.055);
       },
       erase() {
         if (!state.soundEnabled) return;
@@ -1529,39 +1581,77 @@
         if (perfNow - this.lastEraseTime < 55) return;
         this.lastEraseTime = perfNow;
         this.init();
-        if (!this.ctx) return;
+        if (!this.ctx || !this.noiseBuf) return;
         const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        const baseFreq = 260 + Math.random() * 30;
-        osc.frequency.setValueAtTime(baseFreq, now);
-        osc.frequency.exponentialRampToValueAtTime(95, now + 0.07);
-        gain.gain.setValueAtTime(0.09, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.075);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.08);
+
+        // Cookie-crunch / brittle crushing sound: staggered multi-grain fracture bursts + low-mid snap
+        const grains = [
+          { delay: 0.000, dur: 0.032, freq: 1350 + Math.random() * 220, q: 2.4, amp: 0.16 },
+          { delay: 0.019, dur: 0.038, freq: 1920 + Math.random() * 280, q: 2.8, amp: 0.14 },
+          { delay: 0.044, dur: 0.042, freq: 1050 + Math.random() * 190, q: 2.1, amp: 0.12 },
+          { delay: 0.072, dur: 0.030, freq: 2250 + Math.random() * 300, q: 3.0, amp: 0.08 }
+        ];
+
+        grains.forEach((g) => {
+          const t0 = now + g.delay;
+          const src = this.ctx.createBufferSource();
+          src.buffer = this.noiseBuf;
+
+          const bp = this.ctx.createBiquadFilter();
+          bp.type = 'bandpass';
+          bp.frequency.setValueAtTime(g.freq, t0);
+          bp.frequency.exponentialRampToValueAtTime(g.freq * 0.68, t0 + g.dur);
+          bp.Q.setValueAtTime(g.q, t0);
+
+          const env = this.ctx.createGain();
+          env.gain.setValueAtTime(0.001, t0);
+          env.gain.linearRampToValueAtTime(g.amp, t0 + 0.003);
+          env.gain.exponentialRampToValueAtTime(0.0008, t0 + g.dur);
+
+          src.connect(bp);
+          bp.connect(env);
+          env.connect(this.ctx.destination);
+          src.start(t0, Math.random() * 0.4, g.dur + 0.01);
+          src.stop(t0 + g.dur + 0.01);
+        });
+
+        // Low-mid brittle cookie snap body
+        [0, 0.024].forEach((offset, idx) => {
+          const t0 = now + offset;
+          const osc = this.ctx.createOscillator();
+          const oGain = this.ctx.createGain();
+          osc.type = 'triangle';
+          const startF = idx === 0 ? 195 + Math.random() * 25 : 145 + Math.random() * 20;
+          osc.frequency.setValueAtTime(startF, t0);
+          osc.frequency.exponentialRampToValueAtTime(48, t0 + 0.042);
+          oGain.gain.setValueAtTime(idx === 0 ? 0.10 : 0.075, t0);
+          oGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.045);
+          osc.connect(oGain);
+          oGain.connect(this.ctx.destination);
+          osc.start(t0);
+          osc.stop(t0 + 0.048);
+        });
       },
       createSuccess() {
         if (!state.soundEnabled) return;
         this.init();
         if (!this.ctx) return;
         const now = this.ctx.currentTime;
-        const notes = [440, 554.37, 659.25, 880];
+        // Soft warm Rhodes-style chord arpeggio
+        const notes = [329.63, 440, 554.37, 659.25];
         notes.forEach((freq, idx) => {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
-          osc.type = 'triangle';
-          const t0 = now + idx * 0.055;
+          osc.type = 'sine';
+          const t0 = now + idx * 0.05;
           osc.frequency.setValueAtTime(freq, t0);
-          gain.gain.setValueAtTime(0.09, t0);
-          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.14);
+          gain.gain.setValueAtTime(0.001, t0);
+          gain.gain.linearRampToValueAtTime(0.075, t0 + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.0008, t0 + 0.24);
           osc.connect(gain);
           gain.connect(this.ctx.destination);
           osc.start(t0);
-          osc.stop(t0 + 0.15);
+          osc.stop(t0 + 0.25);
         });
       },
       hurt() {
@@ -1569,14 +1659,20 @@
         this.init();
         if (!this.ctx) return;
         const now = this.ctx.currentTime;
+        // Punchy low impact + crunch
+        this.erase();
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(165, now);
-        osc.frequency.exponentialRampToValueAtTime(52, now + 0.18);
-        gain.gain.setValueAtTime(0.12, now);
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(420, now);
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(42, now + 0.18);
+        gain.gain.setValueAtTime(0.11, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
-        osc.connect(gain);
+        osc.connect(filter);
+        filter.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(now);
         osc.stop(now + 0.2);
@@ -1584,48 +1680,203 @@
       splash() {
         if (!state.soundEnabled) return;
         this.init();
-        if (!this.ctx) return;
+        if (!this.ctx || !this.noiseBuf) return;
         const now = this.ctx.currentTime;
-        // White-noise water burst + droplet bloop
-        const bufSize = Math.floor(this.ctx.sampleRate * 0.14);
-        const noiseBuf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
-        const data = noiseBuf.getChannelData(0);
-        for (let i = 0; i < bufSize; i++) {
-          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufSize * 0.45));
-        }
         const noise = this.ctx.createBufferSource();
-        noise.buffer = noiseBuf;
+        noise.buffer = this.noiseBuf;
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(900, now);
-        filter.frequency.exponentialRampToValueAtTime(380, now + 0.14);
+        filter.frequency.setValueAtTime(850, now);
+        filter.frequency.exponentialRampToValueAtTime(340, now + 0.15);
+        filter.Q.setValueAtTime(1.8, now);
         const nGain = this.ctx.createGain();
-        nGain.gain.setValueAtTime(0.12, now);
-        nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+        nGain.gain.setValueAtTime(0.11, now);
+        nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
         noise.connect(filter);
         filter.connect(nGain);
         nGain.connect(this.ctx.destination);
-        noise.start(now);
+        noise.start(now, 0, 0.16);
+        noise.stop(now + 0.16);
 
         const osc = this.ctx.createOscillator();
         const oGain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(240, now + 0.02);
-        osc.frequency.exponentialRampToValueAtTime(520, now + 0.11);
-        oGain.gain.setValueAtTime(0.07, now + 0.02);
+        osc.frequency.setValueAtTime(220, now + 0.015);
+        osc.frequency.exponentialRampToValueAtTime(490, now + 0.11);
+        oGain.gain.setValueAtTime(0.065, now + 0.015);
         oGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
         osc.connect(oGain);
         oGain.connect(this.ctx.destination);
-        osc.start(now + 0.02);
+        osc.start(now + 0.015);
         osc.stop(now + 0.13);
       }
     };
+
+    /********************************************************************
+     * YOUTUBE IFRAME BACKGROUND AMBIANCE INTEGRATION
+     ********************************************************************/
+    let ytAmbiancePlayer = null;
+    let ytPlayerReady = false;
+    let ytGestureUnlocked = false;
+
+    function extractYouTubeId(urlOrId) {
+      if (!urlOrId) return null;
+      const str = urlOrId.trim();
+      if (/^[a-zA-Z0-9_-]{11}$/.test(str)) return str;
+      const m = str.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);
+      return m ? m[1] : null;
+    }
+
+    window.onYouTubeIframeAPIReady = function () {
+      ytAmbiancePlayer = new YT.Player('yt-ambiance-player', {
+        height: '1',
+        width: '1',
+        videoId: state.ambianceVideoId,
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          loop: 1,
+          playlist: state.ambianceVideoId,
+          modestbranding: 1,
+          rel: 0,
+          playsinline: 1
+        },
+        events: {
+          onReady: (e) => {
+            ytPlayerReady = true;
+            e.target.setVolume(state.ambianceVolume);
+            if (state.ambianceEnabled) {
+              e.target.playVideo();
+            }
+          },
+          onStateChange: (e) => {
+            // Loop seamlessly if track ends
+            if (e.data === YT.PlayerState.ENDED && state.ambianceEnabled) {
+              ytAmbiancePlayer.playVideo();
+            }
+          }
+        }
+      });
+    };
+
+    // Load YouTube IFrame API script asynchronously
+    (function loadYouTubeAPI() {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScript = document.getElementsByTagName('script')[0];
+      if (firstScript && firstScript.parentNode) {
+        firstScript.parentNode.insertBefore(tag, firstScript);
+      } else {
+        document.head.appendChild(tag);
+      }
+    })();
+
+    function unlockAmbianceOnGesture() {
+      if (ytGestureUnlocked) return;
+      if (ytPlayerReady && ytAmbiancePlayer && state.ambianceEnabled) {
+        try {
+          ytAmbiancePlayer.unMute();
+          ytAmbiancePlayer.setVolume(state.ambianceVolume);
+          ytAmbiancePlayer.playVideo();
+          ytGestureUnlocked = true;
+        } catch (err) {}
+      }
+    }
+
+    window.addEventListener('mousedown', unlockAmbianceOnGesture, { passive: true });
+    window.addEventListener('keydown', unlockAmbianceOnGesture, { passive: true });
+
+    const toggleAmbianceBtn = document.getElementById('toggle-ambiance-btn');
+    const ambiancePopover = document.getElementById('ambiance-popover');
+    const ambiancePlayToggle = document.getElementById('ambiance-play-toggle');
+    const ambianceVolSlider = document.getElementById('ambiance-vol-slider');
+    const ambianceVolLabel = document.getElementById('ambiance-vol-label');
+    const ambianceYtInput = document.getElementById('ambiance-yt-input');
+    const ambianceYtLoadBtn = document.getElementById('ambiance-yt-load-btn');
+
+    function syncAmbianceUI() {
+      toggleAmbianceBtn.className = state.ambianceEnabled
+        ? 'ase-btn active p-1 text-blue-300 flex items-center justify-center'
+        : 'ase-btn p-1 text-zinc-500 flex items-center justify-center';
+      ambiancePlayToggle.textContent = state.ambianceEnabled ? 'On' : 'Paused';
+      ambiancePlayToggle.className = state.ambianceEnabled
+        ? 'ase-btn active px-2 py-0.5 text-[9px] text-blue-300'
+        : 'ase-btn px-2 py-0.5 text-[9px] text-zinc-400';
+    }
+
+    toggleAmbianceBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isHidden = ambiancePopover.classList.contains('hidden');
+      ambiancePopover.classList.toggle('hidden', !isHidden);
+      ambiancePopover.classList.toggle('flex', isHidden);
+    });
+
+    document.addEventListener('mousedown', (e) => {
+      if (!ambiancePopover.classList.contains('hidden') && !ambiancePopover.contains(e.target) && e.target !== toggleAmbianceBtn && !toggleAmbianceBtn.contains(e.target)) {
+        ambiancePopover.classList.add('hidden');
+        ambiancePopover.classList.remove('flex');
+      }
+    });
+
+    ambiancePlayToggle.addEventListener('click', () => {
+      state.ambianceEnabled = !state.ambianceEnabled;
+      syncAmbianceUI();
+      if (ytPlayerReady && ytAmbiancePlayer) {
+        if (state.ambianceEnabled) {
+          ytAmbiancePlayer.setVolume(state.ambianceVolume);
+          ytAmbiancePlayer.playVideo();
+        } else {
+          ytAmbiancePlayer.pauseVideo();
+        }
+      }
+    });
+
+    ambianceVolSlider.addEventListener('input', (e) => {
+      state.ambianceVolume = parseInt(e.target.value, 10) || 22;
+      ambianceVolLabel.textContent = `${state.ambianceVolume}%`;
+      if (ytPlayerReady && ytAmbiancePlayer) {
+        ytAmbiancePlayer.setVolume(state.ambianceVolume);
+      }
+    });
+
+    function loadAmbianceYouTubeUrl(rawUrl) {
+      const vid = extractYouTubeId(rawUrl);
+      if (!vid) return;
+      state.ambianceVideoId = vid;
+      state.ambianceEnabled = true;
+      syncAmbianceUI();
+      if (ytPlayerReady && ytAmbiancePlayer) {
+        ytAmbiancePlayer.loadVideoById({ videoId: vid });
+        ytAmbiancePlayer.setVolume(state.ambianceVolume);
+      }
+    }
+
+    ambianceYtLoadBtn.addEventListener('click', () => {
+      loadAmbianceYouTubeUrl(ambianceYtInput.value);
+    });
+
+    ambianceYtInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        loadAmbianceYouTubeUrl(ambianceYtInput.value);
+      }
+    });
+
+    document.querySelectorAll('.yt-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const url = btn.dataset.yt;
+        ambianceYtInput.value = url;
+        loadAmbianceYouTubeUrl(url);
+      });
+    });
 
     // Global tactile button click listener for all buttons
     document.addEventListener('mousedown', (e) => {
       const btn = e.target.closest('button, .filter-tab, .ml-type-cell, .ase-cel-col');
       if (btn && btn.id !== 'save-sprite-btn') {
-        sfx.ui(540);
+        sfx.ui(480);
       }
     });
 
@@ -6060,12 +6311,42 @@
     function resizeSingleBuffer(oldBuf, ow, oh, nw, nh) {
       if (ow === nw && oh === nh) return new Uint8ClampedArray(oldBuf);
       const nextBuf = new Uint8ClampedArray(nw * nh * 4);
-      const copyW = Math.min(ow, nw);
-      const copyH = Math.min(oh, nh);
-      for (let y = 0; y < copyH; y++) {
-        for (let x = 0; x < copyW; x++) {
+      if (!oldBuf || oldBuf.length === 0) return nextBuf;
+
+      // Find non-transparent pixel bounds so resizing a frame never cuts off centered/offset art
+      let minX = ow, minY = oh, maxX = -1, maxY = -1;
+      for (let y = 0; y < oh; y++) {
+        for (let x = 0; x < ow; x++) {
+          if (oldBuf[(y * ow + x) * 4 + 3] > 0) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      if (maxX < minX || maxY < minY) return nextBuf;
+
+      const contentW = maxX - minX + 1;
+      const contentH = maxY - minY + 1;
+
+      // Keep 1:1 position if it already fits inside (nw, nh); otherwise center the art so it isn't clipped
+      let offsetX = 0;
+      let offsetY = 0;
+      if (maxX >= nw || ow !== nw) {
+        offsetX = Math.floor((nw - contentW) / 2) - minX;
+      }
+      if (maxY >= nh || oh !== nh) {
+        offsetY = Math.floor((nh - contentH) / 2) - minY;
+      }
+
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          const dx = x + offsetX;
+          const dy = y + offsetY;
+          if (dx < 0 || dx >= nw || dy < 0 || dy >= nh) continue;
           const oi = (y * ow + x) * 4;
-          const ni = (y * nw + x) * 4;
+          const ni = (dy * nw + dx) * 4;
           nextBuf[ni] = oldBuf[oi];
           nextBuf[ni + 1] = oldBuf[oi + 1];
           nextBuf[ni + 2] = oldBuf[oi + 2];
@@ -6507,8 +6788,14 @@
       }
     }
 
-    // If the user switches to Aseprite or another window, allow the next Ctrl+V to read from the OS clipboard
+    // If the user switches to Aseprite or another window/monitor, allow the next Ctrl+V to read from the OS clipboard
     window.addEventListener('blur', () => {
+      editor.preferInternalClipboard = false;
+    });
+    window.addEventListener('focus', () => {
+      editor.preferInternalClipboard = false;
+    });
+    document.addEventListener('mouseenter', () => {
       editor.preferInternalClipboard = false;
     });
 
@@ -8097,21 +8384,32 @@
      ********************************************************************/
     window.addEventListener('paste', (e) => {
       if (!editor.isOpen) return;
-      // If the user just copied a cel/selection inside LoomBit, do not overwrite it with an older OS clipboard image
+      const tag = document.activeElement ? document.activeElement.tagName : '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      // If the user just copied a cel/selection inside LoomBit without leaving the window, paste internal copy
       if (editor.preferInternalClipboard && editor.clipboardSelection) {
         e.preventDefault();
+        pasteMarqueeOrCel();
         return;
       }
-      const items = e.clipboardData?.items;
-      if (!items) return;
 
-      for (const item of items) {
-        if (item.type.startsWith('image/')) {
-          const blob = item.getAsFile();
-          if (blob) loadPastedOrImportedImage(blob);
-          e.preventDefault();
-          return;
+      const items = e.clipboardData?.items;
+      if (items) {
+        for (const item of items) {
+          if (item.type.startsWith('image/')) {
+            const blob = item.getAsFile();
+            if (blob) loadPastedOrImportedImage(blob);
+            e.preventDefault();
+            return;
+          }
         }
+      }
+
+      // Fallback to internal cel/marquee clipboard if no image is on the OS clipboard
+      if (editor.clipboardSelection) {
+        e.preventDefault();
+        pasteMarqueeOrCel();
       }
     });
 
@@ -8132,40 +8430,142 @@
     }
 
     function handleImportedImageElement(img) {
+      if (!img || img.width <= 0 || img.height <= 0) return;
+      commitMarqueeSelection();
       pushUndo();
+
       const autoResize = document.getElementById('auto-resize-paste').checked;
       editor.lastPastedImage = img;
 
-      const isMultipleOfFrameW = img.width > editor.w && img.width % editor.w === 0;
-      const isSquareStrip = img.width > img.height && img.width % img.height === 0;
+      // 1. Read the full source image at its native dimensions so pixels are never cut off
+      const srcW = img.width;
+      const srcH = img.height;
+      const srcCanvas = document.createElement('canvas');
+      srcCanvas.width = srcW;
+      srcCanvas.height = srcH;
+      const sctx = srcCanvas.getContext('2d');
+      sctx.imageSmoothingEnabled = false;
+      sctx.drawImage(img, 0, 0);
+      const srcData = sctx.getImageData(0, 0, srcW, srcH).data;
 
-      if (isMultipleOfFrameW || isSquareStrip) {
-        const frameW = isMultipleOfFrameW ? editor.w : img.height;
-        const count = Math.floor(img.width / frameW);
-        stripNoticeText.textContent = `Horizontal strip detected (${img.width}x${img.height}, ${count} frames of ${frameW}x${img.height}).`;
+      // Extract colors from the pasted sprite into the Used Color History bar
+      for (let i = 0; i < srcData.length; i += 4) {
+        if (srcData[i + 3] > 20) {
+          recordUsedColor(rgbaToHex(srcData[i], srcData[i + 1], srcData[i + 2]));
+        }
+      }
+
+      // 2. Check if the pasted image is a multi-frame horizontal strip
+      const isExactHeightStrip = srcH === editor.h && srcW >= editor.w * 2 && srcW % editor.w === 0;
+      const isSquareFrameStrip = srcW >= srcH * 2 && srcW % srcH === 0 && srcH >= 8;
+      if (isExactHeightStrip || isSquareFrameStrip) {
+        const frameW = isExactHeightStrip ? editor.w : srcH;
+        const count = Math.floor(srcW / frameW);
+        stripNoticeText.textContent = `Horizontal strip detected (${srcW}x${srcH}, ${count} frames of ${frameW}x${srcH}).`;
         stripNoticeBar.classList.remove('hidden');
       } else {
         stripNoticeBar.classList.add('hidden');
       }
 
-      if (autoResize && !isMultipleOfFrameW && (img.width <= 128 && img.height <= 128)) {
-        resizeEditorFrames(img.width, img.height);
+      // 3. Find the non-transparent pixel bounding box of the pasted image
+      let minX = srcW, minY = srcH, maxX = -1, maxY = -1;
+      for (let y = 0; y < srcH; y++) {
+        for (let x = 0; x < srcW; x++) {
+          if (srcData[(y * srcW + x) * 4 + 3] > 0) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      if (maxX < minX || maxY < minY) return;
+
+      const contentW = maxX - minX + 1;
+      const contentH = maxY - minY + 1;
+
+      // 4. If "Fit Paste" is enabled or the drawn sprite is larger than the current frame, expand the canvas so zero pixels get cut off
+      if (autoResize && !isExactHeightStrip && srcW <= 128 && srcH <= 128) {
+        resizeEditorFrames(Math.max(editor.w, srcW), Math.max(editor.h, srcH));
+      } else if ((contentW > editor.w || contentH > editor.h) && !isExactHeightStrip && !isSquareFrameStrip) {
+        const nextW = Math.min(128, Math.max(editor.w, contentW));
+        const nextH = Math.min(128, Math.max(editor.h, contentH));
+        if (nextW !== editor.w || nextH !== editor.h) {
+          resizeEditorFrames(nextW, nextH);
+        }
       }
 
-      const tmp = document.createElement('canvas');
-      tmp.width = editor.w;
-      tmp.height = editor.h;
-      const tctx = tmp.getContext('2d');
-      tctx.imageSmoothingEnabled = false;
-      tctx.drawImage(img, 0, 0);
-      const data = tctx.getImageData(0, 0, editor.w, editor.h).data;
-      editor.frames[editor.activeFrame].set(data);
+      // 5. Decide whether to paste 1:1 (when dimensions match) or trim excess transparent canvas margins & center in frame
+      let cropX = 0, cropY = 0, copyW = srcW, copyH = srcH;
+      let destX = 0, destY = 0;
 
-      // Automatically extract colors from pasted sprite into the Used Color History bar!
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i + 3] > 20) {
-          recordUsedColor(rgbaToHex(data[i], data[i + 1], data[i + 2]));
+      if (srcW === editor.w && srcH === editor.h) {
+        // Exact canvas dimension match from Aseprite -> preserve exact 1:1 pixel positioning
+        cropX = 0;
+        cropY = 0;
+        copyW = srcW;
+        copyH = srcH;
+        destX = 0;
+        destY = 0;
+      } else {
+        // Either a cropped selection from Aseprite OR a larger Aseprite canvas with transparent margins
+        cropX = minX;
+        cropY = minY;
+        copyW = contentW;
+        copyH = contentH;
+        destX = Math.max(0, Math.floor((editor.w - copyW) / 2));
+        if (editor.type === 'body' && editor.subtype === 'Body') {
+          // Align bottom of character sprite to the floor of the Body frame
+          destY = Math.max(0, editor.h - copyH);
+        } else {
+          destY = Math.max(0, Math.floor((editor.h - copyH) / 2));
         }
+      }
+
+      const activeBuf = editor.frames[editor.activeFrame];
+      const celHasExistingPixels = isBufferNonEmpty(activeBuf);
+
+      // Build cropped buffer for the pasted sprite
+      const pastedBuf = new Uint8ClampedArray(copyW * copyH * 4);
+      for (let py = 0; py < copyH; py++) {
+        for (let px = 0; px < copyW; px++) {
+          const si = ((cropY + py) * srcW + (cropX + px)) * 4;
+          const di = (py * copyW + px) * 4;
+          pastedBuf[di] = srcData[si];
+          pastedBuf[di + 1] = srcData[si + 1];
+          pastedBuf[di + 2] = srcData[si + 2];
+          pastedBuf[di + 3] = srcData[si + 3];
+        }
+      }
+
+      if (!celHasExistingPixels) {
+        // Cel is empty: stamp directly into the frame buffer so pixels are immediately stored
+        for (let py = 0; py < copyH; py++) {
+          for (let px = 0; px < copyW; px++) {
+            const dx = destX + px;
+            const dy = destY + py;
+            if (dx < 0 || dx >= editor.w || dy < 0 || dy >= editor.h) continue;
+            const si = (py * copyW + px) * 4;
+            if (pastedBuf[si + 3] > 0) {
+              const di = (dy * editor.w + dx) * 4;
+              activeBuf[di] = pastedBuf[si];
+              activeBuf[di + 1] = pastedBuf[si + 1];
+              activeBuf[di + 2] = pastedBuf[si + 2];
+              activeBuf[di + 3] = pastedBuf[si + 3];
+            }
+          }
+        }
+      } else {
+        // Cel already has art: place as a movable floating selection so existing pixels aren't overwritten
+        selectTool('marquee');
+        editor.marquee = {
+          x: destX,
+          y: destY,
+          w: copyW,
+          h: copyH,
+          mask: null,
+          floatingData: pastedBuf
+        };
       }
 
       renderPaintCanvas();
@@ -8175,15 +8575,27 @@
     document.getElementById('slice-strip-btn').addEventListener('click', () => {
       const img = editor.lastPastedImage;
       if (!img) return;
+      commitMarqueeSelection();
 
-      const sliceW = (img.width % editor.w === 0) ? editor.w : img.height;
+      const isExactHeightStrip = img.height === editor.h && img.width >= editor.w * 2 && img.width % editor.w === 0;
+      const sliceW = isExactHeightStrip ? editor.w : ((img.width % img.height === 0) ? img.height : editor.w);
       const sliceH = img.height;
-      const numSlices = Math.min(12, Math.floor(img.width / sliceW));
+      const numSlices = Math.min(32, Math.max(1, Math.floor(img.width / sliceW)));
 
       resizeEditorFrames(sliceW, sliceH);
 
+      const baseLabels = getFrameLabelsForSubtype(editor.type, editor.subtype);
+      const hasNamedStates = (editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable';
+
       while (editor.frames.length < numSlices) {
+        const nextIdx = editor.frames.length;
         editor.frames.push(new Uint8ClampedArray(sliceW * sliceH * 4));
+        editor.frameDims.push({ w: sliceW, h: sliceH });
+        editor.frameStates.push(
+          hasNamedStates
+            ? (baseLabels[Math.min(nextIdx, baseLabels.length - 1)] || `Cell ${nextIdx + 1}`)
+            : `Cell ${nextIdx + 1}`
+        );
       }
 
       const tmp = document.createElement('canvas');
@@ -8196,9 +8608,11 @@
         tctx.clearRect(0, 0, sliceW, sliceH);
         tctx.drawImage(img, i * sliceW, 0, sliceW, sliceH, 0, 0, sliceW, sliceH);
         editor.frames[i].set(tctx.getImageData(0, 0, sliceW, sliceH).data);
+        editor.frameDims[i] = { w: sliceW, h: sliceH };
       }
 
       stripNoticeBar.classList.add('hidden');
+      syncActiveFrameDimensions();
       renderFrameTabs();
       renderPaintCanvas();
     });
@@ -8390,13 +8804,6 @@
         if (k === 'c') {
           e.preventDefault();
           copyMarqueeOrCel();
-          return;
-        }
-        if (k === 'v') {
-          if (editor.preferInternalClipboard && editor.clipboardSelection) {
-            e.preventDefault();
-            pasteMarqueeOrCel();
-          }
           return;
         }
       }

@@ -2892,6 +2892,7 @@
       state.worldCells = new Map(snap.cells.map(([k, v]) => [k, { ...v }]));
       state.dynamicEntities = snap.entities.map(e => ({ ...e }));
       state.spawnPoint = { ...snap.spawn };
+      scheduleWorldAutoBackup(0);
     }
 
     function undoWorldAction() {
@@ -3599,6 +3600,10 @@
         } else {
           p.downKeyLatch = false;
         }
+        if (p.onLadder && p.motionBarOpen) {
+          p.motionBarOpen = false;
+          updateWorldMotionBarUI();
+        }
 
         if (state.keys.up) {
           p.sitting = false;
@@ -3955,13 +3960,26 @@
           continue;
         }
 
+        const sp = state.sprites.find(s => s.id === cell.spriteId);
+        const dynAttrs = (sp && sp.type === 'dynamic') ? parseDynamicAttributes(sp.code) : new Set();
+        const isClimbCell = cell.type === 'climbable' || dynAttrs.has('CLIMBABLE');
+
+        // Also detect a ladder directly beneath the player's feet when standing on top of a ladder or platform gap
+        const standingAboveLadder =
+          isClimbCell &&
+          p.x + 2 < cell.x + cell.w &&
+          p.x + p.w - 2 > cell.x &&
+          p.y + p.h >= cell.y - 2 &&
+          p.y + p.h <= cell.y + 4;
+
         if (
-          p.x < cell.x + cell.w &&
-          p.x + p.w > cell.x &&
-          p.y < cell.y + cell.h &&
-          p.y + p.h > cell.y
+          (p.x < cell.x + cell.w &&
+           p.x + p.w > cell.x &&
+           p.y < cell.y + cell.h &&
+           p.y + p.h > cell.y) ||
+          (standingAboveLadder && state.keys.down)
         ) {
-          if (cell.type === 'climbable') {
+          if (isClimbCell) {
             p.onLadder = true;
             const d = Math.abs((p.x + p.w / 2) - (cell.x + cell.w / 2));
             if (d < bestLadderDist) {
@@ -3970,17 +3988,6 @@
             }
             if (Math.abs(p.vy) > 0.1 || Math.abs(p.vx) > 0.1) {
               cell._interactTick = 16;
-            }
-          }
-
-          const sp = state.sprites.find(s => s.id === cell.spriteId);
-          const dynAttrs = (sp && sp.type === 'dynamic') ? parseDynamicAttributes(sp.code) : new Set();
-          if (dynAttrs.has('CLIMBABLE')) {
-            p.onLadder = true;
-            const d = Math.abs((p.x + p.w / 2) - (cell.x + cell.w / 2));
-            if (d < bestLadderDist) {
-              bestLadderDist = d;
-              p.ladderX = cell.x;
             }
           }
 
@@ -4168,6 +4175,19 @@
           }
         } else {
           if (p.vy > 0) {
+            // If climbing down onto a ladder, gently nudge past the top corners of adjacent solid blocks so 1-tile gaps never block descent
+            if (p.onLadder) {
+              const overlapRight = (bx + bw) - p.x;
+              const overlapLeft = (p.x + p.w) - bx;
+              if (overlapRight > 0 && overlapRight <= 11) {
+                p.x = bx + bw;
+                continue;
+              } else if (overlapLeft > 0 && overlapLeft <= 11) {
+                p.x = bx - p.w;
+                continue;
+              }
+            }
+
             p.y = by - p.h;
             if (cell.type === 'bouncy') {
               p.vy = -7.2;
@@ -4183,17 +4203,11 @@
               p.onGround = true;
               if (cell.type === 'slidey') {
                 p.onSlidey = true;
-                if (Math.abs(p.vx) > 0.15) cell._interactTick = 14;
-              }
-              if (cell.type === 'solid' && cell.subtype === 'Sticky') {
+                cell._interactTick = 14;
+              } else if (cell.type === 'solid' && cell.subtype === 'Sticky') {
                 p.onSticky = true;
                 cell._interactTick = 14;
-              }
-              if (cell.type === 'moving' && cell.subtype === 'Mover') {
-                p.vx += (cell.rotation === 2 ? -1.4 : 1.4);
-                cell._interactTick = 14;
-              }
-              if (cell.type === 'crumbling') {
+              } else if (cell.type === 'crumbling') {
                 if (cell.subtype === 'Flexible') {
                   cell._steppedOn = true;
                   cell._interactTick = 16;
@@ -4207,11 +4221,11 @@
             // Corner correction when climbing or jumping up through a 1-block-wide gap
             const overlapRight = (bx + bw) - p.x;
             const overlapLeft = (p.x + p.w) - bx;
-            const maxCornerNudge = p.onLadder ? 9 : 5;
-            if (overlapRight > 0 && overlapRight <= maxCornerNudge) {
+            const maxNudge = p.onLadder ? 10 : 6;
+            if (overlapRight > 0 && overlapRight <= maxNudge) {
               p.x = bx + bw;
               continue;
-            } else if (overlapLeft > 0 && overlapLeft <= maxCornerNudge) {
+            } else if (overlapLeft > 0 && overlapLeft <= maxNudge) {
               p.x = bx - p.w;
               continue;
             }
@@ -4221,8 +4235,9 @@
         }
       }
 
-      // Dynamic Entities (Pushing Crates & Moving Platforms)
+      // Dynamic Entities Collisions (Pushing blocks & Moving platforms)
       for (const ent of state.dynamicEntities) {
+        if (ent.type !== 'pushing' && ent.type !== 'moving') continue;
         if (p.x >= ent.x + ent.w || p.x + p.w <= ent.x || p.y >= ent.y + ent.h || p.y + p.h <= ent.y) continue;
 
         if (ent.type === 'pushing') {
@@ -5792,6 +5807,7 @@
           });
           sfx.place();
           spawnDustParticles(snapX + sp.w / 2, snapY + sp.h / 2, sp.w, sp.h, 7);
+          scheduleWorldAutoBackup();
         }
         return;
       }
@@ -5833,6 +5849,7 @@
       });
       sfx.place();
       spawnDustParticles(snapX + sp.w / 2, snapY + sp.h / 2, sp.w, sp.h, 6);
+      scheduleWorldAutoBackup();
     }
 
     function eraseWorldAt(wx, wy) {
@@ -5861,6 +5878,7 @@
       }
       if (erasedAny) {
         sfx.erase();
+        scheduleWorldAutoBackup();
       }
     }
 
@@ -5944,6 +5962,7 @@
           pushWorldUndo();
           state.spawnPoint = { x: snapX, y: snapY };
           respawnPlayer();
+          scheduleWorldAutoBackup(0);
           return;
         }
         if (activeTool === 'line' || activeTool === 'rect' || activeTool === 'erase') {
@@ -6304,14 +6323,14 @@
         renderSidebarSprites();
       });
     });
-
-    clearWornBtn.addEventListener('click', () => {
+      clearWornBtn.addEventListener('click', () => {
       state.activeBodyId = null;
       state.activeWearableId = null;
       state.activeHoldableId = null;
       state.activeMountId = null;
       updateBrushBar();
       renderSidebarSprites();
+      scheduleWorldAutoBackup(0);
     });
 
     clearBrushBtn.addEventListener('click', () => {
@@ -6499,6 +6518,7 @@
       }
       updateBrushBar();
       renderSidebarSprites();
+      scheduleWorldAutoBackup(0);
     }
 
     function deleteSprite(id) {
@@ -9371,6 +9391,34 @@
     const saveWorldNameInput = document.getElementById('save-world-name-input');
     const autosaveStatusBadge = document.getElementById('autosave-status-badge');
 
+    let autoBackupTimer = null;
+    let autoBackupDirty = false;
+
+    function scheduleWorldAutoBackup(delay = 120) {
+      autoBackupDirty = true;
+      if (autoBackupTimer) clearTimeout(autoBackupTimer);
+      if (delay <= 0) {
+        saveAutoBackup();
+        return;
+      }
+      autoBackupTimer = setTimeout(() => {
+        saveAutoBackup();
+      }, delay);
+    }
+
+    // Flush any pending world changes immediately before refreshing or closing the tab
+    window.addEventListener('beforeunload', () => {
+      if (autoBackupDirty) {
+        saveAutoBackup();
+      }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden' && autoBackupDirty) {
+        saveAutoBackup();
+      }
+    });
+
     function serializeCurrentState() {
       return {
         sprites: state.sprites.map(s => ({
@@ -9432,6 +9480,11 @@
 
     function saveAutoBackup() {
       try {
+        if (autoBackupTimer) {
+          clearTimeout(autoBackupTimer);
+          autoBackupTimer = null;
+        }
+        autoBackupDirty = false;
         const payload = serializeCurrentState();
         localStorage.setItem(STORAGE_KEY_AUTOSAVE, JSON.stringify(payload));
         if (autosaveStatusBadge) {

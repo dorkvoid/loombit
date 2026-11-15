@@ -1304,6 +1304,7 @@
         respawnAnim: 1,       // Smooth scale-in on spawn/respawn
         onGround: false,
         onLadder: false,
+        ladderX: null,
         inLiquid: false,
         liquidSurfaceY: null,
         onSlidey: false,
@@ -1328,6 +1329,7 @@
         visualScaleX: 1,      // Smoothly flips facing without hard cut if desired
         animTimer: 0,
         walkCycleIdx: 0,
+        climbCycleIdx: 0,
         usingHoldable: 0,
         consumableBites: 0,
         grappleTarget: null,  // For Holdable: Swing Line
@@ -1932,54 +1934,92 @@
         this.init();
         if (!this.ctx || !this.noiseBuf) return;
         const now = this.ctx.currentTime;
-        const intensity = Math.min(1.4, Math.max(0.55, speed / 3.0));
+        const intensity = Math.min(1.45, Math.max(0.6, speed / 2.8));
 
-        // 1. Deep water cavity plunge thud
+        // 1. Initial Pool Surface Slap + Deep Hollow Underwater Cavity Plunge ("Thoomp")
         const plunge = this.ctx.createOscillator();
         const pGain = this.ctx.createGain();
         plunge.type = 'sine';
-        plunge.frequency.setValueAtTime(155, now);
-        plunge.frequency.exponentialRampToValueAtTime(48, now + 0.11);
-        pGain.gain.setValueAtTime(0.11 * intensity, now);
-        pGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        plunge.frequency.setValueAtTime(148, now);
+        plunge.frequency.exponentialRampToValueAtTime(36, now + 0.16);
+        pGain.gain.setValueAtTime(0.001, now);
+        pGain.gain.linearRampToValueAtTime(0.16 * intensity, now + 0.008);
+        pGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.18);
         plunge.connect(pGain);
         pGain.connect(this.ctx.destination);
         plunge.start(now);
-        plunge.stop(now + 0.13);
+        plunge.stop(now + 0.19);
 
-        // 2. Filtered water spray wash
+        // Secondary resonant air-cavity collapse thump
+        const cavity = this.ctx.createOscillator();
+        const cGain = this.ctx.createGain();
+        cavity.type = 'triangle';
+        cavity.frequency.setValueAtTime(220, now + 0.035);
+        cavity.frequency.exponentialRampToValueAtTime(58, now + 0.21);
+        cGain.gain.setValueAtTime(0.001, now + 0.035);
+        cGain.gain.linearRampToValueAtTime(0.095 * intensity, now + 0.055);
+        cGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.22);
+        cavity.connect(cGain);
+        cGain.connect(this.ctx.destination);
+        cavity.start(now + 0.035);
+        cavity.stop(now + 0.23);
+
+        // 2. Main Pool Water Ker-Splash & Spray Wash (2-stage water sheet rise and crash)
         const wash = this.ctx.createBufferSource();
         wash.buffer = this.noiseBuf;
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(1150, now);
-        filter.frequency.exponentialRampToValueAtTime(380, now + 0.24);
-        filter.Q.setValueAtTime(1.6, now);
-        const nGain = this.ctx.createGain();
-        nGain.gain.setValueAtTime(0.001, now);
-        nGain.gain.linearRampToValueAtTime(0.12 * intensity, now + 0.012);
-        nGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.25);
-        wash.connect(filter);
-        filter.connect(nGain);
-        nGain.connect(this.ctx.destination);
-        wash.start(now, Math.random() * 0.3, 0.26);
-        wash.stop(now + 0.26);
+        const washFilter = this.ctx.createBiquadFilter();
+        washFilter.type = 'bandpass';
+        washFilter.frequency.setValueAtTime(820, now);
+        washFilter.frequency.exponentialRampToValueAtTime(1420, now + 0.065);
+        washFilter.frequency.exponentialRampToValueAtTime(290, now + 0.44);
+        washFilter.Q.setValueAtTime(1.15, now);
+        const wGain = this.ctx.createGain();
+        wGain.gain.setValueAtTime(0.001, now);
+        wGain.gain.linearRampToValueAtTime(0.15 * intensity, now + 0.015);
+        wGain.gain.linearRampToValueAtTime(0.18 * intensity, now + 0.075);
+        wGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.45);
+        wash.connect(washFilter);
+        washFilter.connect(wGain);
+        wGain.connect(this.ctx.destination);
+        wash.start(now, Math.random() * 0.25, 0.46);
+        wash.stop(now + 0.46);
 
-        // 3. Staggered rising water bubble pops ("bloop")
+        // Crisp high-frequency pool spray & falling water sheet
+        const spray = this.ctx.createBufferSource();
+        spray.buffer = this.noiseBuf;
+        const sprayFilter = this.ctx.createBiquadFilter();
+        sprayFilter.type = 'bandpass';
+        sprayFilter.frequency.setValueAtTime(2400, now + 0.02);
+        sprayFilter.frequency.exponentialRampToValueAtTime(640, now + 0.42);
+        sprayFilter.Q.setValueAtTime(1.8, now + 0.02);
+        const sGain = this.ctx.createGain();
+        sGain.gain.setValueAtTime(0.001, now + 0.02);
+        sGain.gain.linearRampToValueAtTime(0.10 * intensity, now + 0.06);
+        sGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.43);
+        spray.connect(sprayFilter);
+        sprayFilter.connect(sGain);
+        sGain.connect(this.ctx.destination);
+        spray.start(now + 0.02, Math.random() * 0.35, 0.42);
+        spray.stop(now + 0.45);
+
+        // 3. Underwater Gurgle Bloops & Falling Pool Droplets
         const bubbles = [
-          { delay: 0.025, f0: 240, f1: 540, dur: 0.065, amp: 0.065 },
-          { delay: 0.075, f0: 320, f1: 720, dur: 0.055, amp: 0.052 },
-          { delay: 0.135, f0: 410, f1: 890, dur: 0.048, amp: 0.040 }
+          { delay: 0.035, f0: 175, f1: 410, dur: 0.078, amp: 0.075 },
+          { delay: 0.085, f0: 255, f1: 580, dur: 0.070, amp: 0.068 },
+          { delay: 0.145, f0: 210, f1: 490, dur: 0.075, amp: 0.060 },
+          { delay: 0.210, f0: 330, f1: 740, dur: 0.062, amp: 0.050 },
+          { delay: 0.285, f0: 420, f1: 890, dur: 0.052, amp: 0.038 },
+          { delay: 0.355, f0: 380, f1: 820, dur: 0.048, amp: 0.028 }
         ];
         bubbles.forEach(b => {
-          const t0 = now + b.delay;
+          const t0 = now + b.delay + Math.random() * 0.012;
           const bOsc = this.ctx.createOscillator();
           const bGain = this.ctx.createGain();
           bOsc.type = 'sine';
-          bOsc.frequency.setValueAtTime(b.f0 + Math.random() * 35, t0);
-          bOsc.frequency.exponentialRampToValueAtTime(b.f1 + Math.random() * 45, t0 + b.dur);
+          bOsc.frequency.setValueAtTime(b.f0 + Math.random() * 25, t0);
+          bOsc.frequency.exponentialRampToValueAtTime(b.f1 + Math.random() * 40, t0 + b.dur);
           bGain.gain.setValueAtTime(0.001, t0);
-          bGain.gain.linearRampToValueAtTime(b.amp * intensity, t0 + 0.006);
+          bGain.gain.linearRampToValueAtTime(b.amp * intensity, t0 + 0.008);
           bGain.gain.exponentialRampToValueAtTime(0.0008, t0 + b.dur);
           bOsc.connect(bGain);
           bGain.connect(this.ctx.destination);
@@ -3583,6 +3623,14 @@
           p.vy = 0;
           if (state.keys.up) p.vy = -1.75;
           if (state.keys.down) p.vy = 1.75;
+          // Auto-align player horizontally into the ladder channel when climbing vertically so 1-block gaps never snag
+          if ((state.keys.up || state.keys.down) && !state.keys.left && !state.keys.right && p.ladderX !== null) {
+            const diffX = p.ladderX - p.x;
+            if (Math.abs(diffX) <= 9) {
+              p.x += diffX * 0.38;
+              if (Math.abs(p.ladderX - p.x) < 0.4) p.x = p.ladderX;
+            }
+          }
         } else if (isMountedFlying) {
           p.vy *= 0.85;
           if (state.keys.up) p.vy = -2.1;
@@ -3703,7 +3751,8 @@
           ? activeBodySp.stateFps[activeMoveState]
           : ((activeBodySp && activeBodySp.animFps) ? activeBodySp.animFps : state.walkFps);
       const ticksPerFrame = Math.max(1, Math.round(60 / Math.max(1, effectiveWalkFps)));
-      if ((Math.abs(p.vx) > 0.15 || (p.onLadder && Math.abs(p.vy) > 0.1)) && (p.onGround || p.onLadder || p.inLiquid)) {
+      const isClimbingMoving = p.onLadder && (Math.abs(p.vy) > 0.1 || Math.abs(p.vx) > 0.15);
+      if ((Math.abs(p.vx) > 0.15 || isClimbingMoving) && (p.onGround || p.onLadder || p.inLiquid)) {
         if (p.animTimer === 0 && (p.onGround || p.onLadder) && !p.inLiquid) {
           const surf = p.onLadder ? 'ladder' : (p.onSlidey ? 'slidey' : (p.onSticky ? 'sticky' : 'normal'));
           sfx.step(surf);
@@ -3712,6 +3761,9 @@
         if (p.animTimer >= ticksPerFrame) {
           p.animTimer = 0;
           p.walkCycleIdx = (p.walkCycleIdx + 1) % 24;
+          if (isClimbingMoving) {
+            p.climbCycleIdx = (p.climbCycleIdx + 1) % 24;
+          }
           if ((p.onGround || p.onLadder) && !p.inLiquid) {
             const surf = p.onLadder ? 'ladder' : (p.onSlidey ? 'slidey' : (p.onSticky ? 'sticky' : 'normal'));
             sfx.step(surf);
@@ -3888,8 +3940,10 @@
       const wasInLiquid = p.inLiquid;
       const prevSurfaceY = p.liquidSurfaceY;
       p.onLadder = false;
+      p.ladderX = null;
       p.inLiquid = false;
       p.liquidSurfaceY = null;
+      let bestLadderDist = Infinity;
 
       const ticksPerFrame = Math.max(2, Math.round(60 / state.walkFps));
       const animStep = Math.floor(worldTickCount / ticksPerFrame);
@@ -3909,6 +3963,11 @@
         ) {
           if (cell.type === 'climbable') {
             p.onLadder = true;
+            const d = Math.abs((p.x + p.w / 2) - (cell.x + cell.w / 2));
+            if (d < bestLadderDist) {
+              bestLadderDist = d;
+              p.ladderX = cell.x;
+            }
             if (Math.abs(p.vy) > 0.1 || Math.abs(p.vx) > 0.1) {
               cell._interactTick = 16;
             }
@@ -3916,7 +3975,14 @@
 
           const sp = state.sprites.find(s => s.id === cell.spriteId);
           const dynAttrs = (sp && sp.type === 'dynamic') ? parseDynamicAttributes(sp.code) : new Set();
-          if (dynAttrs.has('CLIMBABLE')) p.onLadder = true;
+          if (dynAttrs.has('CLIMBABLE')) {
+            p.onLadder = true;
+            const d = Math.abs((p.x + p.w / 2) - (cell.x + cell.w / 2));
+            if (d < bestLadderDist) {
+              bestLadderDist = d;
+              p.ladderX = cell.x;
+            }
+          }
 
           if (cell.type === 'liquid' || dynAttrs.has('LIQUID')) {
             p.inLiquid = true;
@@ -4017,6 +4083,11 @@
       }
       if (cell.type === 'back' && cell.subtype === 'Walkable') return 'oneway';
       if (cell.type === 'solid' && cell.subtype === 'One-Way') return 'oneway';
+      if (cell.type === 'climbable') {
+        // Allow standing on top of the highest rung of a ladder when not climbing down
+        const aboveLadder = state.worldCells.get(`${cell.x},${cell.y - TILE_SIZE},${cell.layer}`);
+        if (!aboveLadder || aboveLadder.type !== 'climbable') return 'oneway';
+      }
       if (['solid', 'crumbling', 'bouncy', 'slidey'].includes(cell.type)) return true;
       if (cell.type === 'moving' && cell.subtype === 'Mover') return true;
       return false;
@@ -4055,9 +4126,10 @@
         if (solidType === 'oneway') {
           if (
             !horizontal &&
-            p.vy > 0 &&
+            p.vy >= 0 &&
             !state.keys.down &&
-            (p.y + p.h - p.vy <= by + 5)
+            !(cell.type === 'climbable' && state.keys.up) &&
+            (p.y + p.h - Math.max(0, p.vy) <= by + 5)
           ) {
             p.y = by - p.h;
             p.vy = 0;
@@ -4132,6 +4204,17 @@
               }
             }
           } else if (p.vy < 0) {
+            // Corner correction when climbing or jumping up through a 1-block-wide gap
+            const overlapRight = (bx + bw) - p.x;
+            const overlapLeft = (p.x + p.w) - bx;
+            const maxCornerNudge = p.onLadder ? 9 : 5;
+            if (overlapRight > 0 && overlapRight <= maxCornerNudge) {
+              p.x = bx + bw;
+              continue;
+            } else if (overlapLeft > 0 && overlapLeft <= maxCornerNudge) {
+              p.x = bx - p.w;
+              continue;
+            }
             p.y = by + bh;
             p.vy = 0;
           }
@@ -5018,8 +5101,7 @@
         bodyStateName = 'Walk';
         fallbackCellIdx = 1;
       }
-
-      const drawCenteredAvatarSprite = (sprite, cellIdx, extraOffsetY = 0, extraOffsetX = 0, rotateLying = false) => {
+      const drawCenteredAvatarSprite = (sprite, cellIdx, extraOffsetY = 0, extraOffsetX = 0, rotateLying = false, forceFlipX = null) => {
         if (!sprite) return;
         const safeIdx = Math.min(cellIdx, sprite.frames.length - 1);
         const fc = getCachedFrameCanvas(sprite, safeIdx);
@@ -5028,6 +5110,7 @@
         // Center canvas horizontally on player hitbox, align canvas bottom to player feet (preserving all internal pixel offsets!)
         const lx = Math.round(px + (pw - lw) / 2 + extraOffsetX * zoom);
         const ly = Math.round(py + (ph - lh) + extraOffsetY * zoom);
+        const shouldFlipX = forceFlipX !== null ? forceFlipX : (p.facing === -1);
 
         worldCtx.save();
         if (p.deadTimer > 0) {
@@ -5035,7 +5118,7 @@
           const cy = ly + lh / 2;
           worldCtx.translate(cx, cy);
           worldCtx.rotate(p.deathRot);
-          if (p.facing === -1) worldCtx.scale(-1, 1);
+          if (shouldFlipX) worldCtx.scale(-1, 1);
           worldCtx.drawImage(fc, -lw / 2, -lh / 2, lw, lh);
           worldCtx.restore();
           return;
@@ -5062,9 +5145,9 @@
           const cy = ly + lh - Math.max(4, (TILE_SIZE * zoom) * 0.35);
           worldCtx.translate(cx, cy);
           worldCtx.rotate(p.facing === -1 ? Math.PI / 2 : -Math.PI / 2);
-          if (p.facing === -1) worldCtx.scale(-1, 1);
+          if (shouldFlipX) worldCtx.scale(-1, 1);
           worldCtx.drawImage(fc, -lw / 2, -lh / 2, lw, lh);
-        } else if (p.facing === -1) {
+        } else if (shouldFlipX) {
           worldCtx.translate(lx + lw, ly);
           worldCtx.scale(-1, 1);
           worldCtx.drawImage(fc, 0, 0, lw, lh);
@@ -5140,13 +5223,24 @@
                 // Alternate between Stand (0) and Walk (1) so a 1-frame Walk sprite bobs immediately on step!
                 resolvedBodyIdx = (p.walkCycleIdx % 2 === 0) ? walkCel : standCel;
               }
+              drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false);
+            } else if (bodyStateName === 'Climb') {
+              if (stateCels.length > 1) {
+                resolvedBodyIdx = stateCels[p.climbCycleIdx % stateCels.length];
+                drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false);
+              } else {
+                resolvedBodyIdx = stateCels[0] ?? Math.min(fallbackCellIdx, wornBody.frames.length - 1);
+                // When only 1 Climb cel frame exists, automatically flip it horizontally on each climb step
+                const autoFlipClimb = (p.climbCycleIdx % 2 === 1);
+                drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false, autoFlipClimb);
+              }
             } else if (stateCels.length > 0) {
               resolvedBodyIdx = stateCels[stateStep % stateCels.length];
+              drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false);
             } else {
               resolvedBodyIdx = Math.min(fallbackCellIdx, wornBody.frames.length - 1);
+              drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false);
             }
-
-            drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false);
 
             // Blink & Talk overlays on Stand state (using their own per-state FPS)
             if (bodyStateName === 'Stand') {
@@ -5200,9 +5294,11 @@
       // Wearable supports multiple cels per state ('Stand / Walk' vs 'Climb')
       if (wornWearable) {
         const wState = p.onLadder ? 'Climb' : 'Stand / Walk';
-        const wStep = (Math.abs(p.vx) > 0.15 || p.onLadder) ? animStep : 0;
+        const wCels = getStateFrameIndices(wornWearable, wState).filter(idx => isBufferNonEmpty(wornWearable.frames[idx]));
+        const wStep = p.onLadder ? p.climbCycleIdx : ((Math.abs(p.vx) > 0.15) ? animStep : 0);
         const wearCell = getSpriteStateFrameIndex(wornWearable, wState, wStep, p.onLadder ? 1 : 0);
-        drawCenteredAvatarSprite(wornWearable, wearCell, -3, 0, p.lying);
+        const wearClimbFlip = (p.onLadder && wCels.length <= 1) ? (p.climbCycleIdx % 2 === 1) : null;
+        drawCenteredAvatarSprite(wornWearable, wearCell, -3, 0, p.lying, wearClimbFlip);
       }
 
       // Keep the In-World Motion Bar positioned smoothly below the player
@@ -8624,10 +8720,12 @@
           const pool = nonEmptyJump.length > 0 ? nonEmptyJump : jumpCels;
           frameIdx = pool.length > 0 ? pool[step % pool.length] : Math.min(2, editor.frames.length - 1);
         } else if (editor.previewMode === 'sit') {
-          const sitCels = [...getStateFrameIndices(editor, 'Sit'), ...getStateFrameIndices(editor, 'Climb')];
+          const activeIsClimb = activeCelState === 'Climb';
+          const targetSt = activeIsClimb ? 'Climb' : 'Sit';
+          const sitCels = getStateFrameIndices(editor, targetSt);
           const nonEmptySit = sitCels.filter(idx => isBufferNonEmpty(getCompositedEditorFrameBuffer(idx)));
           const pool = nonEmptySit.length > 0 ? nonEmptySit : sitCels;
-          frameIdx = pool.length > 0 ? pool[step % pool.length] : Math.min(6, editor.frames.length - 1);
+          frameIdx = pool.length > 0 ? pool[step % pool.length] : Math.min(activeIsClimb ? 4 : 6, editor.frames.length - 1);
         } else {
           // Walk mode: if multiple non-empty Walk cels exist, cycle them; if 1 Walk cel, alternate Walk and Stand[0]
           const allWalkCels = getStateFrameIndices(editor, 'Walk');
@@ -8671,7 +8769,23 @@
       }
 
       const frameCanvas = createFrameCanvasFromEditor(frameIdx);
-      previewCtx.drawImage(frameCanvas, 0, 0);
+      const climbPool = getStateFrameIndices(editor, 'Climb').filter(idx => isBufferNonEmpty(getCompositedEditorFrameBuffer(idx)));
+      const shouldFlipClimbPreview =
+        t === 'body' &&
+        editor.previewPlaying &&
+        (activeCelState === 'Climb' || (editor.previewMode === 'sit' && activeCelState === 'Climb')) &&
+        climbPool.length <= 1 &&
+        (Math.floor(editor.previewTick / Math.max(1, Math.round(60 / Math.max(1, (editor.stateFps && editor.stateFps.Climb) || fps)))) % 2 === 1);
+
+      if (shouldFlipClimbPreview) {
+        previewCtx.save();
+        previewCtx.translate(pw, 0);
+        previewCtx.scale(-1, 1);
+        previewCtx.drawImage(frameCanvas, 0, 0);
+        previewCtx.restore();
+      } else {
+        previewCtx.drawImage(frameCanvas, 0, 0);
+      }
     }
 
     /********************************************************************

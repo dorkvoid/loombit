@@ -90,14 +90,14 @@
       transform: translate(-50%, 0) scale(1);
     }
 
-    /* Subtle checkerboard for transparency in the pixel editor */
+    /* Balanced mid-tone checkerboard so both black (#000) and white (#fff) sprites are clearly recognizable */
     .checkerboard {
-      background-color: #1c1c21;
+      background-color: #4f4f5c;
       background-image:
-        linear-gradient(45deg, #26262c 25%, transparent 25%),
-        linear-gradient(-45deg, #26262c 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #26262c 75%),
-        linear-gradient(-45deg, transparent 75%, #26262c 75%);
+        linear-gradient(45deg, #636373 25%, transparent 25%),
+        linear-gradient(-45deg, #636373 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #636373 75%),
+        linear-gradient(-45deg, transparent 75%, #636373 75%);
       background-size: 16px 16px;
       background-position: 0 0, 0 8px, 8px -8px, -8px 0;
     }
@@ -108,7 +108,91 @@
       height: 6px;
     }
     ::-webkit-scrollbar-track {
-      background: #18181b;
+      background: #121318;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #323542;
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #45495a;
+    }
+
+    /* Proprietary Studio Beveled Controls & Panels */
+    .studio-panel {
+      background-color: #16171d;
+      border: 1px solid #282a36;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    .ase-btn {
+      background: linear-gradient(180deg, #282a34 0%, #1e2028 100%);
+      border: 1px solid #343746;
+      border-bottom-color: #14151b;
+      border-right-color: #14151b;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      border-radius: 2px;
+      color: #d4d4d8;
+      transition: background 0.08s, color 0.08s, border-color 0.08s;
+    }
+    .ase-btn:hover {
+      background: linear-gradient(180deg, #323542 0%, #252731 100%);
+      border-color: #464a5e;
+      color: #ffffff;
+    }
+    .ase-btn:active,
+    .ase-btn.active {
+      background: #15161c;
+      border: 1px solid #101116;
+      border-bottom-color: #2e313f;
+      border-right-color: #2e313f;
+      color: #60a5fa;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.65);
+    }
+    .ase-btn-primary {
+      background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+      border: 1px solid #60a5fa;
+      border-bottom-color: #172554;
+      border-right-color: #172554;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      border-radius: 2px;
+    }
+    .ase-btn-primary:hover {
+      background: linear-gradient(180deg, #4f8ff7 0%, #2f6ef0 100%);
+    }
+    .ase-btn-primary:active {
+      background: #1d4ed8;
+      border: 1px solid #172554;
+      border-bottom-color: #60a5fa;
+      border-right-color: #60a5fa;
+    }
+
+    .tool-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 2px;
+      background: linear-gradient(180deg, #262832 0%, #1c1d25 100%);
+      border: 1px solid #343746;
+      border-bottom-color: #121318;
+      border-right-color: #121318;
+      color: #a1a1aa;
+      transition: background 0.08s, color 0.08s, border-color 0.08s;
+    }
+    .tool-btn:hover {
+      background: linear-gradient(180deg, #303340 0%, #23252f 100%);
+      color: #f4f4f5;
+    }
+    .tool-btn.active {
+      background: #14151b;
+      color: #60a5fa;
+      border: 1px solid #0e0f14;
+      border-bottom-color: #343746;
+      border-right-color: #343746;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.65);
     }
     ::-webkit-scrollbar-thumb {
       background: #3f3f46;
@@ -218,68 +302,83 @@
       color: #ffffff !important;
     }
 
-    /* Aseprite-style Compact Frame Strip */
+    /* State-Badged Frame Strip Cels */
     .ase-cel-col {
       display: flex;
       flex-direction: column;
-      width: 26px;
+      min-width: 52px;
       border-right: 1px solid #2a2a32;
       cursor: pointer;
       user-select: none;
       flex-shrink: 0;
+      background: #141418;
+      transition: background 0.08s;
+    }
+    .ase-cel-col:hover {
+      background: #1e1e26;
     }
     .ase-cel-num {
-      height: 20px;
+      height: 18px;
+      padding: 0 4px;
       display: flex;
       align-items: center;
-      justify-content: center;
-      font-size: 13px;
+      justify-content: space-between;
+      font-size: 11px;
       background: #1c1c22;
-      color: #71717a;
+      color: #a1a1aa;
       border-bottom: 1px solid #2a2a32;
     }
-    .ase-cel-dot-box {
-      height: 22px;
+    .ase-cel-state-pill {
+      height: 17px;
+      padding: 0 4px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #141418;
+      font-size: 10px;
+      letter-spacing: 0.02em;
+      border-bottom: 1px solid #24242c;
+      white-space: nowrap;
+    }
+    .ase-cel-dot-box {
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #18181f;
+      padding: 2px;
+    }
+    .ase-cel-col.active {
+      outline: 1px solid #60a5fa;
+      outline-offset: -1px;
     }
     .ase-cel-col.active .ase-cel-num {
-      background: #2e2e38;
+      background: #2563eb;
       color: #ffffff;
     }
     .ase-cel-col.active .ase-cel-dot-box {
-      background: #25252e;
+      background: #252530;
     }
     .ase-dot {
-      width: 11px;
-      height: 11px;
+      width: 10px;
+      height: 10px;
       border-radius: 9999px;
       border: 1px solid #52525b;
       background: transparent;
     }
     .ase-dot.filled {
-      background: #526675;
-      border-color: #6b8294;
-    }
-    .ase-cel-col.active .ase-dot.filled {
-      background: #d4d4d8;
-      border-color: #ffffff;
-    }
-    .ase-cel-col.active .ase-dot:not(.filled) {
-      border-color: #d4d4d8;
+      background: #60a5fa;
+      border-color: #93c5fd;
     }
   </style>
 </head>
 <body class="flex h-screen w-screen overflow-hidden">
 
   <!-- MAIN WORLD VIEWPORT -->
-  <div id="viewport-container" class="relative flex-1 h-full bg-[#101013] overflow-hidden">
+  <div id="viewport-container" class="relative flex-1 h-full bg-[#0e0f13] overflow-hidden">
     <canvas id="world-canvas" class="block w-full h-full cursor-crosshair"></canvas>
 
     <!-- Minimal Top-Left Engine & Build Bar -->
-    <div id="top-engine-bar" class="absolute top-3 left-3 flex flex-wrap items-center gap-1.5 bg-[#1b1b1f]/95 border border-[#2e2e36] rounded-sm px-2.5 py-1.5 text-[11px] shadow-lg transition-all duration-200">
+    <div id="top-engine-bar" class="studio-panel absolute top-3 left-3 flex flex-wrap items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-[11px] transition-all duration-200">
       <!-- Custom Pixel-Exact LOOMBIT Logo (No grey, O's as eyes) -->
       <div class="flex items-center pr-2 mr-0.5 border-r border-[#2e2e36] select-none" title="LoomBit">
         <svg viewBox="0 0 47 10" class="h-[18px] w-auto block" shape-rendering="crispEdges">
@@ -301,48 +400,61 @@
 
       <!-- Build Tools (Strictly hidden unless in Build mode) -->
       <div id="builder-tools-group" class="hidden items-center gap-1 pl-1 border-l border-[#2e2e36]">
-        <button data-wtool="stamp" class="wtool-btn ase-btn active px-2 py-0.5 text-zinc-100 text-[11px]">Stamp</button>
-        <button data-wtool="line" class="wtool-btn ase-btn px-2 py-0.5 text-zinc-400 text-[11px]">Line</button>
-        <button data-wtool="rect" class="wtool-btn ase-btn px-2 py-0.5 text-zinc-400 text-[11px]">Rect</button>
-        <button data-wtool="erase" class="wtool-btn ase-btn px-2 py-0.5 text-zinc-400 text-[11px]">Erase</button>
-        <button data-wtool="spawn" class="wtool-btn ase-btn px-2 py-0.5 text-zinc-400 text-[11px]">Set Spawn</button>
-        <button id="toggle-floor-btn" class="ase-btn px-2 py-0.5 text-zinc-400 text-[11px]">Y=0 Floor: Off</button>
+        <button data-wtool="stamp" title="Stamp Tool" class="wtool-btn ase-btn active px-2 py-0.5 text-zinc-100 text-[11px]">Stamp</button>
+        <button data-wtool="line" title="Line Tool" class="wtool-btn ase-btn px-2 py-0.5 text-zinc-400 text-[11px]">Line</button>
+        <button data-wtool="rect" title="Rectangle Fill Tool" class="wtool-btn ase-btn px-2 py-0.5 text-zinc-400 text-[11px]">Rect</button>
+        <button data-wtool="erase" title="Erase Blocks" class="wtool-btn ase-btn px-2 py-0.5 text-zinc-400 text-[11px]">Erase</button>
+        <button data-wtool="spawn" title="Set Player Spawn Point" class="wtool-btn ase-btn px-2 py-0.5 text-zinc-400 text-[11px]">Spawn</button>
+        <button id="toggle-grid-btn" title="Toggle Build Grid" class="ase-btn active px-1.5 py-0.5 text-zinc-200 flex items-center justify-center">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+        </button>
+        <button id="toggle-floor-btn" title="Toggle Y=0 Solid Floor" class="ase-btn px-1.5 py-0.5 text-zinc-400 text-[10px]">Y=0</button>
       </div>
 
       <div class="h-3.5 w-[1px] bg-[#2e2e36] mx-0.5"></div>
 
-      <button id="zoom-out-btn" class="ase-btn px-1.5 py-0.5 text-zinc-200 mono">-</button>
-      <span id="zoom-label" class="w-7 text-center mono text-zinc-200">3x</span>
-      <button id="zoom-in-btn" class="ase-btn px-1.5 py-0.5 text-zinc-200 mono">+</button>
+      <button id="zoom-out-btn" title="Zoom Out" class="ase-btn px-1.5 py-0.5 text-zinc-200 mono">-</button>
+      <span id="zoom-label" class="w-6 text-center mono text-zinc-200">3x</span>
+      <button id="zoom-in-btn" title="Zoom In" class="ase-btn px-1.5 py-0.5 text-zinc-200 mono">+</button>
 
       <div class="h-3.5 w-[1px] bg-[#2e2e36] mx-0.5"></div>
 
-      <button id="world-undo-btn" title="Undo World Action (Ctrl+Z)" class="ase-btn px-2 py-0.5 text-zinc-300">Undo</button>
-      <button id="world-redo-btn" title="Redo World Action (Ctrl+Y)" class="ase-btn px-2 py-0.5 text-zinc-300">Redo</button>
-      <button id="toggle-grid-btn" class="ase-btn active px-2 py-0.5 text-zinc-300">Grid</button>
-      <button id="toggle-box-btn" class="ase-btn px-2 py-0.5 text-zinc-500">Hitbox</button>
-      <button id="respawn-btn" class="ase-btn px-2 py-0.5 text-zinc-300">Respawn</button>
-      <button id="open-worlds-btn" title="Open Saved Worlds & Asset Vault" class="ase-btn px-2 py-0.5 text-blue-300">Worlds / Vault</button>
+      <button id="world-undo-btn" title="Undo World Action (Ctrl+Z)" class="ase-btn p-1 text-zinc-300 flex items-center justify-center">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+      </button>
+      <button id="world-redo-btn" title="Redo World Action (Ctrl+Y)" class="ase-btn p-1 text-zinc-300 flex items-center justify-center">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
+      </button>
+      <button id="toggle-box-btn" title="Toggle Collision Hitbox" class="ase-btn p-1 text-zinc-500 flex items-center justify-center">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"><rect x="4" y="4" width="16" height="16"/></svg>
+      </button>
+      <button id="toggle-sound-btn" title="Toggle Tactile Sound Effects" class="ase-btn active p-1 text-zinc-300 flex items-center justify-center">
+        <svg id="sfx-icon-on" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        <svg id="sfx-icon-off" class="hidden" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      </button>
+      <button id="respawn-btn" title="Respawn at Spawn Point" class="ase-btn p-1 text-zinc-300 flex items-center justify-center">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      </button>
+      <button id="open-worlds-btn" title="Saved Worlds" class="ase-btn px-2 py-0.5 text-blue-300 flex items-center gap-1">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span>Worlds</span>
+      </button>
 
-      <div class="h-3.5 w-[1px] bg-[#2e2e36] mx-0.5"></div>
-
-      <span class="text-zinc-400">FPS</span>
-      <input id="world-anim-fps" type="number" min="2" max="24" value="8" class="w-10 bg-[#141417] border border-[#2e2e36] rounded-sm px-1 py-0.5 text-center mono text-zinc-200 focus:outline-none focus:border-blue-500" />
+      <input id="world-anim-fps" type="number" min="2" max="24" value="8" title="Global Walk / World FPS" class="hidden" />
     </div>
 
     <!-- Floating Button to Re-Open Right Drawer when Minimized -->
     <button
       id="expand-drawer-btn"
-      title="Expand Sprite Drawer (Tab)"
-      class="hidden ase-btn absolute top-3 right-3 z-20 px-2.5 py-1.5 text-xs text-zinc-200 items-center gap-1.5 shadow-lg"
+      title="Expand Creations (Tab)"
+      class="hidden ase-btn absolute top-3 right-3 z-20 px-2 py-1 text-xs text-zinc-200 items-center gap-1 shadow-lg"
     >
       <span class="mono">&laquo;</span>
-      <span>Sprites</span>
     </button>
 
     <!-- Minimal Bottom-Left Coordinates & Chat Input -->
     <div class="absolute bottom-3 left-3 flex items-center gap-2">
-      <div id="bottom-coords-pill" class="bg-[#1b1b1f]/90 border border-[#2e2e36] rounded px-2 py-1 text-[11px] mono text-zinc-400 transition-all duration-200">
+      <div id="bottom-coords-pill" class="studio-panel rounded-sm px-2 py-0.5 text-[11px] mono text-zinc-400 transition-all duration-200">
         <span id="world-coords-readout">0, 0</span>
       </div>
 
@@ -352,21 +464,18 @@
         type="text"
         maxlength="60"
         placeholder="Say..."
-        class="hidden w-56 bg-[#1b1b1f] border border-blue-500 rounded px-2.5 py-1 text-xs text-zinc-100 focus:outline-none mono"
+        class="hidden w-56 bg-[#14151b] border border-blue-500 rounded-sm px-2.5 py-1 text-xs text-zinc-100 focus:outline-none mono shadow-lg"
       />
     </div>
 
     <!-- In-World Motion Bar Box Below the Player (Opens with Down / S or when dragging a Motion) -->
     <div
       id="world-motion-bar"
-      class="flex absolute z-30 bg-[#16161c]/95 border-2 border-[#3f3f4e] rounded-sm px-2.5 py-1.5 shadow-2xl flex-col items-center gap-1"
+      class="flex absolute z-30 bg-[#16161c]/95 border-2 border-[#3f3f4e] rounded-sm px-2 py-1.5 shadow-2xl flex-col items-center gap-1"
       style="left: 50%; top: 60%;"
     >
-      <div class="w-full flex items-center justify-between gap-3 text-[9px] text-zinc-400 border-b border-[#2a2a34] pb-0.5">
-        <span id="motion-bar-title" class="text-blue-300 font-bold truncate">BODY MOTIONS</span>
-        <span class="text-zinc-500">Arrows + Enter / Esc</span>
-        <button id="close-motion-bar-btn" class="text-zinc-400 hover:text-white px-1">X</button>
-      </div>
+      <span id="motion-bar-title" class="hidden"></span>
+      <button id="close-motion-bar-btn" class="hidden"></button>
       <div id="motion-bar-slots" class="flex items-center gap-1.5 min-h-[38px] px-1 py-0.5 overflow-x-auto max-w-[360px]">
         <!-- Populated dynamically with built-in Sit/Sleep + Body's bound Motions -->
       </div>
@@ -374,57 +483,47 @@
   </div>
 
   <!-- RIGHT SIDEBAR: SAVED SPRITES DRAWER (COLLAPSIBLE) -->
-  <aside id="right-drawer" class="h-full bg-[#18181c] border-l border-[#2a2a32] flex flex-col shrink-0">
+  <aside id="right-drawer" class="h-full bg-[#15161c] border-l border-[#262834] flex flex-col shrink-0 shadow-2xl">
     <!-- Top Create & Minimize Action -->
-    <div class="p-2.5 border-b border-[#2a2a32] flex items-center justify-between gap-1">
-      <div class="flex items-center gap-1.5">
-        <button
-          id="collapse-drawer-btn"
-          title="Minimize Sidebar (Tab)"
-          class="ase-btn px-1.5 py-0.5 text-zinc-300 text-[11px] mono"
-        >
-          &raquo;
-        </button>
-        <span class="text-[11px] font-medium tracking-tight uppercase text-zinc-300">Creations</span>
-      </div>
+    <div class="p-2 bg-[#111217] border-b border-[#262834] flex items-center justify-between gap-1.5">
+      <button
+        id="collapse-drawer-btn"
+        title="Hide Interface (Tab)"
+        class="ase-btn px-2 py-0.5 text-zinc-300 text-[11px] mono"
+      >
+        &raquo;
+      </button>
+      <input
+        id="sidebar-search-input"
+        type="text"
+        placeholder="Filter..."
+        class="flex-1 min-w-0 bg-[#0c0d11] border border-[#282a36] rounded-sm px-2 py-0.5 text-[10px] text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-blue-500"
+      />
+      <button id="sidebar-search-clear" class="hidden text-[10px] text-zinc-400 hover:text-white px-1">X</button>
       <button
         id="open-create-btn"
-        class="ase-btn-primary px-2.5 py-1 text-[10px] font-medium"
+        title="Create New Object"
+        class="ase-btn-primary px-2.5 py-0.5 text-[10px] font-medium shrink-0"
       >
         + Create
       </button>
     </div>
 
-    <!-- Search Bar for Saved Creations -->
-    <div class="px-2.5 py-1.5 bg-[#141418] border-b border-[#2a2a32] flex items-center gap-1.5">
-      <input
-        id="sidebar-search-input"
-        type="text"
-        placeholder="Search sprites..."
-        class="w-full bg-[#101014] border border-[#2e2e38] rounded-sm px-2 py-1 text-[10px] text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-blue-500"
-      />
-      <button id="sidebar-search-clear" class="hidden text-[10px] text-zinc-400 hover:text-white px-1">X</button>
-    </div>
-
     <!-- Filter Tabs -->
     <div class="grid grid-cols-5 border-b border-[#2a2a32] text-[9px] bg-[#141417]">
-      <button data-filter="all" class="filter-tab py-2 text-center border-b-2 border-blue-500 text-zinc-100 font-medium">All</button>
-      <button data-filter="avatar" class="filter-tab py-2 text-center border-b-2 border-transparent text-zinc-400 hover:text-zinc-200">Bodies</button>
-      <button data-filter="solid" class="filter-tab py-2 text-center border-b-2 border-transparent text-zinc-400 hover:text-zinc-200">Solids</button>
-      <button data-filter="back" class="filter-tab py-2 text-center border-b-2 border-transparent text-zinc-400 hover:text-zinc-200">Back</button>
-      <button data-filter="dynamic" class="filter-tab py-2 text-center border-b-2 border-transparent text-zinc-400 hover:text-zinc-200">Active</button>
+      <button data-filter="all" class="filter-tab py-1.5 text-center border-b-2 border-blue-500 text-zinc-100 font-medium">All</button>
+      <button data-filter="avatar" class="filter-tab py-1.5 text-center border-b-2 border-transparent text-zinc-400 hover:text-zinc-200">Bodies</button>
+      <button data-filter="solid" class="filter-tab py-1.5 text-center border-b-2 border-transparent text-zinc-400 hover:text-zinc-200">Solids</button>
+      <button data-filter="back" class="filter-tab py-1.5 text-center border-b-2 border-transparent text-zinc-400 hover:text-zinc-200">Back</button>
+      <button data-filter="dynamic" class="filter-tab py-1.5 text-center border-b-2 border-transparent text-zinc-400 hover:text-zinc-200">Active</button>
     </div>
 
-    <!-- Equipped Avatar / Brush Indicator -->
-    <div id="active-brush-bar" class="px-3 py-2 bg-[#1c1c21] border-b border-[#2a2a32] text-[11px] flex flex-col gap-1">
-      <div class="flex items-center justify-between">
-        <span id="active-worn-label" class="text-zinc-400 truncate">Body: Wireframe</span>
-        <button id="clear-worn-btn" class="hidden text-[10px] text-zinc-400 hover:text-zinc-200 underline">Reset</button>
-      </div>
-      <div class="flex items-center justify-between">
-        <span id="active-brush-label" class="text-zinc-400 truncate">Brush: None</span>
-        <button id="clear-brush-btn" class="hidden text-[10px] text-zinc-400 hover:text-zinc-200 underline">Unequip</button>
-      </div>
+    <!-- Compact Single-Line Equipped Status Bar (Hidden when nothing custom is selected) -->
+    <div id="active-brush-bar" class="px-2.5 py-1 bg-[#1c1c21] border-b border-[#2a2a32] text-[10px] flex items-center justify-between gap-2">
+      <span id="active-worn-label" class="text-zinc-400 truncate">Wireframe</span>
+      <button id="clear-worn-btn" title="Unequip Body/Items" class="hidden text-[9px] text-zinc-400 hover:text-white px-1">✕</button>
+      <span id="active-brush-label" class="text-blue-300 truncate"></span>
+      <button id="clear-brush-btn" title="Unequip Brush" class="hidden text-[9px] text-zinc-400 hover:text-white px-1">✕</button>
     </div>
 
     <!-- Saved Sprites Grid (Starts Completely Empty) -->
@@ -437,16 +536,13 @@
           <rect x="36" y="3" width="2" height="1" fill="#c7dcff" />
         </svg>
         <p class="text-xs text-zinc-500">No saved creations.</p>
-        <p class="text-[11px] text-zinc-600 mt-1">Click "+ Create" to draw or paste sprites from Aseprite.</p>
       </div>
       <div id="sprite-grid" class="grid grid-cols-2 gap-2.5 hidden"></div>
     </div>
 
     <!-- Export / Import Project Footer -->
-    <div class="p-2.5 border-t border-[#2a2a32] flex items-center justify-between text-[11px] text-zinc-400 bg-[#151519]">
-      <div class="flex items-center gap-1">
-        <button id="clear-world-btn" title="Clear all tiles (Requires confirmation)" class="ase-btn px-2 py-0.5">Clear World</button>
-      </div>
+    <div class="p-2 border-t border-[#2a2a32] flex items-center justify-between text-[10px] text-zinc-400 bg-[#151519]">
+      <button id="clear-world-btn" title="Clear all placed blocks (Requires confirmation)" class="ase-btn px-2 py-0.5">Clear</button>
       <div class="flex items-center gap-1">
         <button id="export-json-btn" title="Export Project File (.json)" class="ase-btn px-2 py-0.5">Save</button>
         <label title="Load Project or Asset Pack (.json)" class="ase-btn px-2 py-0.5 cursor-pointer">
@@ -458,79 +554,78 @@
   </aside>
 
   <!-- CREATE / EDIT SPRITE MODAL (Manyland + Aseprite Hybrid) -->
-  <div id="editor-modal" class="smooth-modal fixed inset-0 bg-black/75 z-40 flex items-center justify-center p-3">
-    <div class="smooth-modal-box bg-[#1b1b20] border-2 border-[#383844] rounded-sm shadow-2xl w-[95vw] max-w-6xl h-[90vh] flex flex-col overflow-hidden">
+  <div id="editor-modal" class="smooth-modal fixed inset-0 bg-black/80 z-40 flex items-center justify-center p-3">
+    <div class="smooth-modal-box studio-panel rounded-sm w-[95vw] max-w-6xl h-[90vh] flex flex-col overflow-hidden">
       <!-- Modal Header -->
-      <div class="px-4 py-2.5 bg-[#151519] border-b border-[#2a2a32] flex flex-wrap items-center justify-between gap-3">
-        <div class="flex flex-wrap items-center gap-2.5">
-          <!-- Name Input (Manyland style NAME...) -->
+      <div class="px-3.5 py-2 bg-[#111217] border-b border-[#262834] flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Name Input -->
           <input
             id="sprite-name-input"
             type="text"
-            placeholder="NAME..."
+            placeholder="Name..."
             value="Untitled"
             class="bg-[#121216] border border-[#34343e] rounded-sm px-2.5 py-1 text-xs text-zinc-100 w-36 mono focus:outline-none focus:border-blue-500"
           />
 
-          <!-- Manyland TYPE... Selector Button (Opens the 30-type menu) -->
+          <!-- Manyland TYPE Selector Button -->
           <button
             id="open-type-picker-btn"
-            class="ase-btn px-3 py-1 text-xs mono text-zinc-100 flex items-center gap-2"
+            title="Change Object Type (Ctrl+F)"
+            class="ase-btn px-2.5 py-1 text-xs mono text-zinc-100 flex items-center gap-1.5"
           >
-            <span class="text-zinc-400">TYPE:</span>
             <span id="current-type-label" class="font-semibold text-blue-400">BODY</span>
-            <span class="text-zinc-500 text-[10px]">&#9660;</span>
+            <span class="text-zinc-500 text-[9px]">&#9660;</span>
           </button>
 
-          <!-- Subtype Selector (Manyland subtypes per category) -->
+          <!-- Subtype Selector -->
           <select
             id="subtype-select"
+            title="Object Subtype"
             class="bg-[#222228] border border-[#34343e] rounded-sm px-2 py-1 text-xs text-zinc-200 focus:outline-none focus:border-blue-500"
           ></select>
 
           <!-- Sittable / Layable Pose Selector for World Creations -->
           <select
             id="pose-type-select"
-            title="Allow players to Sit or Lay/Sleep on this object when pressing Down"
+            title="Player Pose on Object"
             class="hidden bg-[#222228] border border-[#34343e] rounded-sm px-2 py-1 text-xs text-emerald-300 focus:outline-none focus:border-blue-500"
           >
             <option value="none">Pose: None</option>
-            <option value="sit">Pose: Sittable (Sit)</option>
-            <option value="lay">Pose: Layable (Sleep / Lay)</option>
+            <option value="sit">Sittable</option>
+            <option value="lay">Layable</option>
           </select>
 
           <!-- Motion Special Effect Selector (When editing BODY -> Motion) -->
           <select
             id="motion-fx-select"
-            title="Special effect when this Body Motion is triggered"
+            title="Motion Particle Effect"
             class="hidden bg-[#222228] border border-[#34343e] rounded-sm px-2 py-1 text-xs text-amber-300 focus:outline-none focus:border-blue-500"
           >
-            <option value="none">FX: Standard</option>
-            <option value="sleep">FX: Sleep (Floating Zs)</option>
-            <option value="smoke">FX: Smoke Cloud Puff</option>
-            <option value="sparkle">FX: Sparkle Burst</option>
+            <option value="none">FX: None</option>
+            <option value="sleep">FX: Zzz</option>
+            <option value="smoke">FX: Smoke</option>
+            <option value="sparkle">FX: Sparkle</option>
           </select>
 
           <!-- Movable Dynamic / Interacting Code Window Trigger Button ([...] in Manyland) -->
           <button
             id="open-code-popup-btn"
-            title="Open Movable Dynamic Code & Layer Script Editor"
-            class="hidden ase-btn px-2.5 py-1 text-xs mono text-blue-300 items-center gap-1.5"
+            title="Open Dynamic Layer Script Editor"
+            class="hidden ase-btn px-2 py-1 text-xs mono text-blue-300 items-center gap-1"
           >
-            <span>[...] Code</span>
+            <span>[...]</span>
           </button>
 
-          <!-- Manyland LIGHT Controls (= LIGHT color, Alpha strength, and CHANGE mode) -->
-          <div id="light-controls-group" class="hidden items-center gap-2 bg-[#202027] border border-amber-500/40 rounded-sm px-2 py-0.5">
-            <input id="light-color-picker" type="color" value="#ffe896" class="w-5 h-5 bg-transparent border-0 cursor-pointer p-0" title="Choose Light Color" />
-            <span class="text-[11px] text-amber-200 mono">= LIGHT</span>
-            <button id="use-active-for-light-btn" class="ase-btn px-1.5 py-0.5 text-[10px]" title="Use active brush color as Light color">Set Current</button>
-            <span class="text-[11px] text-zinc-400 mono ml-1">Alpha</span>
-            <input id="light-alpha-slider" type="range" min="5" max="100" value="45" class="w-16 accent-amber-400 h-1.5 bg-[#141418] rounded" />
-            <span id="light-alpha-label" class="text-[11px] text-amber-200 mono w-8 text-right">45%</span>
+          <!-- Manyland LIGHT Controls -->
+          <div id="light-controls-group" class="hidden items-center gap-1.5 bg-[#202027] border border-amber-500/40 rounded-sm px-2 py-0.5">
+            <input id="light-color-picker" type="color" value="#ffe896" class="w-5 h-5 bg-transparent border-0 cursor-pointer p-0" title="Light Color" />
+            <button id="use-active-for-light-btn" class="ase-btn px-1.5 py-0.5 text-[9px]" title="Use active brush color as Light color">Pick</button>
+            <input id="light-alpha-slider" type="range" min="5" max="100" value="45" title="Light Intensity" class="w-14 accent-amber-400 h-1.5 bg-[#141418] rounded" />
+            <span id="light-alpha-label" class="text-[10px] text-amber-200 mono w-7 text-right">45%</span>
             <select
               id="light-option-select"
-              title="Light Mode (CHANGE)"
+              title="Light Mode"
               class="bg-[#18181e] border border-[#34343e] rounded-sm px-1.5 py-0.5 text-xs text-amber-200 focus:outline-none"
             ></select>
           </div>
@@ -539,33 +634,33 @@
           <input
             id="dynamic-code-input"
             type="text"
-            placeholder="Text or message..."
-            class="hidden bg-[#121216] border border-[#34343e] rounded-sm px-2 py-1 text-xs text-zinc-100 w-44 mono focus:outline-none focus:border-blue-500"
+            placeholder="Text / Speech..."
+            class="hidden bg-[#121216] border border-[#34343e] rounded-sm px-2 py-1 text-xs text-zinc-100 w-40 mono focus:outline-none focus:border-blue-500"
           />
 
-          <!-- Grid Dimensions -->
-          <div class="flex items-center gap-1 text-xs text-zinc-400 pl-1 border-l border-[#2a2a32]">
-            <input id="canvas-w-input" type="number" min="4" max="128" value="29" class="w-12 bg-[#121216] border border-[#34343e] rounded-sm px-1 py-1 text-center mono text-zinc-100" />
-            <span>x</span>
-            <input id="canvas-h-input" type="number" min="4" max="128" value="29" class="w-12 bg-[#121216] border border-[#34343e] rounded-sm px-1 py-1 text-center mono text-zinc-100" />
-            <button id="resize-canvas-btn" class="ase-btn px-2 py-1">Resize</button>
+          <!-- Grid Dimensions (Auto-applies on change) -->
+          <div class="flex items-center gap-1 text-xs text-zinc-400 pl-1.5 border-l border-[#2a2a32]" title="Canvas Width × Height">
+            <input id="canvas-w-input" type="number" min="4" max="128" value="29" class="w-12 bg-[#121216] border border-[#34343e] rounded-sm px-1 py-0.5 text-center mono text-zinc-100" />
+            <span>×</span>
+            <input id="canvas-h-input" type="number" min="4" max="128" value="29" class="w-12 bg-[#121216] border border-[#34343e] rounded-sm px-1 py-0.5 text-center mono text-zinc-100" />
+            <button id="resize-canvas-btn" class="hidden">Resize</button>
           </div>
         </div>
 
-        <!-- PNG / Aseprite / Paint.NET I/O Actions -->
-        <div class="flex items-center gap-1.5 text-[10px]">
-          <label title="Import PNG or Spritesheet from Aseprite / Paint.NET" class="ase-btn px-2 py-1 cursor-pointer">
-            Import PNG
+        <!-- Compact Icon PNG / Aseprite / Paint.NET I/O Actions -->
+        <div class="flex items-center gap-1">
+          <label title="Import PNG or Spritesheet" class="ase-btn p-1.5 cursor-pointer text-zinc-200 flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <input id="import-png-input" type="file" accept="image/png,image/gif,image/webp" class="hidden" />
           </label>
-          <button id="copy-png-clipboard-btn" title="Copy current Cel (or selection) as PNG to Clipboard for pasting into Aseprite / Paint.NET" class="ase-btn px-2 py-1 text-emerald-300">
-            Copy PNG
+          <button id="copy-png-clipboard-btn" title="Copy Cel as PNG to Clipboard" class="ase-btn p-1.5 text-emerald-300 flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </button>
-          <button id="export-cel-png-btn" title="Download current Cel as a transparent PNG" class="ase-btn px-2 py-1 text-zinc-200">
-            Out Cel
+          <button id="export-cel-png-btn" title="Download Current Cel PNG" class="ase-btn p-1.5 text-zinc-200 flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </button>
-          <button id="export-strip-png-btn" title="Download horizontal PNG spritesheet strip of all Cels for Aseprite" class="ase-btn px-2 py-1 text-blue-300">
-            Out Strip
+          <button id="export-strip-png-btn" title="Download Full Spritesheet Strip PNG" class="ase-btn p-1.5 text-blue-300 flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="1"/><line x1="8" y1="6" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="18"/></svg>
           </button>
         </div>
       </div>
@@ -599,10 +694,10 @@
           <button data-tool="eraser" title="Eraser (E)" class="tool-btn">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
           </button>
-          <button data-tool="fill" title="Bucket Fill (G)" class="tool-btn">
+          <button data-tool="fill" title="Bucket Fill (G or Hold Alt)" class="tool-btn">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z"/></svg>
           </button>
-          <button data-tool="picker" title="Eyedropper (Alt+Click or I)" class="tool-btn">
+          <button data-tool="picker" title="Eyedropper (Hold Shift or I)" class="tool-btn">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/></svg>
           </button>
           <button id="brush-size-btn" title="Brush Size (Ctrl+Mousewheel to adjust)" class="tool-btn mono text-[10px]">1px</button>
@@ -633,7 +728,7 @@
 
         <!-- Center Drawing Surface (Grab-and-Drag Panning, No Scrollbars) -->
         <div id="paint-stage" class="flex-1 bg-[#121215] flex flex-col items-center justify-center relative p-4 overflow-hidden select-none">
-          <!-- Top-Left Selection / Brush Context Subbar -->
+          <!-- Top-Left Selection / Move Context Subbar (Only visible when Marquee or Move is active) -->
           <div class="absolute top-2.5 left-3 z-20 flex items-center gap-1.5 pointer-events-auto">
             <!-- Marquee Mode Switcher (Rect, Circle, Magic Wand) -->
             <div id="marquee-subbar" class="hidden items-center bg-[#1b1b22] border border-[#343440] p-0.5 rounded-sm gap-0.5 shadow-md">
@@ -641,29 +736,20 @@
               <button data-mtype="circle" title="Elliptical / Circle Marquee" class="mtype-btn ase-btn px-2 py-0.5 text-[9px]">Circle</button>
               <button data-mtype="wand" title="Magic Wand Contiguous Color Select (W)" class="mtype-btn ase-btn px-2 py-0.5 text-[9px]">Wand</button>
             </div>
-            <!-- Brush Quick Bar -->
-            <div class="flex items-center bg-[#1b1b22]/90 border border-[#2e2e38] px-2 py-0.5 rounded-sm gap-1.5 text-[9px] text-zinc-400">
-              <span id="active-tool-readout" class="text-zinc-200">Pencil (1px ■)</span>
-              <span class="text-zinc-600">|</span>
-              <span>Alt: Fill</span>
-              <span class="text-zinc-600">|</span>
-              <span>Ctrl+Drag: Move</span>
-              <span class="text-zinc-600">|</span>
-              <span>Ctrl+Wheel: Size</span>
-            </div>
+            <span id="active-tool-readout" class="hidden"></span>
             <!-- Move Mode Active Indicator Pill -->
             <div id="move-mode-pill" class="hidden items-center gap-1 bg-blue-600/95 border border-blue-300 text-white px-2 py-0.5 rounded-sm text-[9px] shadow-md">
-              <span>&#10021; MOVE ACTIVE — Drag canvas to shift cel</span>
+              <span>&#10021; MOVE</span>
             </div>
           </div>
 
           <!-- Floating Brush Size Change Preview Toast -->
           <div id="brush-size-toast" class="pointer-events-none opacity-0 transition-opacity duration-150 absolute top-11 left-1/2 -translate-x-1/2 z-30 bg-[#16161d]/95 border border-blue-400/70 px-3 py-1.5 rounded-sm shadow-xl flex items-center gap-2.5">
             <div id="brush-toast-box" class=" border border-white/80 bg-blue-400/30 flex items-center justify-center"></div>
-            <span id="brush-toast-label" class="text-[10px] text-zinc-100 mono">Brush: 1px ■</span>
+            <span id="brush-toast-label" class="text-[10px] text-zinc-100 mono">1px</span>
           </div>
 
-          <!-- Top-Right Combinable Aseprite Symmetry Presets Bar (Matches Screenshot) -->
+          <!-- Top-Right Combinable Aseprite Symmetry Presets Bar -->
           <div id="symmetry-popover" class="hidden absolute top-2.5 right-3 z-20 items-center bg-[#1c1c22] border-2 border-[#111115] p-0.5 rounded-xs shadow-xl gap-0.5">
             <!-- 1. Vertical Symmetry | -->
             <button data-sym="x" title="Vertical Axis Symmetry (|)" class="sym-preset-btn ase-btn w-7 h-7 flex items-center justify-center">
@@ -698,21 +784,25 @@
               ...
             </button>
           </div>
-
-          <div id="paint-wrapper" class="relative bg-[#1c1c21] border-2 border-[#383842] shadow-inner flex items-center justify-center my-auto transition-colors">
+          <div id="paint-wrapper" class="relative bg-[#585866] border-2 border-[#383842] shadow-inner flex items-center justify-center my-auto transition-colors">
             <canvas id="paint-canvas" class="block cursor-crosshair"></canvas>
           </div>
           <div class="absolute bottom-2.5 left-3 right-3 z-20 flex items-center justify-between text-[10px] text-zinc-400 mono pointer-events-none">
             <span id="cursor-coords" class="bg-[#18181d]/90 px-1.5 py-0.5 rounded border border-[#2a2a32]">0, 0</span>
             <div class="flex items-center gap-1 pointer-events-auto bg-[#18181d]/95 px-1.5 py-0.5 rounded border border-[#2a2a32]">
               <button id="canvas-zoom-out-btn" class="px-1.5 hover:text-white" title="Zoom Out Canvas">-</button>
-              <span id="canvas-zoom-label" class="w-9 text-center text-zinc-200">10x</span>
+              <span id="canvas-zoom-label" class="w-8 text-center text-zinc-200">10x</span>
               <button id="canvas-zoom-in-btn" class="px-1.5 hover:text-white" title="Zoom In Canvas">+</button>
-              <button id="canvas-zoom-fit-btn" class="px-1.5 text-[9px] text-zinc-400 hover:text-white border-l border-[#2e2e36]" title="Reset Canvas Zoom & Center">Fit</button>
+              <button id="canvas-zoom-fit-btn" class="px-1.5 text-zinc-300 hover:text-white border-l border-[#2e2e36] flex items-center justify-center" title="Center & Fit Canvas">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              </button>
+              <button id="canvas-grid-toggle-btn" class="px-1.5 text-blue-300 hover:text-white border-l border-[#2e2e36] flex items-center justify-center" title="Toggle Pixel Grid">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+              </button>
             </div>
-            <label class="flex items-center gap-1.5 cursor-pointer pointer-events-auto bg-[#18181d]/90 px-1.5 py-0.5 rounded border border-[#2a2a32]">
+            <label title="Auto-resize canvas when pasting an image" class="flex items-center gap-1 cursor-pointer pointer-events-auto bg-[#18181d]/90 px-1.5 py-0.5 rounded border border-[#2a2a32]">
               <input id="auto-resize-paste" type="checkbox" class="accent-blue-500" />
-              <span>Fit on paste</span>
+              <span class="text-[9px]">Fit Paste</span>
             </label>
           </div>
         </div>
@@ -722,15 +812,19 @@
           <!-- Aseprite-Style Dynamic Used Color Bar + Spectrum -->
           <div class="flex flex-col gap-2">
             <div class="flex items-center justify-between">
-              <span class="text-[11px] text-zinc-400">Used / Pinned Colors</span>
               <div class="flex items-center gap-1">
-                <button id="add-swatch-btn" title="Pin current color to bar" class="ase-btn px-1.5 py-0.5 text-[10px]">+ Pin</button>
-                <button id="extract-palette-btn" title="Extract colors from current sprite" class="ase-btn px-1.5 py-0.5 text-[10px]">From Sprite</button>
+                <button id="add-swatch-btn" title="Pin current color to palette" class="ase-btn px-2 py-0.5 text-[10px]">+</button>
+                <button id="extract-palette-btn" title="Extract colors from current sprite" class="ase-btn p-1 flex items-center justify-center">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+                </button>
               </div>
+              <button id="clear-palette-btn" title="Reset palette to Black & White" class="ase-btn p-1 text-zinc-400 flex items-center justify-center">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg>
+              </button>
             </div>
 
-            <!-- Used Color History Swatches (Starts minimal: Transparent, Black, White) -->
-            <div id="palette-grid" class="grid grid-cols-8 gap-1 p-1.5 bg-[#101014] border border-[#2a2a32] rounded min-h-[58px] max-h-[112px] overflow-y-auto content-start"></div>
+            <!-- Used Color History Swatches (Fixed 3x8 = 24 slots max, no scrollbar) -->
+            <div id="palette-grid" class="grid grid-cols-8 gap-1 p-1.5 bg-[#101014] border border-[#2a2a32] rounded min-h-[58px] overflow-hidden content-start"></div>
 
             <!-- Aseprite Saturation / Value 2D Box + Hue Strip + Alpha Slider -->
             <div class="flex flex-col gap-1.5 bg-[#121216] p-2 border border-[#2a2a32] rounded">
@@ -747,8 +841,7 @@
 
               <!-- Alpha / Opacity Slider -->
               <div class="flex items-center gap-2 text-[10px] text-zinc-400">
-                <span class="w-9 shrink-0 mono">Alpha</span>
-                <input id="alpha-slider" type="range" min="1" max="255" value="255" class="flex-1 min-w-0 accent-blue-500 h-1.5 bg-[#222228] rounded" />
+                <input id="alpha-slider" type="range" min="1" max="255" value="255" title="Brush Opacity" class="flex-1 min-w-0 accent-blue-500 h-1.5 bg-[#222228] rounded" />
                 <span id="alpha-label" class="w-8 shrink-0 text-right mono text-zinc-300">100%</span>
               </div>
 
@@ -766,15 +859,13 @@
           <!-- Live Animation / Context-Aware Preview -->
           <div class="border-t border-[#2a2a32] pt-2.5">
             <div class="flex items-center justify-between text-[11px] text-zinc-400 mb-1.5">
+              <button id="preview-play-toggle-btn" title="Play / Pause Preview" class="ase-btn p-1.5 text-zinc-200 flex items-center justify-center">
+                <svg id="preview-pause-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                <svg id="preview-play-icon" class="hidden" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              </button>
               <div class="flex items-center gap-1.5">
-                <span>Preview</span>
-                <button id="preview-play-toggle-btn" title="Play / Pause Preview Animation" class="ase-btn px-1.5 py-0 text-[9px] text-zinc-200">Pause</button>
-              </div>
-              <div class="flex items-center gap-1">
-                <span id="preview-state-label" class="mono text-zinc-300 text-[10px] mr-1">Cycle</span>
-                <button id="preview-fps-down-btn" title="Slower Animation FPS" class="ase-btn px-1 py-0 text-[9px] mono">-</button>
-                <input id="preview-fps-input" type="number" min="1" max="60" value="8" title="Animation Speed (FPS)" class="w-9 bg-[#121216] border border-[#34343e] rounded-sm px-0.5 py-0 text-center mono text-[10px] text-zinc-100 focus:outline-none focus:border-blue-500" />
-                <button id="preview-fps-up-btn" title="Faster Animation FPS" class="ase-btn px-1 py-0 text-[9px] mono">+</button>
+                <span id="preview-state-label" class="mono text-zinc-300 text-[10px]">Walk</span>
+                <input id="preview-fps-input" type="number" min="1" max="60" value="8" title="Animation Speed (FPS)" class="w-12 bg-[#121216] border border-[#34343e] rounded-sm px-1 py-0.5 text-center mono text-[10px] text-zinc-100 focus:outline-none focus:border-blue-500" />
               </div>
             </div>
             <div id="preview-box-bg" class="h-28 checkerboard border border-[#2e2e36] rounded flex items-center justify-center relative overflow-hidden">
@@ -787,26 +878,38 @@
       </div>
 
       <!-- Bottom Aseprite-Style Compact Animation Cels Strip -->
-      <div class="px-4 py-2 bg-[#151519] border-t border-[#2a2a32] flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center gap-2 overflow-x-auto">
-          <div class="flex items-center border border-[#2a2a32] rounded-sm overflow-hidden" id="frames-container">
-            <!-- Dynamically populated Aseprite-style numbered cel columns -->
+      <div class="px-3.5 py-2 bg-[#151519] border-t border-[#2a2a32] flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 overflow-x-auto max-w-full py-0.5">
+          <div class="flex items-center border border-[#2a2a32] rounded-sm overflow-hidden shrink-0" id="frames-container">
+            <!-- Dynamically populated state-badged cel columns -->
           </div>
-          <span id="active-cel-name-badge" class="text-[10px] text-zinc-300 mono pl-1">1: Stand</span>
-          <!-- Smart State Assignment Dropdown for Multi-State Types (e.g. Body, Wearable) -->
-          <select
-            id="cel-state-select"
-            title="Assign which animation state this Cel belongs to"
-            class="hidden bg-[#1e1e26] border border-[#343442] rounded-sm px-1.5 py-0.5 text-[10px] text-blue-300 focus:outline-none"
-          ></select>
+          <div class="flex items-center gap-1.5 pl-1 shrink-0">
+            <span id="active-cel-name-badge" class="hidden"></span>
+            <!-- Smart State Assignment Dropdown for Multi-State Types (e.g. Body, Wearable) -->
+            <select
+              id="cel-state-select"
+              title="Cel State"
+              class="hidden bg-[#1e1e26] border border-[#343442] rounded-sm px-1.5 py-0.5 text-[10px] text-blue-300 focus:outline-none"
+            ></select>
+          </div>
         </div>
 
-        <div class="flex items-center gap-1.5">
-          <button id="add-frame-btn" title="Insert New Cel into Current State" class="ase-btn px-2.5 py-1 text-[10px]">+ Cel</button>
-          <button id="del-frame-btn" title="Delete Active Cel" class="ase-btn px-2.5 py-1 text-[10px]">- Cel</button>
+        <div class="flex items-center gap-1 shrink-0">
+          <button id="move-cel-left-btn" title="Move Active Cel Left" class="ase-btn px-2 py-1 text-[10px] mono">&lt;</button>
+          <button id="move-cel-right-btn" title="Move Active Cel Right" class="ase-btn px-2 py-1 text-[10px] mono">&gt;</button>
+          <button id="sort-cels-state-btn" title="Sort Cels by State Order" class="ase-btn p-1.5 text-amber-300 flex items-center justify-center">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="13" y2="6"/><line x1="4" y1="12" x2="11" y2="12"/><line x1="4" y1="18" x2="11" y2="18"/><polyline points="15 15 18 18 21 15"/><line x1="18" y1="6" x2="18" y2="18"/></svg>
+          </button>
           <div class="h-4 w-[1px] bg-[#2e2e36] mx-0.5"></div>
-          <button id="copy-cel-btn" title="Copy Selection or Active Cel (Ctrl+C)" class="ase-btn px-2.5 py-1 text-[10px]">Copy</button>
-          <button id="paste-cel-btn" title="Paste Selection or Cel (Ctrl+V)" class="ase-btn px-2.5 py-1 text-[10px]">Paste</button>
+          <button id="add-frame-btn" title="Add Cel (+)" class="ase-btn px-2.5 py-1 text-[10px] mono font-bold">+</button>
+          <button id="del-frame-btn" title="Delete Active Cel (-)" class="ase-btn px-2.5 py-1 text-[10px] mono font-bold">-</button>
+          <div class="h-4 w-[1px] bg-[#2e2e36] mx-0.5"></div>
+          <button id="copy-cel-btn" title="Copy Selection or Cel (Ctrl+C)" class="ase-btn p-1.5 text-zinc-200 flex items-center justify-center">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+          <button id="paste-cel-btn" title="Paste Selection or Cel (Ctrl+V)" class="ase-btn p-1.5 text-zinc-200 flex items-center justify-center">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+          </button>
         </div>
       </div>
 
@@ -896,11 +999,11 @@
     </div>
   </div>
 
-  <!-- SAVED WORLDS & ASSET VAULT MODAL -->
+  <!-- SAVED WORLDS MODAL -->
   <div id="worlds-vault-modal" class="smooth-modal fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-    <div class="smooth-modal-box bg-[#18181d] border-2 border-[#3f3f4a] rounded-sm w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[82vh]">
+    <div class="smooth-modal-box studio-panel rounded-sm w-full max-w-2xl overflow-hidden flex flex-col max-h-[82vh]">
       <!-- Header -->
-      <div class="px-4 py-2.5 bg-[#121216] border-b border-[#2e2e38] flex items-center justify-between">
+      <div class="px-4 py-2.5 bg-[#111217] border-b border-[#262834] flex items-center justify-between">
         <div class="flex items-center gap-3">
           <svg viewBox="0 0 47 10" class="h-4 w-auto block" shape-rendering="crispEdges">
             <rect width="47" height="10" fill="#000000" />
@@ -908,28 +1011,28 @@
             <rect x="36" y="1" width="2" height="2" fill="#639bff" />
             <rect x="36" y="3" width="2" height="1" fill="#c7dcff" />
           </svg>
-          <span class="text-xs font-bold text-zinc-300">WORLDS & ASSET VAULT</span>
-          <span id="autosave-status-badge" class="text-[9px] text-emerald-400 bg-emerald-950/60 border border-emerald-700/50 px-2 py-0.5 rounded-sm">Auto-Saved Locally</span>
+          <span class="text-xs font-bold text-zinc-200 tracking-wider">WORLDS</span>
+          <span id="autosave-status-badge" class="text-[9px] text-emerald-400 bg-emerald-950/60 border border-emerald-700/50 px-2 py-0.5 rounded-sm">Auto-Saved</span>
         </div>
         <button id="close-worlds-modal-btn" class="ase-btn px-2.5 py-0.5 text-xs">X</button>
       </div>
 
-      <!-- Body: Split into Saved Worlds & Asset Vault -->
+      <!-- Body: Saved Worlds & Sprite Pack Exchange -->
       <div class="p-4 overflow-y-auto space-y-4 text-xs">
         <!-- Save Current World Slot Bar -->
-        <div class="bg-[#141418] border border-[#2a2a34] p-3 rounded-sm flex flex-wrap items-center justify-between gap-2">
+        <div class="bg-[#121318] border border-[#262834] p-3 rounded-sm flex flex-wrap items-center justify-between gap-2">
           <div class="flex items-center gap-2 flex-1">
-            <span class="text-zinc-400 text-[10px]">WORLD NAME:</span>
+            <span class="text-zinc-400 text-[10px]">WORLD:</span>
             <input
               id="save-world-name-input"
               type="text"
-              placeholder="My Sandbox World"
-              value="Sandbox 1"
-              class="bg-[#0f0f13] border border-[#343440] rounded-sm px-2.5 py-1 text-xs text-zinc-100 flex-1 focus:outline-none focus:border-blue-500"
+              placeholder="World Name"
+              value="World 1"
+              class="bg-[#0c0d11] border border-[#2e303e] rounded-sm px-2.5 py-1 text-xs text-zinc-100 flex-1 focus:outline-none focus:border-blue-500"
             />
           </div>
           <div class="flex items-center gap-1.5">
-            <button id="save-world-slot-btn" class="ase-btn-primary px-3 py-1 text-[10px] font-semibold">+ Save World Slot</button>
+            <button id="save-world-slot-btn" class="ase-btn-primary px-3 py-1 text-[10px] font-semibold">+ Save World</button>
             <button id="modal-reset-world-btn" class="ase-btn px-2.5 py-1 text-[10px] text-amber-300">Reset to Starter</button>
           </div>
         </div>
@@ -937,30 +1040,25 @@
         <!-- Saved Worlds List -->
         <div>
           <div class="flex items-center justify-between mb-1.5">
-            <span class="text-[10px] uppercase text-zinc-400">Saved World Slots (Stored in Browser)</span>
-            <span id="saved-worlds-count" class="text-[10px] text-zinc-500">0 slots</span>
+            <span class="text-[10px] uppercase text-zinc-400">Saved Worlds</span>
+            <span id="saved-worlds-count" class="text-[10px] text-zinc-500">0 worlds</span>
           </div>
-          <div id="saved-worlds-list" class="bg-[#121216] border border-[#2a2a34] rounded-sm divide-y divide-[#23232c] max-h-56 overflow-y-auto">
+          <div id="saved-worlds-list" class="bg-[#111217] border border-[#262834] rounded-sm divide-y divide-[#20222c] max-h-56 overflow-y-auto">
             <!-- Populated dynamically -->
           </div>
         </div>
 
-        <!-- Asset Vault & External Program Interop -->
-        <div class="bg-[#141418] border border-[#2a2a34] p-3 rounded-sm space-y-2.5">
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="text-zinc-200 font-semibold text-[11px]">Sprite Asset Vault & Aseprite / Paint.NET Exchange</div>
-              <div class="text-[10px] text-zinc-400">Your sprites are automatically backed up locally. You can also export/import sprite packs or PNG strips.</div>
-            </div>
-          </div>
-          <div class="flex flex-wrap items-center gap-2 pt-1">
-            <button id="export-assets-only-btn" class="ase-btn px-2.5 py-1 text-[10px] text-emerald-300">Export Sprite Pack (.json)</button>
+        <!-- Sprite Pack & PNG Strip Exchange -->
+        <div class="bg-[#121318] border border-[#262834] p-3 rounded-sm space-y-2">
+          <div class="text-zinc-200 font-semibold text-[11px]">Sprite Library & PNG Strip Exchange</div>
+          <div class="flex flex-wrap items-center gap-2 pt-0.5">
+            <button id="export-assets-only-btn" class="ase-btn px-2.5 py-1 text-[10px] text-emerald-300">Export Pack (.json)</button>
             <label class="ase-btn px-2.5 py-1 text-[10px] text-blue-300 cursor-pointer">
-              Import Sprite Pack (Merge)
+              Import Pack
               <input id="import-assets-merge-input" type="file" accept=".json" class="hidden" />
             </label>
-            <button id="export-all-strips-btn" class="ase-btn px-2.5 py-1 text-[10px] text-amber-200">Export All Sprites as PNG Strips</button>
-            <button id="restore-autosave-btn" class="ase-btn px-2.5 py-1 text-[10px] text-zinc-300">Reload Auto-Backup</button>
+            <button id="export-all-strips-btn" class="ase-btn px-2.5 py-1 text-[10px] text-amber-200">Export All PNG Strips</button>
+            <button id="restore-autosave-btn" class="ase-btn px-2.5 py-1 text-[10px] text-zinc-300">Reload Backup</button>
           </div>
         </div>
       </div>
@@ -1170,7 +1268,8 @@
       deleteAnimations: [],   // Smooth shrink/dissolve animations when erasing blocks
       floatingTexts: [],      // Damage numbers / status popups in viewport
       projectiles: [],        // Thrown Holdables, Emitter shots, Item Thrower particles
-      particles: [],          // Sparkling, Crumbling, Environment particles
+      particles: [],          // Sparkling, Crumbling, Dust, Blood, Splash particles
+      liquidSplashes: [],     // Expanding surface ripples when splashing into liquid
       linerPoints: [],        // Drawn lines from Holdable: Liner
 
       zoom: 3,
@@ -1178,6 +1277,7 @@
       showGrid: true,
       hardFloorY0: false,
       showHitbox: false,
+      soundEnabled: true,
       walkFps: 8,
       chatOpen: false,
       activatorTimer: 0,      // Timed activation from Activater blocks
@@ -1210,6 +1310,7 @@
         onGround: false,
         onLadder: false,
         inLiquid: false,
+        liquidSurfaceY: null,
         onSlidey: false,
         onSticky: false,
         sitting: false,
@@ -1272,6 +1373,7 @@
       w: 29,
       h: 29,
       canvasZoom: 0,          // 0 = auto-fit, >0 = manual pixel zoom scale
+      showCanvasGrid: true,   // Toggleable pixel grid in Create Menu
       showPivotCoords: false, // Toggled with 'P' key per Manyland Wiki
       frames: [],
       frameDims: [],          // Supports per-cell sizes (e.g., Light Glow: Cell 1 is 19x19, Cell 2 is 38x38)
@@ -1296,6 +1398,7 @@
       marqueeAction: null,    // 'selecting' | 'moving' | null
       marqueeDragOrigin: null,
       clipboardSelection: null, // { w, h, data: Uint8ClampedArray }
+      preferInternalClipboard: false,
 
       // Color & Aseprite HSV + Alpha + Used History
       color: '#ffffff',
@@ -1303,13 +1406,24 @@
       hsv: { h: 0, s: 0, v: 1 },
       usedColors: ['#000000', '#ffffff'],
 
-      onionSkin: false,
+      onionSkin: true,
       undoStack: [],
       redoStack: [],
       previewMode: 'walk',
       previewPlaying: true,
       previewLoopMode: 'loop', // 'loop' | 'pingpong'
       previewFps: 8,
+      stateFps: {
+        Stand: 6,
+        Walk: 8,
+        Jump: 8,
+        Fall: 8,
+        Climb: 6,
+        Create: 6,
+        Sit: 4,
+        Blink: 6,
+        Talk: 10
+      },
       previewTick: 0,
       lastPastedImage: null,
       isDrawing: false,
@@ -1317,12 +1431,25 @@
       hoverPixel: null,
       ctrlHeld: false,
       altHeld: false,
+      shiftHeld: false,
       spaceHeld: false,
       panX: 0,
       panY: 0,
       isPanningCanvas: false,
       panStartMouse: { x: 0, y: 0 },
       panStartOffset: { x: 0, y: 0 }
+    };
+
+    const DEFAULT_BODY_STATE_FPS = {
+      Stand: 6,
+      Walk: 8,
+      Jump: 8,
+      Fall: 8,
+      Climb: 6,
+      Create: 6,
+      Sit: 4,
+      Blink: 6,
+      Talk: 10
     };
 
     // Custom SVG Data-URI Cursors for Fill Bucket & Eyedropper
@@ -1336,6 +1463,7 @@
     const toggleGridBtn = document.getElementById('toggle-grid-btn');
     const toggleFloorBtn = document.getElementById('toggle-floor-btn');
     const toggleBoxBtn = document.getElementById('toggle-box-btn');
+    const toggleSoundBtn = document.getElementById('toggle-sound-btn');
     const worldAnimFpsInput = document.getElementById('world-anim-fps');
     const chatInput = document.getElementById('chat-input');
     const worldCoordsReadout = document.getElementById('world-coords-readout');
@@ -1408,6 +1536,180 @@
 
     // Offscreen cache for rendered sprite frames
     const spriteCanvasCache = new Map();
+
+    /********************************************************************
+     * TACTILE WEB AUDIO SYNTHESIZER (Placing, Deleting, Buttons, Creation, Splash, Hurt)
+     ********************************************************************/
+    const sfx = {
+      ctx: null,
+      lastPlaceTime: 0,
+      lastEraseTime: 0,
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      },
+      ui(pitch = 520) {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(pitch, now);
+        osc.frequency.exponentialRampToValueAtTime(pitch * 0.72, now + 0.028);
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.028);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.03);
+      },
+      place() {
+        if (!state.soundEnabled) return;
+        const perfNow = performance.now();
+        if (perfNow - this.lastPlaceTime < 45) return;
+        this.lastPlaceTime = perfNow;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        const baseFreq = 180 + Math.random() * 35;
+        osc.frequency.setValueAtTime(baseFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.65, now + 0.055);
+        gain.gain.setValueAtTime(0.11, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.065);
+      },
+      erase() {
+        if (!state.soundEnabled) return;
+        const perfNow = performance.now();
+        if (perfNow - this.lastEraseTime < 55) return;
+        this.lastEraseTime = perfNow;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        const baseFreq = 260 + Math.random() * 30;
+        osc.frequency.setValueAtTime(baseFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(95, now + 0.07);
+        gain.gain.setValueAtTime(0.09, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.075);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      },
+      createSuccess() {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const notes = [440, 554.37, 659.25, 880];
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          const t0 = now + idx * 0.055;
+          osc.frequency.setValueAtTime(freq, t0);
+          gain.gain.setValueAtTime(0.09, t0);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.14);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t0);
+          osc.stop(t0 + 0.15);
+        });
+      },
+      hurt() {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(165, now);
+        osc.frequency.exponentialRampToValueAtTime(52, now + 0.18);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.19);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      },
+      splash() {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        // White-noise water burst + droplet bloop
+        const bufSize = Math.floor(this.ctx.sampleRate * 0.14);
+        const noiseBuf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+        const data = noiseBuf.getChannelData(0);
+        for (let i = 0; i < bufSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufSize * 0.45));
+        }
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = noiseBuf;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(900, now);
+        filter.frequency.exponentialRampToValueAtTime(380, now + 0.14);
+        const nGain = this.ctx.createGain();
+        nGain.gain.setValueAtTime(0.12, now);
+        nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+        noise.connect(filter);
+        filter.connect(nGain);
+        nGain.connect(this.ctx.destination);
+        noise.start(now);
+
+        const osc = this.ctx.createOscillator();
+        const oGain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(240, now + 0.02);
+        osc.frequency.exponentialRampToValueAtTime(520, now + 0.11);
+        oGain.gain.setValueAtTime(0.07, now + 0.02);
+        oGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.connect(oGain);
+        oGain.connect(this.ctx.destination);
+        osc.start(now + 0.02);
+        osc.stop(now + 0.13);
+      }
+    };
+
+    // Global tactile button click listener for all buttons
+    document.addEventListener('mousedown', (e) => {
+      const btn = e.target.closest('button, .filter-tab, .ml-type-cell, .ase-cel-col');
+      if (btn && btn.id !== 'save-sprite-btn') {
+        sfx.ui(540);
+      }
+    });
+
+    toggleSoundBtn.addEventListener('click', () => {
+      state.soundEnabled = !state.soundEnabled;
+      const iconOn = document.getElementById('sfx-icon-on');
+      const iconOff = document.getElementById('sfx-icon-off');
+      if (iconOn && iconOff) {
+        iconOn.classList.toggle('hidden', !state.soundEnabled);
+        iconOff.classList.toggle('hidden', state.soundEnabled);
+      }
+      toggleSoundBtn.className = state.soundEnabled
+        ? 'ase-btn active p-1 text-zinc-300 flex items-center justify-center'
+        : 'ase-btn p-1 text-zinc-500 flex items-center justify-center';
+      if (state.soundEnabled) sfx.ui(660);
+    });
 
     /********************************************************************
      * INITIALIZATION, COLLAPSIBLE DRAWER & RESIZING
@@ -1614,7 +1916,12 @@
           lightColorPicker.value = clean;
         }
         editor.usedColors.push(clean);
-        if (editor.usedColors.length > 63) editor.usedColors.shift();
+        // Cap at 23 colors (+ 1 'R' eraser slot = 24 slots = 3 rows of 8 with no scrollbar)
+        while (editor.usedColors.length > 23) {
+          // Keep #000000 and #ffffff in slots 0 and 1, shift out the oldest custom color at index 2
+          const removeIdx = editor.usedColors.length > 2 ? 2 : 0;
+          editor.usedColors.splice(removeIdx, 1);
+        }
         renderColorHistoryBar();
       }
     }
@@ -1701,6 +2008,11 @@
           recordUsedColor(rgbaToHex(buf[i], buf[i + 1], buf[i + 2]));
         }
       }
+    });
+
+    document.getElementById('clear-palette-btn').addEventListener('click', () => {
+      editor.usedColors = ['#000000', '#ffffff'];
+      renderColorHistoryBar();
     });
 
     drawHueStrip();
@@ -1929,7 +2241,7 @@
       baseStates.forEach(st => {
         const opt = document.createElement('option');
         opt.value = st;
-        opt.textContent = `State: ${st}`;
+        opt.textContent = st;
         celStateSelect.appendChild(opt);
       });
       const currentSt = (editor.frameStates && editor.frameStates[editor.activeFrame]) || baseStates[0];
@@ -2469,6 +2781,10 @@
       p.grappleTarget = null;
       updateWorldMotionBarUI();
 
+      // Tactile hurt sound + red blood-like pixel particles burst
+      sfx.hurt();
+      spawnBloodParticles(p.x + p.w / 2, p.y + p.h / 2, 22);
+
       // Launch player as a physics object that arcs up and falls off the screen
       const dir = (sourceX !== undefined && p.x + p.w / 2 < sourceX)
         ? -1
@@ -2485,12 +2801,78 @@
       p.vy = 0;
     }
 
+    function spawnBloodParticles(x, y, count = 18) {
+      const colors = ['#ef4444', '#dc2626', '#b91c1c', '#f87171'];
+      for (let i = 0; i < count; i++) {
+        const life = 28 + Math.floor(Math.random() * 24);
+        state.particles.push({
+          x: x + (Math.random() - 0.5) * 8,
+          y: y + (Math.random() - 0.5) * 8,
+          vx: (Math.random() - 0.5) * 3.8,
+          vy: -1.2 - Math.random() * 3.2,
+          ay: 0.18,
+          drag: 0.98,
+          size: Math.random() > 0.35 ? 2 : 1.5,
+          color: colors[i % colors.length],
+          life,
+          maxLife: life
+        });
+      }
+    }
+
+    function spawnDustParticles(cx, cy, w = 19, h = 19, count = 8) {
+      const colors = ['rgba(212, 212, 216, 0.78)', 'rgba(161, 161, 170, 0.72)', 'rgba(113, 113, 122, 0.68)'];
+      for (let i = 0; i < count; i++) {
+        const life = 18 + Math.floor(Math.random() * 14);
+        state.particles.push({
+          x: cx + (Math.random() - 0.5) * w * 0.85,
+          y: cy + (Math.random() - 0.5) * h * 0.85,
+          vx: (Math.random() - 0.5) * 1.25,
+          vy: -0.25 - Math.random() * 0.65,
+          ay: -0.01,
+          drag: 0.94,
+          size: Math.random() > 0.4 ? 2.2 : 1.5,
+          color: colors[i % colors.length],
+          life,
+          maxLife: life
+        });
+      }
+    }
+
+    function spawnLiquidSplash(x, surfaceY, speed = 2.5, colorHex = '#60a5fa') {
+      sfx.splash();
+      const count = Math.min(18, Math.max(8, Math.round(speed * 3.5)));
+      const dropletColors = [colorHex, '#93c5fd', '#dbeafe', '#38bdf8'];
+      for (let i = 0; i < count; i++) {
+        const life = 22 + Math.floor(Math.random() * 16);
+        state.particles.push({
+          x: x + (Math.random() - 0.5) * 14,
+          y: surfaceY,
+          vx: (Math.random() - 0.5) * 2.8,
+          vy: -1.4 - Math.random() * Math.min(3.6, speed * 0.85),
+          ay: 0.16,
+          drag: 0.98,
+          size: Math.random() > 0.4 ? 2 : 1.3,
+          color: dropletColors[i % dropletColors.length],
+          life,
+          maxLife: life
+        });
+      }
+      state.liquidSplashes.push({
+        x,
+        y: surfaceY,
+        radius: 3,
+        maxRadius: 14 + Math.min(12, speed * 2.5),
+        alpha: 0.85
+      });
+    }
+
     toggleFloorBtn.addEventListener('click', () => {
       state.hardFloorY0 = !state.hardFloorY0;
-      toggleFloorBtn.textContent = `Y=0 Floor: ${state.hardFloorY0 ? 'On' : 'Off'}`;
+      toggleFloorBtn.textContent = 'Y=0';
       toggleFloorBtn.className = state.hardFloorY0
-        ? 'ase-btn active px-2 py-0.5 text-zinc-100 text-[11px]'
-        : 'ase-btn px-2 py-0.5 text-zinc-400 text-[11px]';
+        ? 'ase-btn active px-1.5 py-0.5 text-zinc-100 text-[10px]'
+        : 'ase-btn px-1.5 py-0.5 text-zinc-400 text-[10px]';
     });
 
     // Seed a removable 7-block starter ledge under spawn
@@ -2540,7 +2922,7 @@
       // Update world cells (Placement scale animation, Crumbling, Flexible, Open on Activate, Gatherable, Item Thrower, Sparkling, Environment)
       for (const [, cell] of state.worldCells.entries()) {
         if (cell.placeAnim !== undefined && cell.placeAnim < 1) {
-          cell.placeAnim = Math.min(1, cell.placeAnim + 0.14);
+          cell.placeAnim = Math.min(1, cell.placeAnim + 0.25);
         }
         // Smooth door opening animation for Open on Activate
         if (cell.type === 'activator' && cell.subtype === 'Open on Activate') {
@@ -2645,9 +3027,8 @@
         p.renderX = p.deathX;
         p.renderY = p.deathY;
 
-        const camScreenY = Math.floor(worldCanvas.height / 2 - state.camera.y * state.renderZoom);
-        const playerScreenTop = camScreenY + p.deathY * state.renderZoom;
-        if (playerScreenTop > worldCanvas.height + 64 || p.deadTimer > 180) {
+        // Wait a full 2 seconds (120 ticks at 60Hz) before respawning the player
+        if (p.deadTimer >= 120) {
           respawnPlayer();
         }
         return;
@@ -2737,8 +3118,36 @@
           p.vy *= 0.85;
           if (state.keys.up) p.vy = -2.1;
           if (state.keys.down) p.vy = 2.1;
+        } else if (p.inLiquid) {
+          // Viscous water physics: float up to the surface unless swimming downward
+          p.vx *= 0.88;
+          p.vy *= 0.86;
+          if (state.keys.down) {
+            // Swim downward
+            p.vy += 0.26;
+            if (p.vy > 2.1) p.vy = 2.1;
+          } else if (state.keys.up) {
+            // Swim upward, or hop out if near the water surface
+            if (p.liquidSurfaceY !== null && p.y <= p.liquidSurfaceY - 2) {
+              p.vy = -4.35;
+            } else {
+              p.vy -= 0.30;
+              if (p.vy < -2.3) p.vy = -2.3;
+            }
+          } else {
+            // Passive floating: buoy upward and bob at the liquid surface
+            if (p.liquidSurfaceY !== null) {
+              const bobOffset = Math.sin(worldTickCount * 0.08) * 1.2;
+              const targetFloatY = p.liquidSurfaceY - p.h * 0.42 + bobOffset;
+              const diff = targetFloatY - p.y;
+              p.vy += Math.max(-0.28, Math.min(0.22, diff * 0.065));
+            } else {
+              p.vy -= 0.16;
+              if (p.vy < -1.4) p.vy = -1.4;
+            }
+          }
         } else if (state.keys.up && !p.onSticky) {
-          if (p.inLiquid || p.onGround) {
+          if (p.onGround) {
             p.vy = jumpImpulse;
             p.onGround = false;
           }
@@ -2748,7 +3157,7 @@
         if (Math.abs(p.vx) < 0.04) p.vx = 0;
       }
 
-      if (!p.onLadder && !isMountedFlying && !p.grappleTarget) {
+      if (!p.onLadder && !isMountedFlying && !p.grappleTarget && !p.inLiquid) {
         p.vy += gravity;
         if (p.vy > maxFall) p.vy = maxFall;
       }
@@ -2764,7 +3173,7 @@
       p.y += p.vy;
       resolveWorldCollisions(p, false);
 
-      // Auto-Sit / Auto-Lay after standing still on a sittable or layable object for 2 seconds (120 ticks at 60Hz)
+      // Auto-Sit / Auto-Lay after standing still on a sittable or layable object for 1 second (60 ticks at 60Hz)
       if (p.poseSettleAnim > 0) p.poseSettleAnim--;
       const poseTarget = getSittableOrLayableAtPlayer(p);
       const isStandingIdle =
@@ -2778,7 +3187,7 @@
 
       if (poseTarget && isStandingIdle && !p.sitting && !p.lying) {
         p.autoPoseTimer = (p.autoPoseTimer || 0) + 1;
-        if (p.autoPoseTimer >= 120) {
+        if (p.autoPoseTimer >= 60) {
           p.autoPoseTimer = 0;
           p.poseSettleAnim = 18;
           if (poseTarget === 'lay') {
@@ -2809,9 +3218,13 @@
         p.onGround = true;
       }
 
-      // Walk cycle cadence (uses equipped Body's custom animFps if set, else global walkFps)
+      // Walk / Climb cycle cadence (uses equipped Body's per-state stateFps if set, else animFps / global walkFps)
       const activeBodySp = state.sprites.find(s => s.id === state.activeBodyId);
-      const effectiveWalkFps = (activeBodySp && activeBodySp.animFps) ? activeBodySp.animFps : state.walkFps;
+      const activeMoveState = p.onLadder ? 'Climb' : 'Walk';
+      const effectiveWalkFps =
+        (activeBodySp && activeBodySp.stateFps && activeBodySp.stateFps[activeMoveState])
+          ? activeBodySp.stateFps[activeMoveState]
+          : ((activeBodySp && activeBodySp.animFps) ? activeBodySp.animFps : state.walkFps);
       const ticksPerFrame = Math.max(1, Math.round(60 / Math.max(1, effectiveWalkFps)));
       if ((Math.abs(p.vx) > 0.15 || (p.onLadder && Math.abs(p.vy) > 0.1)) && (p.onGround || p.onLadder || p.inLiquid)) {
         p.animTimer++;
@@ -2887,10 +3300,21 @@
     function updateParticles() {
       for (let i = state.particles.length - 1; i >= 0; i--) {
         const pt = state.particles[i];
+        if (pt.ay) pt.vy += pt.ay;
+        if (pt.drag) {
+          pt.vx *= pt.drag;
+          pt.vy *= pt.drag;
+        }
         pt.x += pt.vx;
         pt.y += pt.vy;
         pt.life--;
         if (pt.life <= 0) state.particles.splice(i, 1);
+      }
+      for (let i = state.liquidSplashes.length - 1; i >= 0; i--) {
+        const sp = state.liquidSplashes[i];
+        sp.radius += (sp.maxRadius - sp.radius) * 0.22;
+        sp.alpha -= 0.045;
+        if (sp.alpha <= 0) state.liquidSplashes.splice(i, 1);
       }
       for (let i = state.linerPoints.length - 1; i >= 0; i--) {
         state.linerPoints[i].life--;
@@ -2976,8 +3400,11 @@
     }
 
     function checkOverlapTriggers(p) {
+      const wasInLiquid = p.inLiquid;
+      const prevSurfaceY = p.liquidSurfaceY;
       p.onLadder = false;
       p.inLiquid = false;
+      p.liquidSurfaceY = null;
 
       const ticksPerFrame = Math.max(2, Math.round(60 / state.walkFps));
       const animStep = Math.floor(worldTickCount / ticksPerFrame);
@@ -2995,13 +3422,33 @@
           p.y < cell.y + cell.h &&
           p.y + p.h > cell.y
         ) {
-          if (cell.type === 'climbable') p.onLadder = true;
-          if (cell.type === 'liquid') p.inLiquid = true;
+          if (cell.type === 'climbable') {
+            p.onLadder = true;
+            if (Math.abs(p.vy) > 0.1 || Math.abs(p.vx) > 0.1) {
+              cell._interactTick = 16;
+            }
+          }
 
           const sp = state.sprites.find(s => s.id === cell.spriteId);
           const dynAttrs = (sp && sp.type === 'dynamic') ? parseDynamicAttributes(sp.code) : new Set();
           if (dynAttrs.has('CLIMBABLE')) p.onLadder = true;
-          if (dynAttrs.has('LIQUID')) p.onLadder = false, p.inLiquid = true;
+
+          if (cell.type === 'liquid' || dynAttrs.has('LIQUID')) {
+            p.inLiquid = true;
+            // Find the highest surface of the connected liquid column at this X
+            let topY = cell.y;
+            while (state.worldCells.has(`${cell.x},${topY - TILE_SIZE},${cell.layer}`)) {
+              const above = state.worldCells.get(`${cell.x},${topY - TILE_SIZE},${cell.layer}`);
+              if (above && above.type === 'liquid') {
+                topY -= TILE_SIZE;
+              } else {
+                break;
+              }
+            }
+            if (p.liquidSurfaceY === null || topY < p.liquidSurfaceY) {
+              p.liquidSurfaceY = topY;
+            }
+          }
 
           // Sittable / Layable check: explicit Pose property OR classic Manyland item names (chair, couch, toilet, bed)
           if (sp && state.keys.down) {
@@ -3012,28 +3459,36 @@
               p.lying = true;
               p.sitting = true;
               p.poseSettleAnim = 18;
+              cell._interactTick = 24;
               const sleepM = findBodySleepOrLayMotion();
               if (sleepM) p.activeMotionId = sleepM.id;
             } else if (isSittable && !p.sitting) {
               p.sitting = true;
               p.lying = false;
               p.poseSettleAnim = 18;
+              cell._interactTick = 24;
             }
           }
 
           if (cell.type === 'gatherable' && !cell.gathered) {
             cell.gathered = true;
             cell.timer = 0;
+            cell._interactTick = 28;
             spawnWorldParticles(cell.x + cell.w / 2, cell.y + cell.h / 2, '#86efac', 5);
           }
           if (cell.type === 'changing_thing' && cell.subtype === 'Changing on Touch') {
             if (!cell._touched) {
               if (sp) cell.frameIdx = ((cell.frameIdx || 0) + 1) % sp.frames.length;
               cell._touched = true;
+              cell._interactTick = 24;
             }
           }
           if (cell.type === 'activator' && cell.subtype === 'Activater') {
             state.activatorTimer = 240; // Activates nearby Open/Change on Activate for 4 seconds
+            cell._interactTick = 24;
+          }
+          if (['viewable', 'textual', 'holder', 'transporting'].includes(cell.type)) {
+            cell._interactTick = 12;
           }
           if (cell.type === 'harmful' || dynAttrs.has('HARMFUL') || dynAttrs.has('DEADLY')) {
             // Deadly Emerging is only lethal on its emerged frame (Cell 2)
@@ -3047,6 +3502,16 @@
         } else {
           cell._touched = false;
         }
+      }
+
+      // Trigger splash animation & sound when jumping into or leaping out of a liquid
+      if (!wasInLiquid && p.inLiquid && Math.abs(p.vy) > 0.7) {
+        const surfY = p.liquidSurfaceY !== null ? p.liquidSurfaceY : p.y + p.h * 0.5;
+        spawnLiquidSplash(p.x + p.w / 2, surfY, Math.abs(p.vy));
+        p.vy *= 0.45; // Dampen downward plunge on splash entry
+      } else if (wasInLiquid && !p.inLiquid && p.vy < -1.2) {
+        const surfY = prevSurfaceY !== null ? prevSurfaceY : p.y + p.h;
+        spawnLiquidSplash(p.x + p.w / 2, surfY, Math.abs(p.vy) * 0.75);
       }
     }
 
@@ -3139,6 +3604,7 @@
           if (cell.type === 'solid' && cell.subtype === 'Sticky') {
             p.onSticky = true;
             p.vy = Math.min(p.vy, 0.35);
+            cell._interactTick = 14;
           }
         } else {
           if (p.vy > 0) {
@@ -3146,18 +3612,29 @@
             if (cell.type === 'bouncy') {
               p.vy = -7.2;
               if (cell.subtype === 'Tilted Bouncy') p.vx = p.facing * 3.5;
-              cell._bounceTick = 12;
+              const spBounce = state.sprites.find(s => s.id === cell.spriteId);
+              const extraCells = spBounce ? Math.max(1, spBounce.frames.length - 1) : 1;
+              cell._bounceMax = extraCells * 8;
+              cell._bounceTick = cell._bounceMax;
             } else {
               p.vy = 0;
               p.onGround = true;
-              if (cell.type === 'slidey') p.onSlidey = true;
-              if (cell.type === 'solid' && cell.subtype === 'Sticky') p.onSticky = true;
+              if (cell.type === 'slidey') {
+                p.onSlidey = true;
+                if (Math.abs(p.vx) > 0.15) cell._interactTick = 14;
+              }
+              if (cell.type === 'solid' && cell.subtype === 'Sticky') {
+                p.onSticky = true;
+                cell._interactTick = 14;
+              }
               if (cell.type === 'moving' && cell.subtype === 'Mover') {
                 p.vx += (cell.rotation === 2 ? -1.4 : 1.4);
+                cell._interactTick = 14;
               }
               if (cell.type === 'crumbling') {
                 if (cell.subtype === 'Flexible') {
                   cell._steppedOn = true;
+                  cell._interactTick = 16;
                 } else if (cell.crumbleState === 0) {
                   cell.crumbleState = 1;
                   cell.timer = 0;
@@ -3178,6 +3655,7 @@
         if (ent.type === 'pushing') {
           if (horizontal) {
             ent.x += p.vx * 0.85;
+            ent._interactTick = 14;
             if (p.vx > 0) p.x = ent.x - p.w;
             else if (p.vx < 0) p.x = ent.x + ent.w;
           } else if (p.vy > 0) {
@@ -3191,6 +3669,7 @@
             p.x += ent.vx;
             p.vy = 0;
             p.onGround = true;
+            ent._interactTick = 14;
           }
         }
       }
@@ -3662,27 +4141,6 @@
       const camScreenX = Math.floor(W / 2 - state.camera.x * zoom);
       const camScreenY = Math.floor(H / 2 - state.camera.y * zoom);
 
-      // 1. Tile Grid (19x19 Manyland cell grid)
-      if (state.showGrid) {
-        const gridStep = TILE_SIZE * zoom;
-        worldCtx.strokeStyle = state.mode === 'build' ? 'rgba(42, 42, 54, 0.7)' : 'rgba(28, 28, 36, 0.65)';
-        worldCtx.lineWidth = 1;
-
-        const startX = ((camScreenX % gridStep) + gridStep) % gridStep;
-        const startY = ((camScreenY % gridStep) + gridStep) % gridStep;
-
-        worldCtx.beginPath();
-        for (let x = startX; x < W; x += gridStep) {
-          worldCtx.moveTo(x + 0.5, 0);
-          worldCtx.lineTo(x + 0.5, H);
-        }
-        for (let y = startY; y < H; y += gridStep) {
-          worldCtx.moveTo(0, y + 0.5);
-          worldCtx.lineTo(W, y + 0.5);
-        }
-        worldCtx.stroke();
-      }
-
       // 2. Origin Y=0 Line (Only highlighted if hardFloorY0 is On or in World Builder mode)
       if (state.hardFloorY0 || state.mode === 'build') {
         const floorY = camScreenY;
@@ -3705,13 +4163,21 @@
       const farBackCells = [];
       const backCells = [];
       const mainCells = [];
+      const liquidCells = [];
       const frontCells = [];
 
       for (const [, cell] of state.worldCells.entries()) {
-        if (cell.layer === 'farback') farBackCells.push(cell);
-        else if (cell.layer === 'back') backCells.push(cell);
-        else if (cell.layer === 'front') frontCells.push(cell);
-        else mainCells.push(cell);
+        if (cell.type === 'liquid') {
+          liquidCells.push(cell);
+        } else if (cell.layer === 'farback') {
+          farBackCells.push(cell);
+        } else if (cell.layer === 'back') {
+          backCells.push(cell);
+        } else if (cell.layer === 'front') {
+          frontCells.push(cell);
+        } else {
+          mainCells.push(cell);
+        }
       }
 
       const drawCellList = (list) => {
@@ -3729,7 +4195,7 @@
 
           // Smooth placement pop-in animation
           const placeScale = cell.placeAnim !== undefined && cell.placeAnim < 1
-            ? (0.35 + 0.65 * Math.sin(cell.placeAnim * Math.PI * 0.5))
+            ? (0.78 + 0.22 * Math.sin(cell.placeAnim * Math.PI * 0.5))
             : 1;
 
           if (cell.spriteId === '__starter_ground__') {
@@ -3763,94 +4229,94 @@
           }
 
           // Light Glow: Cell 1 is 19x19 light source, Cell 2 is 38x38 translucent glow overlay
-          if (cell.type === 'light' && cell.subtype === 'Light Glow') {
-            const fc1 = getCachedFrameCanvas(sp, 0);
-            worldCtx.drawImage(fc1, sx, sy, sw, sh);
-
-            if (sp.frames.length > 1) {
-              const fc2 = getCachedFrameCanvas(sp, 1);
-              const glowX0 = Math.round(camScreenX + (cell.x - 9.5) * zoom);
-              const glowY0 = Math.round(camScreenY + (cell.y - 9.5) * zoom);
-              const glowX1 = Math.round(camScreenX + (cell.x + 28.5) * zoom);
-              const glowY1 = Math.round(camScreenY + (cell.y + 28.5) * zoom);
-
-              const baseAlpha = Math.max(0.08, Math.min(1, (sp.lightAlpha ?? 55) / 100));
-              let glowAlpha = baseAlpha;
-              const gOpt = sp.lightOption || 'Steady Translucent';
-              if (gOpt === 'Pulsating Glow') {
-                glowAlpha = baseAlpha * (0.6 + 0.4 * Math.sin(worldTickCount * 0.05));
-              } else if (gOpt === 'Flickering Glow') {
-                glowAlpha = baseAlpha * (0.7 + 0.3 * Math.sin(worldTickCount * 0.25) * Math.cos(worldTickCount * 0.11));
-              }
-
-              worldCtx.save();
-              worldCtx.globalAlpha = glowAlpha;
-              worldCtx.drawImage(fc2, glowX0, glowY0, glowX1 - glowX0, glowY1 - glowY0);
-              worldCtx.restore();
-            }
-            continue;
-          }
-
-          // Dynamic type: Supports multi-layer Dynamic Code OR frame-by-frame animation
-          if (cell.type === 'dynamic') {
-            if (sp.code && sp.code.trim()) {
-              drawDynamicComposite(worldCtx, sp, sx, sy, zoom, worldTickCount / 60, 'start', false);
-              continue;
-            }
-            const dynFps = sp.animFps || state.walkFps;
-            const dynStep = Math.floor(worldTickCount / Math.max(2, Math.round(60 / dynFps)));
-            let fIdx = 0;
-            if (sp.frames.length > 1) {
-              if (sp.loopMode === 'pingpong') {
-                const cycle = sp.frames.length * 2 - 2;
-                const pos = dynStep % cycle;
-                fIdx = pos < sp.frames.length ? pos : cycle - pos;
-              } else {
-                fIdx = dynStep % sp.frames.length;
-              }
-            }
-            const fc = getCachedFrameCanvas(sp, fIdx);
-            worldCtx.drawImage(fc, sx, sy, sw, sh);
-            continue;
-          }
-
-          // Determine frame index: ANY creation type with >1 cells animates unless its cells represent special states
+          // Determine frame index: Interactive creations play their extra cells ONLY when interacted with, while ambient creations loop naturally
           const spFps = sp.animFps || state.walkFps;
           const spAnimStep = Math.floor(worldTickCount / Math.max(2, Math.round(60 / spFps)));
           let fIdx = cell.frameIdx || 0;
 
+          if (cell._interactTick > 0) {
+            cell._interactTick--;
+          }
+
           if (cell.type === 'changing_thing') {
             if (cell.subtype === 'Lively Thing') {
               fIdx = Math.floor(worldTickCount / 4) % sp.frames.length;
-            } else if (cell.subtype !== 'Changing on Touch') {
+            } else if (cell.subtype === 'Changing on Touch') {
+              fIdx = cell.frameIdx || 0;
+            } else {
               fIdx = spAnimStep % sp.frames.length;
             }
           } else if (cell.type === 'big_thing') {
             if (cell.subtype === 'Transforming') {
               fIdx = Math.floor(worldTickCount / 60) % sp.frames.length;
-            } else if (cell.subtype === 'Back + Front') {
+            } else {
               fIdx = 0;
-            } else if (sp.frames.length > 1) {
-              fIdx = spAnimStep % sp.frames.length;
             }
           } else if (cell.type === 'gatherable') {
-            fIdx = cell.gathered ? Math.min(1, sp.frames.length - 1) : 0;
+            if (cell.gathered && sp.frames.length > 1) {
+              // Play through remaining cells when gathered
+              fIdx = Math.min(sp.frames.length - 1, 1 + Math.floor((cell.timer || 0) / 8) % (sp.frames.length - 1));
+            } else {
+              fIdx = 0;
+            }
           } else if (cell.type === 'activator') {
-            fIdx = state.activatorTimer > 0 ? Math.min(1, sp.frames.length - 1) : 0;
+            if (state.activatorTimer > 0 && sp.frames.length > 1) {
+              fIdx = 1 + (spAnimStep % (sp.frames.length - 1));
+            } else {
+              fIdx = 0;
+            }
           } else if (cell.type === 'bouncy') {
-            if (cell._bounceTick > 0) {
+            if (cell._bounceTick > 0 && sp.frames.length > 1) {
               cell._bounceTick--;
-              fIdx = Math.min(1, sp.frames.length - 1);
+              const extraCount = sp.frames.length - 1;
+              const maxT = cell._bounceMax || (extraCount * 8);
+              const progress = Math.max(0, Math.min(0.999, 1 - cell._bounceTick / maxT));
+              fIdx = 1 + Math.floor(progress * extraCount);
+            } else {
+              fIdx = 0;
+            }
+          } else if (cell.type === 'crumbling') {
+            if (cell.subtype === 'Flexible') {
+              fIdx = (cell._interactTick > 0 && sp.frames.length > 1)
+                ? (1 + (spAnimStep % (sp.frames.length - 1)))
+                : 0;
+            } else if (cell.crumbleState === 1 && sp.frames.length > 1) {
+              const extraCount = sp.frames.length - 1;
+              const progress = Math.min(0.999, (cell.timer || 0) / 22);
+              fIdx = 1 + Math.floor(progress * extraCount);
             } else {
               fIdx = 0;
             }
           } else if (cell.type === 'interacting') {
             const dist = Math.hypot(state.player.x - cell.x, state.player.y - cell.y);
-            fIdx = dist < 50 ? Math.min(1, sp.frames.length - 1) : 0;
+            if (dist < 50 && sp.frames.length > 1) {
+              fIdx = 1 + (spAnimStep % (sp.frames.length - 1));
+            } else {
+              fIdx = 0;
+            }
+          } else if (['climbable', 'slidey', 'viewable', 'textual', 'holder', 'transporting'].includes(cell.type)) {
+            if (cell._interactTick > 0 && sp.frames.length > 1) {
+              fIdx = 1 + (spAnimStep % (sp.frames.length - 1));
+            } else {
+              fIdx = 0;
+            }
+          } else if (['solid', 'back', 'thing'].includes(cell.type)) {
+            const isPoseable = sp.poseType === 'sit' || sp.poseType === 'lay';
+            if ((cell._interactTick > 0 || (isPoseable && (state.player.sitting || state.player.lying) && Math.hypot(state.player.x - cell.x, state.player.y - cell.y) < 28)) && sp.frames.length > 1) {
+              fIdx = 1 + (spAnimStep % (sp.frames.length - 1));
+            } else {
+              fIdx = 0;
+            }
           } else if (cell.type === 'slope') {
             fIdx = cell.frameIdx || 0;
+          } else if (cell.type === 'harmful') {
+            if (cell.subtype === 'Harmful' || cell.subtype === 'Deadly') {
+              fIdx = 0;
+            } else {
+              fIdx = spAnimStep % sp.frames.length;
+            }
           } else if (sp.frames.length > 1) {
-            // Universal multi-cell animation for Solids, Backs, Things, Climbables, Slideys, Liquids, Harmfuls, etc.
+            // Ambiently animated types (Liquid, Living, Moving/Mover, etc.)
             if (sp.loopMode === 'pingpong' && sp.frames.length > 2) {
               const cycle = sp.frames.length * 2 - 2;
               const pos = spAnimStep % cycle;
@@ -3873,9 +4339,6 @@
             worldCtx.translate(cx, cy);
             worldCtx.scale(placeScale, placeScale);
             worldCtx.drawImage(fc, -sw / 2, -sh / 2, sw, sh);
-            worldCtx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
-            worldCtx.lineWidth = 1;
-            worldCtx.strokeRect(-sw / 2 + 0.5, -sh / 2 + 0.5, sw - 1, sh - 1);
           } else {
             worldCtx.drawImage(fc, drawX, sy, sw, sh);
           }
@@ -3935,13 +4398,19 @@
       for (const ent of state.dynamicEntities) {
         const sp = state.sprites.find(s => s.id === ent.spriteId);
         if (!sp) continue;
+        if (ent._interactTick > 0) ent._interactTick--;
         const sx = Math.round(camScreenX + ent.x * zoom);
         const sy = Math.round(camScreenY + ent.y * zoom);
         const sw = ent.w * zoom;
         const sh = ent.h * zoom;
-        const fIdx = (ent.type === 'living' ? (ent.subtype !== 'Flipping Living') : (sp.frames.length > 1))
-          ? (animStep % sp.frames.length)
-          : 0;
+        let fIdx = 0;
+        if (ent.type === 'living') {
+          fIdx = (ent.subtype !== 'Flipping Living' && sp.frames.length > 1) ? (animStep % sp.frames.length) : 0;
+        } else if (ent.type === 'pushing') {
+          fIdx = (ent._interactTick > 0 && sp.frames.length > 1) ? (1 + (animStep % (sp.frames.length - 1))) : 0;
+        } else if (sp.frames.length > 1) {
+          fIdx = animStep % sp.frames.length;
+        }
         const fc = getCachedFrameCanvas(sp, fIdx);
 
         worldCtx.save();
@@ -3983,13 +4452,19 @@
       }
 
       for (const pt of state.particles) {
+        worldCtx.save();
+        if (pt.maxLife) {
+          worldCtx.globalAlpha = Math.max(0, Math.min(1, (pt.life / pt.maxLife) * 1.15));
+        }
         worldCtx.fillStyle = pt.color;
+        const sz = Math.max(2, Math.round((pt.size || 1.3) * zoom));
         worldCtx.fillRect(
           Math.round(camScreenX + pt.x * zoom),
           Math.round(camScreenY + pt.y * zoom),
-          Math.max(2, zoom),
-          Math.max(2, zoom)
+          sz,
+          sz
         );
+        worldCtx.restore();
       }
 
       // 6. Render Spawn Marker ONLY in World Builder Mode
@@ -4036,9 +4511,9 @@
         if (!sprite) return;
         const safeIdx = Math.min(cellIdx, sprite.frames.length - 1);
         const fc = getCachedFrameCanvas(sprite, safeIdx);
-        const lw = sprite.w * zoom;
-        const lh = sprite.h * zoom;
-        // Center horizontally on player hitbox, align bottom to player feet (plus any offset)
+        const lw = fc.width * zoom;
+        const lh = fc.height * zoom;
+        // Center canvas horizontally on player hitbox, align canvas bottom to player feet (preserving all internal pixel offsets!)
         const lx = Math.round(px + (pw - lw) / 2 + extraOffsetX * zoom);
         const ly = Math.round(py + (ph - lh) + extraOffsetY * zoom);
 
@@ -4128,11 +4603,20 @@
           drawDynamicComposite(worldCtx, wornBody, lx, ly, zoom, worldTickCount / 60, marker, p.facing === -1);
         } else {
           let resolvedBodyIdx = 0;
-          const stateCels = getStateFrameIndices(wornBody, bodyStateName);
+          const allStateCels = getStateFrameIndices(wornBody, bodyStateName);
+          const nonEmptyStateCels = allStateCels.filter(idx => isBufferNonEmpty(wornBody.frames[idx]));
+          const stateCels = nonEmptyStateCels.length > 0 ? nonEmptyStateCels : allStateCels;
+
+          // Per-state FPS step counter for this specific Body state
+          const thisStateFps = (wornBody.stateFps && wornBody.stateFps[bodyStateName])
+            ? wornBody.stateFps[bodyStateName]
+            : (wornBody.animFps || state.walkFps);
+          const stateStep = Math.floor(worldTickCount / Math.max(1, Math.round(60 / Math.max(1, thisStateFps))));
+
           if (p.lying) {
             // When lying down without a custom sleep motion, use the Stand (idle) sprite rotated 90 degrees!
             const standCels = getStateFrameIndices(wornBody, 'Stand');
-            resolvedBodyIdx = standCels.length > 0 ? standCels[animStep % standCels.length] : 0;
+            resolvedBodyIdx = standCels.length > 0 ? standCels[stateStep % standCels.length] : 0;
             drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, true);
           } else {
             if (bodyStateName === 'Walk') {
@@ -4141,25 +4625,30 @@
               } else {
                 const walkCel = stateCels[0] ?? Math.min(1, wornBody.frames.length - 1);
                 const standCel = getStateFrameIndices(wornBody, 'Stand')[0] ?? 0;
+                // Alternate between Stand (0) and Walk (1) so a 1-frame Walk sprite bobs immediately on step!
                 resolvedBodyIdx = (p.walkCycleIdx % 2 === 0) ? walkCel : standCel;
               }
             } else if (stateCels.length > 0) {
-              resolvedBodyIdx = stateCels[animStep % stateCels.length];
+              resolvedBodyIdx = stateCels[stateStep % stateCels.length];
             } else {
               resolvedBodyIdx = Math.min(fallbackCellIdx, wornBody.frames.length - 1);
             }
 
             drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false);
 
-            // Blink & Talk overlays on Stand state
+            // Blink & Talk overlays on Stand state (using their own per-state FPS)
             if (bodyStateName === 'Stand') {
-              const blinkCels = getStateFrameIndices(wornBody, 'Blink');
-              if (blinkCels.length > 0 && p.blinkTimer > 224 && isBufferNonEmpty(wornBody.frames[blinkCels[0]])) {
-                drawCenteredAvatarSprite(wornBody, blinkCels[animStep % blinkCels.length], 0, 0, false);
+              const blinkCels = getStateFrameIndices(wornBody, 'Blink').filter(idx => isBufferNonEmpty(wornBody.frames[idx]));
+              if (blinkCels.length > 0 && p.blinkTimer > 224) {
+                const blinkFps = (wornBody.stateFps && wornBody.stateFps.Blink) || wornBody.animFps || 6;
+                const blinkStep = Math.floor(worldTickCount / Math.max(1, Math.round(60 / Math.max(1, blinkFps))));
+                drawCenteredAvatarSprite(wornBody, blinkCels[blinkStep % blinkCels.length], 0, 0, false);
               }
-              const talkCels = getStateFrameIndices(wornBody, 'Talk');
-              if (talkCels.length > 0 && (state.chatOpen || p.speechTimer > 0) && isBufferNonEmpty(wornBody.frames[talkCels[0]])) {
-                drawCenteredAvatarSprite(wornBody, talkCels[animStep % talkCels.length], 0, 0, false);
+              const talkCels = getStateFrameIndices(wornBody, 'Talk').filter(idx => isBufferNonEmpty(wornBody.frames[idx]));
+              if (talkCels.length > 0 && (state.chatOpen || p.speechTimer > 0)) {
+                const talkFps = (wornBody.stateFps && wornBody.stateFps.Talk) || wornBody.animFps || 10;
+                const talkStep = Math.floor(worldTickCount / Math.max(1, Math.round(60 / Math.max(1, talkFps))));
+                drawCenteredAvatarSprite(wornBody, talkCels[talkStep % talkCels.length], 0, 0, false);
               }
             }
           }
@@ -4213,6 +4702,45 @@
         drawCenteredAvatarSprite(wornHoldable, holdFrame, -2, holdOffsetX);
       }
 
+      // 7.5 Render Viscous Liquid Layer Slightly On Top of Player + Surface Ripples & Splash Rings
+      if (liquidCells.length > 0) {
+        worldCtx.save();
+        worldCtx.globalAlpha = 0.68; // Translucent viscosity overlay on top of submerged player
+        drawCellList(liquidCells);
+        worldCtx.restore();
+
+        // Subtle animated surface highlight on top edge of exposed liquid blocks
+        worldCtx.save();
+        worldCtx.fillStyle = 'rgba(186, 230, 253, 0.55)';
+        for (const lCell of liquidCells) {
+          const aboveKey = `${lCell.x},${lCell.y - TILE_SIZE},${lCell.layer}`;
+          const aboveCell = state.worldCells.get(aboveKey);
+          if (!aboveCell || aboveCell.type !== 'liquid') {
+            const sx = Math.round(camScreenX + lCell.x * zoom);
+            const sy = Math.round(camScreenY + lCell.y * zoom);
+            const sw = Math.max(1, Math.round((lCell.x + lCell.w) * zoom + camScreenX) - sx);
+            const waveOffset = Math.round(Math.sin(worldTickCount * 0.08 + lCell.x * 0.2) * 1.2);
+            worldCtx.fillRect(sx, sy + waveOffset, sw, Math.max(1, Math.round(zoom * 0.8)));
+          }
+        }
+        worldCtx.restore();
+      }
+
+      // Render expanding surface splash ripples
+      for (const sp of state.liquidSplashes) {
+        const sx = Math.round(camScreenX + sp.x * zoom);
+        const sy = Math.round(camScreenY + sp.y * zoom);
+        const rx = Math.round(sp.radius * zoom);
+        const ry = Math.max(2, Math.round(sp.radius * 0.32 * zoom));
+        worldCtx.save();
+        worldCtx.strokeStyle = `rgba(224, 242, 254, ${Math.max(0, sp.alpha).toFixed(2)})`;
+        worldCtx.lineWidth = Math.max(1.5, zoom * 0.6);
+        worldCtx.beginPath();
+        worldCtx.ellipse(sx, sy, rx, ry, 0, 0, Math.PI * 2);
+        worldCtx.stroke();
+        worldCtx.restore();
+      }
+
       // Player Overhead Health Bar (Shows smoothly when damaged or regenerating)
       if (p.displayHp < p.maxHp - 0.5 && p.deadTimer === 0) {
         const barW = Math.max(26, Math.round(19 * zoom));
@@ -4259,6 +4787,29 @@
         worldCtx.strokeStyle = '#3b82f6';
         worldCtx.lineWidth = 1;
         worldCtx.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
+      }
+
+      // 9.5 Soft, Translucent Build-Mode Grid ON TOP of objects with subtle negative blending
+      if (state.mode === 'build' && state.showGrid) {
+        const gridStep = TILE_SIZE * zoom;
+        const startX = ((camScreenX % gridStep) + gridStep) % gridStep;
+        const startY = ((camScreenY % gridStep) + gridStep) % gridStep;
+
+        worldCtx.save();
+        worldCtx.globalCompositeOperation = 'difference';
+        worldCtx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+        worldCtx.lineWidth = 1;
+        worldCtx.beginPath();
+        for (let x = startX; x < W; x += gridStep) {
+          worldCtx.moveTo(x + 0.5, 0);
+          worldCtx.lineTo(x + 0.5, H);
+        }
+        for (let y = startY; y < H; y += gridStep) {
+          worldCtx.moveTo(0, y + 0.5);
+          worldCtx.lineTo(W, y + 0.5);
+        }
+        worldCtx.stroke();
+        worldCtx.restore();
       }
 
       // 10. Brush Preview (Only shown when in World Builder mode OR when a world brush is actively selected)
@@ -4368,15 +4919,19 @@
 
     function renderWorldBrushPreview(camScreenX, camScreenY, zoom) {
       const brushSp = state.sprites.find(s => s.id === state.activeBrushId);
-      const gridW = brushSp ? brushSp.w : TILE_SIZE;
-      const gridH = brushSp ? brushSp.h : TILE_SIZE;
+      const gridW = TILE_SIZE;
+      const gridH = TILE_SIZE;
+      const drawW = brushSp ? brushSp.w : TILE_SIZE;
+      const drawH = brushSp ? brushSp.h : TILE_SIZE;
       const snapX = Math.floor(mouseWorld.wx / gridW) * gridW;
       const snapY = Math.floor(mouseWorld.wy / gridH) * gridH;
 
       const activeTool = state.mode === 'build' ? state.worldTool : 'stamp';
 
       if (state.mode === 'build' && mouseWorld.dragStart && (activeTool === 'rect' || activeTool === 'line' || activeTool === 'erase')) {
-        const cells = getShapeCells(mouseWorld.dragStart.x, mouseWorld.dragStart.y, snapX, snapY, gridW, gridH, activeTool);
+        const stepW = activeTool === 'erase' ? TILE_SIZE : drawW;
+        const stepH = activeTool === 'erase' ? TILE_SIZE : drawH;
+        const cells = getShapeCells(mouseWorld.dragStart.x, mouseWorld.dragStart.y, snapX, snapY, stepW, stepH, activeTool);
         worldCtx.save();
         for (const c of cells) {
           const sx = Math.round(camScreenX + c.x * zoom);
@@ -4387,7 +4942,7 @@
           } else if (brushSp) {
             const fc = getCachedFrameCanvas(brushSp, 0);
             worldCtx.globalAlpha = 0.5;
-            worldCtx.drawImage(fc, sx, sy, gridW * zoom, gridH * zoom);
+            worldCtx.drawImage(fc, sx, sy, drawW * zoom, drawH * zoom);
           }
         }
         worldCtx.restore();
@@ -4400,7 +4955,7 @@
         const fc = getCachedFrameCanvas(brushSp, 0);
         worldCtx.save();
         worldCtx.globalAlpha = 0.45;
-        worldCtx.drawImage(fc, sx, sy, gridW * zoom, gridH * zoom);
+        worldCtx.drawImage(fc, sx, sy, drawW * zoom, drawH * zoom);
         worldCtx.restore();
       } else if (state.mode === 'build') {
         const sx = Math.round(camScreenX + snapX * zoom);
@@ -4533,12 +5088,29 @@
             vy: 0,
             facing: 1
           });
+          sfx.place();
+          spawnDustParticles(snapX + sp.w / 2, snapY + sp.h / 2, sp.w, sp.h, 7);
         }
         return;
       }
 
       const layer = getLayerForSprite(sp);
       const key = `${snapX},${snapY},${layer}`;
+      const existing = state.worldCells.get(key);
+
+      // If this exact sprite is already placed at this cell, do not re-place or restart its animation while moving the mouse
+      if (existing && existing.spriteId === sp.id) {
+        return;
+      }
+
+      // Cleanly replace any existing block occupying this grid coordinate across layers
+      for (const l of ['farback', 'back', 'main', 'front']) {
+        const otherKey = `${snapX},${snapY},${l}`;
+        if (otherKey !== key && state.worldCells.has(otherKey)) {
+          state.worldCells.delete(otherKey);
+        }
+      }
+
       state.worldCells.set(key, {
         spriteId: sp.id,
         x: snapX,
@@ -4549,7 +5121,7 @@
         subtype: sp.subtype,
         layer,
         placedOrder: state.placementCounter++,
-        placeAnim: 0.05,
+        placeAnim: 0.15,
         rotation: 0,
         frameIdx: 0,
         timer: 0,
@@ -4557,15 +5129,20 @@
         flexOffset: 0,
         openProgress: 0
       });
+      sfx.place();
+      spawnDustParticles(snapX + sp.w / 2, snapY + sp.h / 2, sp.w, sp.h, 6);
     }
 
     function eraseWorldAt(wx, wy) {
+      let erasedAny = false;
       // Remove all dynamic entities overlapping cursor with a smooth shrink-dissolve animation
       state.dynamicEntities = state.dynamicEntities.filter(ent => {
         const hit = wx >= ent.x && wx < ent.x + ent.w && wy >= ent.y && wy < ent.y + ent.h;
         if (hit) {
+          erasedAny = true;
           const sp = state.sprites.find(s => s.id === ent.spriteId);
           state.deleteAnimations.push({ x: ent.x, y: ent.y, w: ent.w, h: ent.h, sprite: sp, progress: 0 });
+          spawnDustParticles(ent.x + ent.w / 2, ent.y + ent.h / 2, ent.w, ent.h, 8);
         }
         return !hit;
       });
@@ -4573,10 +5150,15 @@
       // Remove all placed cells overlapping cursor across all layers so nothing lingers behind
       for (const [k, cell] of Array.from(state.worldCells.entries())) {
         if (wx >= cell.x && wx < cell.x + cell.w && wy >= cell.y && wy < cell.y + cell.h) {
+          erasedAny = true;
           const sp = state.sprites.find(s => s.id === cell.spriteId);
           state.deleteAnimations.push({ x: cell.x, y: cell.y, w: cell.w, h: cell.h, sprite: sp, progress: 0 });
+          spawnDustParticles(cell.x + cell.w / 2, cell.y + cell.h / 2, cell.w, cell.h, 8);
           state.worldCells.delete(k);
         }
+      }
+      if (erasedAny) {
+        sfx.erase();
       }
     }
 
@@ -4643,10 +5225,8 @@
       }
 
       const brushSp = state.sprites.find(s => s.id === state.activeBrushId);
-      const gridW = brushSp ? brushSp.w : TILE_SIZE;
-      const gridH = brushSp ? brushSp.h : TILE_SIZE;
-      const snapX = Math.floor(mouseWorld.wx / gridW) * gridW;
-      const snapY = Math.floor(mouseWorld.wy / gridH) * gridH;
+      const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
+      const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
 
       const activeTool = state.mode === 'build' ? state.worldTool : 'stamp';
 
@@ -4697,8 +5277,8 @@
       } else if (mouseWorld.downButton === 0 && activeTool === 'stamp') {
         const brushSp = state.sprites.find(s => s.id === state.activeBrushId);
         if (brushSp && !['pushing', 'moving', 'living'].includes(brushSp.type)) {
-          const snapX = Math.floor(mouseWorld.wx / brushSp.w) * brushSp.w;
-          const snapY = Math.floor(mouseWorld.wy / brushSp.h) * brushSp.h;
+          const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
+          const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
           placeSpriteAtWorld(brushSp, snapX, snapY);
         }
       }
@@ -4712,15 +5292,15 @@
       const activeTool = state.mode === 'build' ? state.worldTool : 'stamp';
       if (mouseWorld.dragStart && mouseWorld.downButton === 0) {
         const brushSp = state.sprites.find(s => s.id === state.activeBrushId);
-        const gridW = brushSp ? brushSp.w : TILE_SIZE;
-        const gridH = brushSp ? brushSp.h : TILE_SIZE;
-        const snapX = Math.floor(mouseWorld.wx / gridW) * gridW;
-        const snapY = Math.floor(mouseWorld.wy / gridH) * gridH;
-        const cells = getShapeCells(mouseWorld.dragStart.x, mouseWorld.dragStart.y, snapX, snapY, gridW, gridH, activeTool);
+        const stepW = (activeTool === 'erase' || !brushSp) ? TILE_SIZE : brushSp.w;
+        const stepH = (activeTool === 'erase' || !brushSp) ? TILE_SIZE : brushSp.h;
+        const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
+        const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
+        const cells = getShapeCells(mouseWorld.dragStart.x, mouseWorld.dragStart.y, snapX, snapY, stepW, stepH, activeTool);
 
         for (const c of cells) {
           if (activeTool === 'erase') {
-            eraseWorldAt(c.x + gridW / 2, c.y + gridH / 2);
+            eraseWorldAt(c.x + TILE_SIZE / 2, c.y + TILE_SIZE / 2);
           } else if (brushSp) {
             placeSpriteAtWorld(brushSp, c.x, c.y);
           }
@@ -4745,15 +5325,15 @@
     toggleGridBtn.addEventListener('click', () => {
       state.showGrid = !state.showGrid;
       toggleGridBtn.className = state.showGrid
-        ? 'ase-btn active px-2 py-0.5 text-zinc-300'
-        : 'ase-btn px-2 py-0.5 text-zinc-500';
+        ? 'ase-btn active px-1.5 py-0.5 text-zinc-200 flex items-center justify-center'
+        : 'ase-btn px-1.5 py-0.5 text-zinc-500 flex items-center justify-center';
     });
 
     toggleBoxBtn.addEventListener('click', () => {
       state.showHitbox = !state.showHitbox;
       toggleBoxBtn.className = state.showHitbox
-        ? 'ase-btn active px-2 py-0.5 text-zinc-300'
-        : 'ase-btn px-2 py-0.5 text-zinc-500';
+        ? 'ase-btn active p-1 text-zinc-300 flex items-center justify-center'
+        : 'ase-btn p-1 text-zinc-500 flex items-center justify-center';
     });
 
     worldAnimFpsInput.addEventListener('change', (e) => {
@@ -4796,10 +5376,12 @@
         }
       }
 
-      // Tab collapses/expands the right sidebar drawer
+      // Tab collapses/expands the right sidebar drawer (ignore key auto-repeat when held)
       if (e.key === 'Tab' && !state.chatOpen && document.activeElement.tagName !== 'INPUT') {
         e.preventDefault();
-        toggleRightDrawer();
+        if (!e.repeat) {
+          toggleRightDrawer();
+        }
         return;
       }
 
@@ -5080,18 +5662,18 @@
 
       const wornParts = [bodySp?.name, wearSp?.name, holdSp?.name, mountSp?.name].filter(Boolean);
       if (wornParts.length > 0) {
-        activeWornLabel.textContent = `Equipped: ${wornParts.join(' + ')}`;
+        activeWornLabel.textContent = wornParts.join(' + ');
         clearWornBtn.classList.remove('hidden');
       } else {
-        activeWornLabel.textContent = 'Body: Wireframe';
+        activeWornLabel.textContent = 'Wireframe';
         clearWornBtn.classList.add('hidden');
       }
 
       if (brushSp) {
-        activeBrushLabel.textContent = `Brush: ${brushSp.name} (${brushSp.type.toUpperCase()})`;
+        activeBrushLabel.textContent = brushSp.name;
         clearBrushBtn.classList.remove('hidden');
       } else {
-        activeBrushLabel.textContent = 'Brush: None';
+        activeBrushLabel.textContent = '';
         clearBrushBtn.classList.add('hidden');
       }
     }
@@ -5228,6 +5810,7 @@
     }
 
     function deleteSprite(id) {
+      sfx.erase();
       state.sprites = state.sprites.filter(s => s.id !== id);
       if (state.activeBodyId === id) state.activeBodyId = null;
       if (state.activeWearableId === id) state.activeWearableId = null;
@@ -5238,6 +5821,7 @@
       // Completely purge all placed cells, dynamic entities, and projectiles belonging to this deleted creation
       for (const [key, cell] of Array.from(state.worldCells.entries())) {
         if (cell.spriteId === id) {
+          spawnDustParticles(cell.x + cell.w / 2, cell.y + cell.h / 2, cell.w, cell.h, 7);
           state.worldCells.delete(key);
         }
       }
@@ -5276,6 +5860,10 @@
         editor.lightAlpha = existing.lightAlpha ?? 45;
         editor.previewLoopMode = existing.loopMode || 'loop';
         editor.previewFps = existing.animFps || state.walkFps;
+        editor.stateFps = {
+          ...DEFAULT_BODY_STATE_FPS,
+          ...(existing.stateFps || {})
+        };
         editor.code = existing.code || '';
         editor.w = existing.w;
         editor.h = existing.h;
@@ -5300,6 +5888,7 @@
         editor.lightAlpha = 45;
         editor.previewLoopMode = 'loop';
         editor.previewFps = state.walkFps;
+        editor.stateFps = { ...DEFAULT_BODY_STATE_FPS };
         const spec = getTypeSpec(editor.type || 'body');
         editor.subtype = spec.subtypes[0];
         const labels = getFrameLabelsForSubtype(spec.id, editor.subtype);
@@ -5310,6 +5899,7 @@
         applyEditorCreationType(spec.id, true);
       }
 
+      document.getElementById('onion-skin-btn').classList.toggle('active', editor.onionSkin);
       spriteNameInput.value = editor.name;
       dynamicCodeInput.value = editor.code;
       dynamicCodeTextarea.value = editor.code;
@@ -5435,12 +6025,15 @@
       return nextBuf;
     }
 
-    // Resizing the Sprite Canvas
-    document.getElementById('resize-canvas-btn').addEventListener('click', () => {
+    // Resizing the Sprite Canvas (Auto-resizes on W / H input change)
+    function applyCanvasDimensionInputs() {
       const nw = Math.max(4, Math.min(128, parseInt(canvasWInput.value, 10) || 20));
       const nh = Math.max(4, Math.min(128, parseInt(canvasHInput.value, 10) || 20));
       resizeEditorFrames(nw, nh);
-    });
+    }
+    document.getElementById('resize-canvas-btn').addEventListener('click', applyCanvasDimensionInputs);
+    canvasWInput.addEventListener('change', applyCanvasDimensionInputs);
+    canvasHInput.addEventListener('change', applyCanvasDimensionInputs);
 
     function resizeEditorFrames(nw, nh) {
       const ow = editor.w;
@@ -5507,6 +6100,15 @@
       renderPaintCanvas();
     });
 
+    const canvasGridToggleBtn = document.getElementById('canvas-grid-toggle-btn');
+    canvasGridToggleBtn.addEventListener('click', () => {
+      editor.showCanvasGrid = !editor.showCanvasGrid;
+      canvasGridToggleBtn.className = editor.showCanvasGrid
+        ? 'px-1.5 text-blue-300 hover:text-white border-l border-[#2e2e36] flex items-center justify-center'
+        : 'px-1.5 text-zinc-500 hover:text-white border-l border-[#2e2e36] flex items-center justify-center';
+      renderPaintCanvas();
+    });
+
     paintStage.addEventListener('wheel', (e) => {
       e.preventDefault();
       // Ctrl + Mousewheel adjusts Brush Size up or down!
@@ -5569,6 +6171,7 @@
 
     function updateMoveVisualFeedback() {
       const isMoveActive = editor.tool === 'move' || editor.ctrlHeld || Boolean(editor.celMoveDrag);
+      const isPickerActive = editor.tool === 'picker' || editor.shiftHeld;
       const isFillActive = editor.tool === 'fill' || editor.altHeld;
       const pill = document.getElementById('move-mode-pill');
       const wrapper = document.getElementById('paint-wrapper');
@@ -5590,11 +6193,11 @@
         } else if (isMoveActive) {
           paintCanvas.style.cursor = 'move';
           paintStage.style.cursor = 'default';
+        } else if (isPickerActive) {
+          paintCanvas.style.cursor = EYEDROPPER_CURSOR;
+          paintStage.style.cursor = 'default';
         } else if (isFillActive) {
           paintCanvas.style.cursor = FILL_BUCKET_CURSOR;
-          paintStage.style.cursor = 'default';
-        } else if (editor.tool === 'picker') {
-          paintCanvas.style.cursor = EYEDROPPER_CURSOR;
           paintStage.style.cursor = 'default';
         } else {
           paintCanvas.style.cursor = 'crosshair';
@@ -5787,6 +6390,7 @@
     }
 
     function copyMarqueeOrCel() {
+      editor.preferInternalClipboard = true;
       if (editor.marquee) {
         const { x, y, w, h, floatingData } = editor.marquee;
         const data = new Uint8ClampedArray(w * h * 4);
@@ -5828,6 +6432,11 @@
         };
       }
     }
+
+    // If the user switches to Aseprite or another window, allow the next Ctrl+V to read from the OS clipboard
+    window.addEventListener('blur', () => {
+      editor.preferInternalClipboard = false;
+    });
 
     function pasteMarqueeOrCel() {
       if (!editor.clipboardSelection) return;
@@ -5950,14 +6559,16 @@
       const buf = editor.frames[editor.activeFrame];
       const idx = (y * editor.w + x) * 4;
 
-      // Eyedropper tool = Pick Color
-      if (editor.tool === 'picker') {
+      // Hold Shift or Eyedropper tool = Pick Color
+      if (editor.tool === 'picker' || e?.shiftKey || editor.shiftHeld) {
         if (buf[idx + 3] > 0) {
           const picked = rgbaToHex(buf[idx], buf[idx + 1], buf[idx + 2]);
           setEditorColor(picked, true);
           recordUsedColor(picked);
         }
-        selectTool('pencil');
+        if (editor.tool === 'picker') {
+          selectTool('pencil');
+        }
         return;
       }
 
@@ -6061,6 +6672,14 @@
     }
 
     function shiftFramePixels(dx, dy) {
+      // If a Marquee selection is active, shift the Marquee selection itself (lifting pixels if needed)
+      if (editor.marquee) {
+        liftMarqueePixels();
+        editor.marquee.x += dx;
+        editor.marquee.y += dy;
+        renderPaintCanvas();
+        return;
+      }
       pushUndo();
       const w = editor.w, h = editor.h;
       const buf = editor.frames[editor.activeFrame];
@@ -6068,8 +6687,9 @@
       buf.fill(0);
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
-          const nx = (x + dx + w) % w;
-          const ny = (y + dy + h) % h;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
           const si = (y * w + x) * 4;
           const di = (ny * w + nx) * 4;
           buf[di] = copy[si];
@@ -6303,6 +6923,13 @@
       editor.drawButton = e.button;
       const { x, y } = getPixelCoordFromEvent(e);
 
+      // Hold Shift = Instant Eyedropper pick without triggering marquee/line/undo
+      if (e.shiftKey || editor.shiftHeld) {
+        applyToolAt(x, y, e.button, e);
+        editor.isDrawing = false;
+        return;
+      }
+
       // Hold Ctrl + Drag (or Move Tool) moves the whole cel drawing (or active marquee) interactively!
       if ((e.ctrlKey || e.metaKey || editor.tool === 'move') && e.button === 0) {
         if (editor.marquee) {
@@ -6502,33 +7129,30 @@
       const scale = parseInt(paintCanvas.dataset.scale, 10) || 10;
       paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
 
-      // 1-to-1 Pixel-Sized Checkerboard (each checker square = 1 sprite pixel)
+      // Lighter 1-to-1 Pixel-Sized Checkerboard so dark/black and bright/white colors are all clearly recognizable
       for (let py = 0; py < editor.h; py++) {
         for (let px = 0; px < editor.w; px++) {
-          paintCtx.fillStyle = ((px + py) & 1) === 0 ? '#1c1c22' : '#26262e';
+          paintCtx.fillStyle = ((px + py) & 1) === 0 ? '#585866' : '#6c6c7c';
           paintCtx.fillRect(px * scale, py * scale, scale, scale);
         }
       }
 
-      // Automatic Idle ('Stand') Onion Skin reference when editing Body 'Sit', 'Blink', or 'Talk' cels!
+      // Automatic Idle ('Stand') Onion Skin reference on Body states ('Sit', 'Blink', 'Talk', and when Onion Skin is active on 'Walk', 'Jump', 'Fall', 'Climb')
       const activeCelState = (editor.frameStates && editor.frameStates[editor.activeFrame]) || '';
       const isBodyOverlayCel = editor.type === 'body' && ['Sit', 'Blink', 'Talk'].includes(activeCelState);
+      const isBodyActionCel = editor.type === 'body' && editor.subtype === 'Body' && activeCelState !== 'Stand';
 
-      if (isBodyOverlayCel && editor.activeFrame !== 0) {
+      if ((isBodyOverlayCel || (isBodyActionCel && editor.onionSkin)) && editor.activeFrame !== 0) {
         const standIdx = getStateFrameIndices(editor, 'Stand')[0] ?? 0;
         const standBuf = editor.frames[standIdx];
         const standDim = editor.frameDims[standIdx] || { w: editor.w, h: editor.h };
         if (standBuf) {
-          const offsetX = Math.floor((editor.w - standDim.w) / 2) * scale;
-          const offsetY = Math.floor((editor.h - standDim.h) / 2) * scale;
-          drawBufferScaled(paintCtx, standBuf, standDim.w, standDim.h, scale, 0.32, offsetX, offsetY);
+          drawBufferScaled(paintCtx, standBuf, standDim.w, standDim.h, scale, 0.30, 0, 0);
         }
       } else if (editor.onionSkin && editor.activeFrame > 0) {
         const prevBuf = editor.frames[editor.activeFrame - 1];
         const prevDim = editor.frameDims[editor.activeFrame - 1] || { w: editor.w, h: editor.h };
-        const offsetX = Math.floor((editor.w - prevDim.w) / 2) * scale;
-        const offsetY = Math.floor((editor.h - prevDim.h) / 2) * scale;
-        drawBufferScaled(paintCtx, prevBuf, prevDim.w, prevDim.h, scale, 0.28, offsetX, offsetY);
+        drawBufferScaled(paintCtx, prevBuf, prevDim.w, prevDim.h, scale, 0.28, 0, 0);
       }
 
       const curBuf = editor.frames[editor.activeFrame];
@@ -6548,8 +7172,10 @@
         );
       }
 
-      if (scale >= 6) {
-        paintCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      if (editor.showCanvasGrid && scale >= 5) {
+        paintCtx.save();
+        paintCtx.globalCompositeOperation = 'difference';
+        paintCtx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
         paintCtx.lineWidth = 1;
         paintCtx.beginPath();
         for (let x = 1; x < editor.w; x++) {
@@ -6561,6 +7187,7 @@
           paintCtx.lineTo(editor.w * scale, y * scale + 0.5);
         }
         paintCtx.stroke();
+        paintCtx.restore();
       }
 
       // Draw Marquee selection outline (supports Rect, Circle Mask, and Magic Wand Mask!)
@@ -6652,6 +7279,8 @@
         editor.hoverPixel &&
         !editor.celMoveDrag &&
         !editor.ctrlHeld &&
+        !editor.shiftHeld &&
+        !editor.altHeld &&
         ['pencil', 'eraser', 'line'].includes(editor.tool)
       ) {
         const { x: hx, y: hy } = editor.hoverPixel;
@@ -6726,6 +7355,29 @@
       return false;
     }
 
+    const STATE_BADGE_STYLES = {
+      'Stand':        { bg: '#1e3a8a', text: '#93c5fd', short: 'STAND' },
+      'Walk':         { bg: '#065f46', text: '#6ee7b7', short: 'WALK' },
+      'Jump':         { bg: '#78350f', text: '#fcd34d', short: 'JUMP' },
+      'Fall':         { bg: '#7c2d12', text: '#fdba74', short: 'FALL' },
+      'Climb':        { bg: '#4c1d95', text: '#c4b5fd', short: 'CLIMB' },
+      'Create':       { bg: '#155e75', text: '#67e8f9', short: 'CREAT' },
+      'Sit':          { bg: '#831843', text: '#f9a8d4', short: 'SIT' },
+      'Blink':        { bg: '#3f3f46', text: '#e4e4e7', short: 'BLINK' },
+      'Talk':         { bg: '#701a75', text: '#f0abfc', short: 'TALK' },
+      'Stand / Walk': { bg: '#1e3a8a', text: '#93c5fd', short: 'ST/WK' }
+    };
+
+    function getStateBadgeStyle(stateName) {
+      if (STATE_BADGE_STYLES[stateName]) return STATE_BADGE_STYLES[stateName];
+      const clean = (stateName || 'CELL').toUpperCase();
+      return {
+        bg: '#27272a',
+        text: '#d4d4d8',
+        short: clean.length > 6 ? clean.slice(0, 6) : clean
+      };
+    }
+
     function renderFrameTabs() {
       framesContainer.innerHTML = '';
       const baseLabels = getFrameLabelsForSubtype(editor.type, editor.subtype);
@@ -6733,7 +7385,7 @@
         editor.frameStates = editor.frames.map((_, i) => baseLabels[Math.min(i, baseLabels.length - 1)] || 'Cell 1');
       }
 
-      // Count how many cels belong to each state so we can number multi-cel states cleanly (e.g. Stand #1, Stand #2)
+      // Count how many cels belong to each state so we can number multi-cel states cleanly (e.g. WALK #1, WALK #2)
       const stateSeenCounts = {};
       const stateTotals = {};
       editor.frameStates.forEach(st => { stateTotals[st] = (stateTotals[st] || 0) + 1; });
@@ -6745,31 +7397,72 @@
         stateSeenCounts[stName] = (stateSeenCounts[stName] || 0) + 1;
         const subIdx = stateSeenCounts[stName];
         const displayLabel = stateTotals[stName] > 1 ? `${stName} #${subIdx}` : stName;
+        const badgeStyle = getStateBadgeStyle(stName);
+        const pillText = stateTotals[stName] > 1 ? `${badgeStyle.short}.${subIdx}` : badgeStyle.short;
 
         const col = document.createElement('div');
         col.className = `ase-cel-col ${isSelected ? 'active' : ''}`;
-        col.title = `Cel ${idx + 1} — ${displayLabel}`;
+        col.title = `Cel ${idx + 1} — State: ${displayLabel} (Click to select, R-Click to cycle state)`;
 
         const numDiv = document.createElement('div');
         numDiv.className = 'ase-cel-num mono';
-        numDiv.textContent = idx + 1;
-
-        const dotBox = document.createElement('div');
-        dotBox.className = 'ase-cel-dot-box';
-        const dot = document.createElement('div');
+        numDiv.innerHTML = `<span>#${idx + 1}</span>`;
+        const dot = document.createElement('span');
         dot.className = `ase-dot ${hasPixels ? 'filled' : ''}`;
-        dotBox.appendChild(dot);
+        dot.style.width = '7px';
+        dot.style.height = '7px';
+        numDiv.appendChild(dot);
+
+        // Color-coded State Pill directly on the cel column so you can tell which state belongs to which cel at a glance
+        const statePill = document.createElement('div');
+        statePill.className = 'ase-cel-state-pill mono font-bold';
+        statePill.style.backgroundColor = badgeStyle.bg;
+        statePill.style.color = badgeStyle.text;
+        statePill.textContent = pillText;
+
+        // Mini Pixel Thumbnail Box
+        const dotBox = document.createElement('div');
+        dotBox.className = 'ase-cel-dot-box checkerboard';
+        const d = (editor.frameDims && editor.frameDims[idx]) || { w: editor.w, h: editor.h };
+        const miniCanvas = document.createElement('canvas');
+        miniCanvas.width = Math.max(1, d.w);
+        miniCanvas.height = Math.max(1, d.h);
+        miniCanvas.className = 'h-5 w-5 object-contain pointer-events-none';
+        if (hasPixels && buf.length === d.w * d.h * 4) {
+          miniCanvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(buf), d.w, d.h), 0, 0);
+        }
+        dotBox.appendChild(miniCanvas);
 
         col.appendChild(numDiv);
+        col.appendChild(statePill);
         col.appendChild(dotBox);
 
         col.addEventListener('click', () => {
           commitMarqueeSelection();
           editor.activeFrame = idx;
+          if (editor.type === 'body' && editor.subtype === 'Body' && editor.frameStates && editor.frameStates[idx]) {
+            const st = editor.frameStates[idx];
+            if (st === 'Stand') editor.previewMode = 'idle';
+            else if (st === 'Walk') editor.previewMode = 'walk';
+            else if (st === 'Jump' || st === 'Fall') editor.previewMode = 'jump';
+            else if (st === 'Sit' || st === 'Climb') editor.previewMode = 'sit';
+            else if (st === 'Blink' || st === 'Talk') editor.previewMode = 'talk';
+          }
           syncActiveFrameDimensions();
           populateCelStateDropdown();
+          renderPreviewControlsForType();
           renderFrameTabs();
           renderPaintCanvas();
+        });
+
+        // Right-clicking a cel cycles its assigned State right on the strip
+        col.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          if (baseLabels.length <= 1) return;
+          const curIdx = baseLabels.indexOf(editor.frameStates[idx]);
+          const nextState = baseLabels[(curIdx + 1) % baseLabels.length];
+          editor.frameStates[idx] = nextState;
+          renderFrameTabs();
         });
 
         framesContainer.appendChild(col);
@@ -6779,9 +7472,75 @@
       const activeList = getStateFrameIndices(editor, activeSt);
       const posInState = activeList.indexOf(editor.activeFrame) + 1;
       const suffix = activeList.length > 1 ? ` (${posInState}/${activeList.length})` : '';
-      activeCelNameBadge.textContent = `${editor.activeFrame + 1}: ${activeSt}${suffix}`;
+      activeCelNameBadge.textContent = `Cel ${editor.activeFrame + 1}: ${activeSt}${suffix}`;
       populateCelStateDropdown();
     }
+
+    function swapEditorCels(idxA, idxB) {
+      if (idxA < 0 || idxB < 0 || idxA >= editor.frames.length || idxB >= editor.frames.length || idxA === idxB) return;
+      commitMarqueeSelection();
+      const tmpFrame = editor.frames[idxA];
+      editor.frames[idxA] = editor.frames[idxB];
+      editor.frames[idxB] = tmpFrame;
+
+      const tmpDim = editor.frameDims[idxA];
+      editor.frameDims[idxA] = editor.frameDims[idxB];
+      editor.frameDims[idxB] = tmpDim;
+
+      const tmpState = editor.frameStates[idxA];
+      editor.frameStates[idxA] = editor.frameStates[idxB];
+      editor.frameStates[idxB] = tmpState;
+
+      editor.activeFrame = idxB;
+      syncActiveFrameDimensions();
+      renderFrameTabs();
+      renderPaintCanvas();
+    }
+
+    document.getElementById('move-cel-left-btn').addEventListener('click', () => {
+      if (editor.activeFrame > 0) {
+        swapEditorCels(editor.activeFrame, editor.activeFrame - 1);
+      }
+    });
+
+    document.getElementById('move-cel-right-btn').addEventListener('click', () => {
+      if (editor.activeFrame < editor.frames.length - 1) {
+        swapEditorCels(editor.activeFrame, editor.activeFrame + 1);
+      }
+    });
+
+    document.getElementById('sort-cels-state-btn').addEventListener('click', () => {
+      if (editor.frames.length <= 1) return;
+      commitMarqueeSelection();
+      const baseLabels = getFrameLabelsForSubtype(editor.type, editor.subtype);
+      const activeBufRef = editor.frames[editor.activeFrame];
+
+      const combined = editor.frames.map((buf, idx) => ({
+        buf,
+        dim: editor.frameDims[idx] || { w: editor.w, h: editor.h },
+        state: (editor.frameStates && editor.frameStates[idx]) || baseLabels[Math.min(idx, baseLabels.length - 1)] || 'Cell 1',
+        origIdx: idx
+      }));
+
+      combined.sort((a, b) => {
+        const orderA = baseLabels.indexOf(a.state);
+        const orderB = baseLabels.indexOf(b.state);
+        const rankA = orderA === -1 ? 999 : orderA;
+        const rankB = orderB === -1 ? 999 : orderB;
+        if (rankA !== rankB) return rankA - rankB;
+        return a.origIdx - b.origIdx;
+      });
+
+      editor.frames = combined.map(x => x.buf);
+      editor.frameDims = combined.map(x => x.dim);
+      editor.frameStates = combined.map(x => x.state);
+      const newActive = editor.frames.indexOf(activeBufRef);
+      editor.activeFrame = newActive !== -1 ? newActive : 0;
+
+      syncActiveFrameDimensions();
+      renderFrameTabs();
+      renderPaintCanvas();
+    });
 
     document.getElementById('add-frame-btn').addEventListener('click', () => {
       if (editor.frames.length >= 32) return;
@@ -6814,14 +7573,61 @@
 
     // Context-aware Preview Controls Bar tailored to each Manyland Creation Type
     const previewPlayToggleBtn = document.getElementById('preview-play-toggle-btn');
-    const previewFpsDownBtn = document.getElementById('preview-fps-down-btn');
-    const previewFpsUpBtn = document.getElementById('preview-fps-up-btn');
     const previewFpsInput = document.getElementById('preview-fps-input');
 
+    // Determines which Body state's FPS is currently being viewed/edited
+    function getActiveBodyStateForFps() {
+      if (editor.type !== 'body' || editor.subtype !== 'Body') return null;
+      const activeCelSt = (editor.frameStates && editor.frameStates[editor.activeFrame]) || 'Stand';
+      if (editor.previewMode === 'idle') return 'Stand';
+      if (editor.previewMode === 'walk') return 'Walk';
+      if (editor.previewMode === 'jump') return (activeCelSt === 'Fall') ? 'Fall' : 'Jump';
+      if (editor.previewMode === 'sit') return (activeCelSt === 'Climb') ? 'Climb' : 'Sit';
+      if (editor.previewMode === 'talk') return (activeCelSt === 'Blink') ? 'Blink' : 'Talk';
+      return activeCelSt;
+    }
+
+    function getCurrentEffectivePreviewFps() {
+      const st = getActiveBodyStateForFps();
+      if (st && editor.stateFps) {
+        return editor.stateFps[st] || editor.previewFps || 8;
+      }
+      return editor.previewFps || 8;
+    }
+
+    function setCurrentEffectivePreviewFps(newFps) {
+      const clamped = Math.max(1, Math.min(60, newFps));
+      const st = getActiveBodyStateForFps();
+      if (st) {
+        if (!editor.stateFps) editor.stateFps = { ...DEFAULT_BODY_STATE_FPS };
+        editor.stateFps[st] = clamped;
+        const activeCelSt = (editor.frameStates && editor.frameStates[editor.activeFrame]) || '';
+        if (editor.previewMode === 'jump' && activeCelSt !== 'Jump' && activeCelSt !== 'Fall') {
+          editor.stateFps.Jump = clamped;
+          editor.stateFps.Fall = clamped;
+        }
+        if (st === 'Walk') editor.previewFps = clamped;
+      } else {
+        editor.previewFps = clamped;
+      }
+      syncPreviewHeaderFpsUI();
+    }
+
     function syncPreviewHeaderFpsUI() {
-      if (previewFpsInput) previewFpsInput.value = editor.previewFps;
+      const fpsVal = getCurrentEffectivePreviewFps();
+      if (previewFpsInput) previewFpsInput.value = fpsVal;
+      const st = getActiveBodyStateForFps();
+      const stateLabelEl = document.getElementById('preview-state-label');
+      if (st && stateLabelEl) {
+        stateLabelEl.textContent = st;
+      }
       if (previewPlayToggleBtn) {
-        previewPlayToggleBtn.textContent = editor.previewPlaying ? 'Pause' : 'Play';
+        const pauseIcon = document.getElementById('preview-pause-icon');
+        const playIcon = document.getElementById('preview-play-icon');
+        if (pauseIcon && playIcon) {
+          pauseIcon.classList.toggle('hidden', !editor.previewPlaying);
+          playIcon.classList.toggle('hidden', editor.previewPlaying);
+        }
         previewPlayToggleBtn.classList.toggle('active', !editor.previewPlaying);
       }
     }
@@ -6831,22 +7637,19 @@
       syncPreviewHeaderFpsUI();
     });
 
-    previewFpsDownBtn.addEventListener('click', () => {
-      editor.previewFps = Math.max(1, (editor.previewFps || 8) - 1);
-      syncPreviewHeaderFpsUI();
+    previewFpsInput.addEventListener('input', (e) => {
+      const v = parseInt(e.target.value, 10);
+      if (!isNaN(v)) {
+        setCurrentEffectivePreviewFps(v);
+      }
     });
-
-    previewFpsUpBtn.addEventListener('click', () => {
-      editor.previewFps = Math.min(60, (editor.previewFps || 8) + 1);
-      syncPreviewHeaderFpsUI();
-    });
-
     previewFpsInput.addEventListener('change', (e) => {
       const v = parseInt(e.target.value, 10);
       if (!isNaN(v)) {
-        editor.previewFps = Math.max(1, Math.min(60, v));
+        setCurrentEffectivePreviewFps(v);
+      } else {
+        syncPreviewHeaderFpsUI();
       }
-      syncPreviewHeaderFpsUI();
     });
 
     function renderPreviewControlsForType() {
@@ -7122,19 +7925,23 @@
         return;
       }
 
-      // 5. BODY & ANIMATED / MULTI-CELL PREVIEW (Uses Smart State-Grouped Cels & Composites Blink/Talk Over Stand!)
+      // 5. BODY & ANIMATED / MULTI-CELL PREVIEW (Uses Smart State-Grouped Cels & Per-State FPS!)
       let frameIdx = editor.activeFrame;
       let compositeOverStand = false;
       const activeCelState = (editor.frameStates && editor.frameStates[editor.activeFrame]) || '';
 
       if (t === 'body') {
-        const step = Math.floor(editor.previewTick / ticksPerFrame);
+        const currentStForFps = getActiveBodyStateForFps() || 'Walk';
+        const stateSpecificFps = (editor.stateFps && editor.stateFps[currentStForFps]) || fps;
+        const bodyTicksPerFrame = Math.max(1, Math.round(60 / Math.max(1, stateSpecificFps)));
+        const step = Math.floor(editor.previewTick / bodyTicksPerFrame);
+
         if (!editor.previewPlaying) {
           frameIdx = editor.activeFrame;
           if (['Blink', 'Talk'].includes(activeCelState)) compositeOverStand = true;
         } else if (['Blink', 'Talk'].includes(activeCelState) || editor.previewMode === 'talk') {
           const overlayState = activeCelState === 'Blink' ? 'Blink' : (activeCelState === 'Talk' ? 'Talk' : ((step % 4 < 2) ? 'Talk' : 'Blink'));
-          const ovCels = getStateFrameIndices(editor, overlayState);
+          const ovCels = getStateFrameIndices(editor, overlayState).filter(idx => isBufferNonEmpty(getCompositedEditorFrameBuffer(idx)));
           const standCels = getStateFrameIndices(editor, 'Stand');
           if (ovCels.length > 0 && (step % 2 === 0)) {
             frameIdx = ovCels[step % ovCels.length];
@@ -7144,18 +7951,24 @@
           }
         } else if (editor.previewMode === 'idle') {
           const standCels = getStateFrameIndices(editor, 'Stand');
-          frameIdx = standCels.length > 0 ? standCels[step % standCels.length] : 0;
+          const nonEmptyStand = standCels.filter(idx => isBufferNonEmpty(getCompositedEditorFrameBuffer(idx)));
+          const pool = nonEmptyStand.length > 0 ? nonEmptyStand : standCels;
+          frameIdx = pool.length > 0 ? pool[step % pool.length] : 0;
         } else if (editor.previewMode === 'jump') {
           const jumpCels = [...getStateFrameIndices(editor, 'Jump'), ...getStateFrameIndices(editor, 'Fall')];
-          frameIdx = jumpCels.length > 0 ? jumpCels[step % jumpCels.length] : Math.min(2, editor.frames.length - 1);
+          const nonEmptyJump = jumpCels.filter(idx => isBufferNonEmpty(getCompositedEditorFrameBuffer(idx)));
+          const pool = nonEmptyJump.length > 0 ? nonEmptyJump : jumpCels;
+          frameIdx = pool.length > 0 ? pool[step % pool.length] : Math.min(2, editor.frames.length - 1);
         } else if (editor.previewMode === 'sit') {
           const sitCels = [...getStateFrameIndices(editor, 'Sit'), ...getStateFrameIndices(editor, 'Climb')];
           const nonEmptySit = sitCels.filter(idx => isBufferNonEmpty(getCompositedEditorFrameBuffer(idx)));
           const pool = nonEmptySit.length > 0 ? nonEmptySit : sitCels;
           frameIdx = pool.length > 0 ? pool[step % pool.length] : Math.min(6, editor.frames.length - 1);
         } else {
-          // Walk mode: if multiple Walk cels exist, cycle them; if 1 Walk cel, alternate Walk and Stand[0]
-          const walkCels = getStateFrameIndices(editor, 'Walk');
+          // Walk mode: if multiple non-empty Walk cels exist, cycle them; if 1 Walk cel, alternate Walk and Stand[0]
+          const allWalkCels = getStateFrameIndices(editor, 'Walk');
+          const nonEmptyWalk = allWalkCels.filter(idx => isBufferNonEmpty(getCompositedEditorFrameBuffer(idx)));
+          const walkCels = nonEmptyWalk.length > 0 ? nonEmptyWalk : allWalkCels;
           const standCels = getStateFrameIndices(editor, 'Stand');
           if (walkCels.length > 1) {
             frameIdx = walkCels[step % walkCels.length];
@@ -7202,6 +8015,11 @@
      ********************************************************************/
     window.addEventListener('paste', (e) => {
       if (!editor.isOpen) return;
+      // If the user just copied a cel/selection inside LoomBit, do not overwrite it with an older OS clipboard image
+      if (editor.preferInternalClipboard && editor.clipboardSelection) {
+        e.preventDefault();
+        return;
+      }
       const items = e.clipboardData?.items;
       if (!items) return;
 
@@ -7431,14 +8249,20 @@
         updateMoveVisualFeedback();
         renderPaintCanvas();
       }
+      if (e.key === 'Shift') {
+        editor.shiftHeld = isDown;
+        updateMoveVisualFeedback();
+        renderPaintCanvas();
+      }
     }
 
     function handleEditorShortcuts(e) {
       handleeditorAltAndCtrlKeys(e, true);
-      if (e.key === 'Alt') {
-        e.preventDefault();
-      }
-      if (e.key === ' ' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+
+      const tag = document.activeElement ? document.activeElement.tagName : '';
+      const inTextInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+      if (e.key === ' ' && !inTextInput) {
         e.preventDefault();
         if (!editor.spaceHeld) {
           editor.spaceHeld = true;
@@ -7446,90 +8270,100 @@
         }
         return;
       }
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (!dynamicCodePopup.classList.contains('hidden')) {
+          dynamicCodePopup.classList.add('hidden');
+          dynamicCodePopup.classList.remove('flex');
+        } else if (editor.marquee) {
+          commitMarqueeSelection();
+        } else {
+          closeSpriteEditor();
+        }
+        return;
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         openTypePickerModal();
         return;
       }
 
-      if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT' || document.activeElement.tagName === 'TEXTAREA') return;
+      if (inTextInput) return;
+
+      if (e.ctrlKey || e.metaKey) {
+        const k = e.key.toLowerCase();
+        if (k === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) popRedo();
+          else popUndo();
+          return;
+        }
+        if (k === 'y') {
+          e.preventDefault();
+          popRedo();
+          return;
+        }
+        if (k === 'c') {
+          e.preventDefault();
+          copyMarqueeOrCel();
+          return;
+        }
+        if (k === 'v') {
+          if (editor.preferInternalClipboard && editor.clipboardSelection) {
+            e.preventDefault();
+            pasteMarqueeOrCel();
+          }
+          return;
+        }
+      }
+
+      // Arrow keys nudge active Marquee selection or whole cel when Move/Ctrl is active
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+        const dx = e.key === 'ArrowLeft' ? -1 : (e.key === 'ArrowRight' ? 1 : 0);
+        const dy = e.key === 'ArrowUp' ? -1 : (e.key === 'ArrowDown' ? 1 : 0);
+        shiftFramePixels(dx, dy);
+        return;
+      }
+
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
 
       const key = e.key.toLowerCase();
-      if ((e.ctrlKey || e.metaKey) && key === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) popRedo();
-        else popUndo();
-      } else if ((e.ctrlKey || e.metaKey) && key === 'y') {
-        e.preventDefault();
-        popRedo();
-      } else if (!e.ctrlKey && !e.metaKey && key === 'z') {
-        // Manyland Z = Redo
-        popRedo();
-      } else if ((e.ctrlKey || e.metaKey) && key === 'c') {
-        e.preventDefault();
-        copyMarqueeOrCel();
-      } else if ((e.ctrlKey || e.metaKey) && key === 'v') {
-        // If internal selection exists, paste it; external OS image paste is handled by 'paste' event
-        if (editor.clipboardSelection) {
-          pasteMarqueeOrCel();
-        }
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowLeft') {
-        e.preventDefault();
-        shiftFramePixels(-1, 0);
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowRight') {
-        e.preventDefault();
-        shiftFramePixels(1, 0);
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowUp') {
-        e.preventDefault();
-        shiftFramePixels(0, -1);
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowDown') {
-        e.preventDefault();
-        shiftFramePixels(0, 1);
-      } else if (key === 'l') {
-        selectTool(editor.tool === 'line' ? 'pencil' : 'line');
-      } else if (key === 'b') {
-        selectTool('pencil');
-      } else if (key === 'v' && !e.ctrlKey && !e.metaKey) {
-        selectTool(editor.tool === 'move' ? 'pencil' : 'move');
-      } else if (key === 'w' && !e.ctrlKey && !e.metaKey) {
-        selectTool('marquee');
+      if (key === 'b') selectTool('pencil');
+      else if (key === 'e') selectTool('eraser');
+      else if (key === 'g') selectTool('fill');
+      else if (key === 'i') selectTool('picker');
+      else if (key === 'l') selectTool('line');
+      else if (key === 'v') selectTool('move');
+      else if (key === 'm') selectTool('marquee');
+      else if (key === 'w') {
         editor.marqueeType = 'wand';
-        document.querySelectorAll('.mtype-btn').forEach(b => b.classList.toggle('active', b.dataset.mtype === 'wand'));
-        updateToolReadout();
-      } else if (key === 'g') {
-        selectTool('fill');
-      } else if (key === 'i') {
-        selectTool('picker');
-      } else if (key === 'e') {
-        selectTool('eraser');
+        document.querySelectorAll('.mtype-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.mtype === 'wand');
+        });
+        selectTool('marquee');
+      } else if (key === 'o') {
+        document.getElementById('onion-skin-btn').click();
+      } else if (key === 's') {
+        document.getElementById('symmetry-x-btn').click();
       } else if (key === 'f') {
-        if (e.shiftKey) {
-          document.getElementById('flip-v-btn').click();
-        } else {
-          document.getElementById('flip-h-btn').click();
-        }
-      } else if (key === 'm') {
-        selectTool(editor.tool === 'marquee' ? 'pencil' : 'marquee');
-      } else if (key === 'p') {
-        // Manyland Wiki: Press P during creation to display pivot coordinates relative to center
-        editor.showPivotCoords = !editor.showPivotCoords;
+        if (e.shiftKey) document.getElementById('flip-v-btn').click();
+        else document.getElementById('flip-h-btn').click();
       } else if (key === 'r') {
         document.getElementById('rotate-btn').click();
-      } else if (key === 's' && !e.ctrlKey && !e.metaKey) {
-        document.getElementById('symmetry-x-btn').click();
+      } else if (key === 'p') {
+        editor.showPivotCoords = !editor.showPivotCoords;
+        renderPaintCanvas();
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
         document.getElementById('clear-canvas-btn').click();
-      } else if (e.key === 'Escape') {
-        if (editor.marquee) {
-          commitMarqueeSelection();
-        } else {
-          closeSpriteEditor();
-        }
       }
     }
 
     window.addEventListener('keyup', (e) => {
-      if (e.key === 'Control' || e.key === 'Meta' || e.key === 'Alt') {
+      if (e.key === 'Control' || e.key === 'Meta' || e.key === 'Alt' || e.key === 'Shift') {
         handleeditorAltAndCtrlKeys(e, false);
       }
       if (e.key === ' ') {
@@ -7575,6 +8409,7 @@
             lightAlpha: editor.lightAlpha,
             loopMode: editor.previewLoopMode,
             animFps: editor.previewFps,
+            stateFps: { ...(editor.stateFps || DEFAULT_BODY_STATE_FPS) },
             code,
             w: d0.w,
             h: d0.h,
@@ -7600,6 +8435,7 @@
           lightAlpha: editor.lightAlpha,
           loopMode: editor.previewLoopMode,
           animFps: editor.previewFps,
+          stateFps: { ...(editor.stateFps || DEFAULT_BODY_STATE_FPS) },
           code,
           w: d0.w,
           h: d0.h,
@@ -7615,6 +8451,14 @@
       updateBrushBar();
       renderSidebarSprites();
       saveAutoBackup();
+      sfx.createSuccess();
+      spawnDustParticles(
+        state.player.x + state.player.w / 2,
+        state.player.y + state.player.h / 2,
+        state.player.w,
+        state.player.h,
+        12
+      );
       closeSpriteEditor();
     });
 

@@ -2232,7 +2232,8 @@
 
     function populateCelStateDropdown() {
       const baseStates = getFrameLabelsForSubtype(editor.type, editor.subtype);
-      if (baseStates.length <= 1 || (editor.type === 'dynamic')) {
+      const hasNamedStates = (editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable';
+      if (!hasNamedStates || baseStates.length <= 1) {
         celStateSelect.classList.add('hidden');
         return;
       }
@@ -2335,13 +2336,18 @@
       }
 
       const labels = getFrameLabelsForSubtype(editor.type, editor.subtype);
-      const targetFrameDims = getFrameDimsForSubtype(editor.type, editor.subtype, labels.length);
+      const targetCount = Math.max(labels.length, editor.frames.length);
+      const targetFrameDims = getFrameDimsForSubtype(editor.type, editor.subtype, targetCount);
+      const hasNamedStates = (editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable';
 
       const newFrames = [];
       const newStates = [];
-      for (let i = 0; i < labels.length; i++) {
-        const td = targetFrameDims[i];
-        newStates.push(labels[i]);
+      for (let i = 0; i < targetCount; i++) {
+        const td = targetFrameDims[i] || targetFrameDims[0];
+        const stLabel = hasNamedStates
+          ? (labels[Math.min(i, labels.length - 1)] || `Cell ${i + 1}`)
+          : (labels[i] || `Cell ${i + 1}`);
+        newStates.push(stLabel);
         if (i < editor.frames.length) {
           const oldDim = editor.frameDims[i] || { w: editor.w, h: editor.h };
           newFrames.push(resizeSingleBuffer(editor.frames[i], oldDim.w, oldDim.h, td.w, td.h));
@@ -3491,8 +3497,11 @@
             cell._interactTick = 12;
           }
           if (cell.type === 'harmful' || dynAttrs.has('HARMFUL') || dynAttrs.has('DEADLY')) {
-            // Deadly Emerging is only lethal on its emerged frame (Cell 2)
-            if (cell.subtype === 'Deadly Emerging' && (animStep % 2 === 0)) {
+            // Deadly Emerging is safe on Cell 1 (index 0) and lethal on any emerged cell (Cell 2, Cell 3, etc.)
+            const spHarm = state.sprites.find(s => s.id === cell.spriteId);
+            const harmFrames = spHarm ? Math.max(1, spHarm.frames.length) : 2;
+            const harmStep = Math.floor(worldTickCount / Math.max(2, Math.round(60 / (spHarm?.animFps || state.walkFps))));
+            if (cell.subtype === 'Deadly Emerging' && harmFrames > 1 && (harmStep % harmFrames === 0)) {
               continue;
             }
             const isDeadly = (cell.subtype && cell.subtype.includes('Deadly')) || dynAttrs.has('DEADLY');
@@ -3614,7 +3623,8 @@
               if (cell.subtype === 'Tilted Bouncy') p.vx = p.facing * 3.5;
               const spBounce = state.sprites.find(s => s.id === cell.spriteId);
               const extraCells = spBounce ? Math.max(1, spBounce.frames.length - 1) : 1;
-              cell._bounceMax = extraCells * 8;
+              const ticksPerCel = Math.max(5, Math.round(60 / (spBounce?.animFps || state.walkFps || 8)));
+              cell._bounceMax = extraCells * ticksPerCel;
               cell._bounceTick = cell._bounceMax;
             } else {
               p.vy = 0;
@@ -4344,9 +4354,31 @@
           }
           worldCtx.restore();
 
-          // Big Thing: Back + Front renders Cell 2 in front of player later
+          // Light Glow: Cell 1 is 19x19 light source, Cell 2 is 38x38 translucent glow overlay
+          if (cell.type === 'light' && cell.subtype === 'Light Glow' && sp.frames.length >= 2) {
+            const glowCol = getSpriteLightColorAndAlpha(sp);
+            let glowAlpha = glowCol.alpha;
+            if (sp.lightOption === 'Pulsating Glow') {
+              glowAlpha *= (0.6 + 0.4 * Math.sin(worldTickCount * 0.06));
+            } else if (sp.lightOption === 'Flickering Glow') {
+              glowAlpha *= (0.75 + 0.25 * Math.sin(worldTickCount * 0.37));
+            }
+            const fcGlow = getCachedFrameCanvas(sp, 1);
+            const gw = fcGlow.width * zoom;
+            const gh = fcGlow.height * zoom;
+            const gx = Math.round(sx + (sw - gw) / 2);
+            const gy = Math.round(sy + (sh - gh) / 2);
+            worldCtx.save();
+            worldCtx.globalAlpha = glowAlpha;
+            worldCtx.drawImage(fcGlow, gx, gy, gw, gh);
+            worldCtx.restore();
+          }
+
+          // Big Thing: Back + Front renders Cell 2+ in front of player later
           if (cell.type === 'big_thing' && cell.subtype === 'Back + Front' && sp.frames.length >= 2) {
-            frontCells.push({ ...cell, _frontOverlayOnly: true });
+            const extraCount = sp.frames.length - 1;
+            const frontCellIdx = 1 + (spAnimStep % extraCount);
+            frontCells.push({ ...cell, _frontOverlayOnly: true, _frontCellIdx: frontCellIdx });
           }
 
           // Textual / Places / Interacting sign text when player is nearby
@@ -4698,7 +4730,12 @@
 
       if (wornHoldable) {
         const holdOffsetX = p.facing === 1 ? 7 : -7;
-        const holdFrame = p.usingHoldable > 0 ? Math.min(1, wornHoldable.frames.length - 1) : 0;
+        let holdFrame = 0;
+        if (p.usingHoldable > 0 && wornHoldable.frames.length > 1) {
+          const extraCount = wornHoldable.frames.length - 1;
+          const progress = Math.max(0, Math.min(0.999, 1 - p.usingHoldable / 18));
+          holdFrame = 1 + Math.floor(progress * extraCount);
+        }
         drawCenteredAvatarSprite(wornHoldable, holdFrame, -2, holdOffsetX);
       }
 
@@ -4762,12 +4799,14 @@
         worldCtx.globalAlpha = Math.max(0, ft.life / ft.maxLife);
         worldCtx.font = '14px "Perfect DOS VGA 437", "VT323", monospace';
         worldCtx.textAlign = 'center';
-        worldCtx.fillStyle = ft.color;
+        worldCtx.fillStyle = '#09090b';
+        worldCtx.fillText(ft.text, fx + 1, fy + 1);
+        worldCtx.fillStyle = ft.color || '#ffffff';
         worldCtx.fillText(ft.text, fx, fy);
         worldCtx.restore();
       }
 
-      // 8. Render Front Layer ('Thing in Front' & 'Big Thing: Back + Front' Cell 2)
+      // 8. Render Front Layer ('Thing in Front' & 'Big Thing: Back + Front' Cell 2+)
       for (const cell of frontCells) {
         const sp = state.sprites.find(s => s.id === cell.spriteId);
         if (!sp) continue;
@@ -4775,7 +4814,12 @@
         const sy = Math.round(camScreenY + cell.y * zoom);
         const sxEnd = Math.round(camScreenX + (cell.x + cell.w) * zoom);
         const syEnd = Math.round(camScreenY + (cell.y + cell.h) * zoom);
-        const fc = getCachedFrameCanvas(sp, cell._frontOverlayOnly ? 1 : 0);
+        const spFps = sp.animFps || state.walkFps;
+        const spAnimStep = Math.floor(worldTickCount / Math.max(2, Math.round(60 / spFps)));
+        const frontIdx = cell._frontOverlayOnly
+          ? (cell._frontCellIdx ?? 1)
+          : (sp.frames.length > 1 ? (spAnimStep % sp.frames.length) : 0);
+        const fc = getCachedFrameCanvas(sp, frontIdx);
         worldCtx.drawImage(fc, sx, sy, Math.max(1, sxEnd - sx), Math.max(1, syEnd - sy));
       }
 
@@ -5566,20 +5610,7 @@
     }
 
     function playSynthTone() {
-      // Check for Transporting portal under player
-      for (const [, cell] of state.worldCells.entries()) {
-        if (p.x < cell.x + cell.w && p.x + p.w > cell.x && p.y < cell.y + cell.h && p.y + p.h > cell.y) {
-          if (cell.type === 'transporting') {
-            for (const [, target] of state.worldCells.entries()) {
-              if (target !== cell && target.type === 'transporting') {
-                p.x = target.x;
-                p.y = target.y - p.h;
-                return;
-              }
-            }
-          }
-        }
-      }
+      sfx.ui(660);
     }
 
     /********************************************************************
@@ -6279,9 +6310,8 @@
         const { x, y, w, h, floatingData } = editor.marquee;
         for (let py = 0; py < h; py++) {
           for (let px = 0; px < w; px++) {
-            const dx = x + px;
-            const dy = y + py;
-            if (dx < 0 || dx >= editor.w || dy < 0 || dy >= editor.h) continue;
+            const dx = ((x + px) % editor.w + editor.w) % editor.w;
+            const dy = ((y + py) % editor.h + editor.h) % editor.h;
             const si = (py * w + px) * 4;
             if (floatingData[si + 3] > 0) {
               const di = (dy * editor.w + dx) * 4;
@@ -6672,11 +6702,11 @@
     }
 
     function shiftFramePixels(dx, dy) {
-      // If a Marquee selection is active, shift the Marquee selection itself (lifting pixels if needed)
+      // If a Marquee selection is active, shift the Marquee selection itself (wrapping around canvas borders)
       if (editor.marquee) {
         liftMarqueePixels();
-        editor.marquee.x += dx;
-        editor.marquee.y += dy;
+        editor.marquee.x = ((editor.marquee.x + dx) % editor.w + editor.w) % editor.w;
+        editor.marquee.y = ((editor.marquee.y + dy) % editor.h + editor.h) % editor.h;
         renderPaintCanvas();
         return;
       }
@@ -6687,9 +6717,8 @@
       buf.fill(0);
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+          const nx = ((x + dx) % w + w) % w;
+          const ny = ((y + dy) % h + h) % h;
           const si = (y * w + x) * 4;
           const di = (ny * w + nx) * 4;
           buf[di] = copy[si];
@@ -7059,6 +7088,7 @@
       if (!editor.isOpen || !editor.isDrawing) return;
 
       // Global handling for Cel Move (Ctrl+Drag / V) and Marquee Move/Select so dragging past the top/side of the canvas never stops
+      // Global handling for Cel Move (Ctrl+Drag / V) and Marquee Move/Select so dragging wraps around borders seamlessly
       if (editor.celMoveDrag) {
         const { x, y } = getPixelCoordFromEvent(e);
         const dx = x - editor.celMoveDrag.startX;
@@ -7069,9 +7099,8 @@
         dst.fill(0);
         for (let py = 0; py < h; py++) {
           for (let px = 0; px < w; px++) {
-            const nx = px + dx;
-            const ny = py + dy;
-            if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+            const nx = ((px + dx) % w + w) % w;
+            const ny = ((py + dy) % h + h) % h;
             const si = (py * w + px) * 4;
             const di = (ny * w + nx) * 4;
             dst[di] = src[si];
@@ -7103,8 +7132,8 @@
         } else if (editor.marqueeAction === 'moving') {
           const dx = x - editor.marqueeDragOrigin.mx;
           const dy = y - editor.marqueeDragOrigin.my;
-          editor.marquee.x = editor.marqueeDragOrigin.ox + dx;
-          editor.marquee.y = editor.marqueeDragOrigin.oy + dy;
+          editor.marquee.x = ((editor.marqueeDragOrigin.ox + dx) % editor.w + editor.w) % editor.w;
+          editor.marquee.y = ((editor.marqueeDragOrigin.oy + dy) % editor.h + editor.h) % editor.h;
         }
         renderPaintCanvas();
       }
@@ -7158,18 +7187,10 @@
       const curBuf = editor.frames[editor.activeFrame];
       drawBufferScaled(paintCtx, curBuf, editor.w, editor.h, scale, 1.0, 0, 0);
 
-      // Draw floating marquee pixels if lifted
+      // Draw floating marquee pixels wrapped around canvas borders if lifted
       if (editor.marquee && editor.marquee.floatingData) {
-        drawBufferScaled(
-          paintCtx,
-          editor.marquee.floatingData,
-          editor.marquee.w,
-          editor.marquee.h,
-          scale,
-          1.0,
-          editor.marquee.x * scale,
-          editor.marquee.y * scale
-        );
+        const compositedBuf = getCompositedEditorFrameBuffer(editor.activeFrame);
+        drawBufferScaled(paintCtx, compositedBuf, editor.w, editor.h, scale, 1.0, 0, 0);
       }
 
       if (editor.showCanvasGrid && scale >= 5) {
@@ -7381,11 +7402,20 @@
     function renderFrameTabs() {
       framesContainer.innerHTML = '';
       const baseLabels = getFrameLabelsForSubtype(editor.type, editor.subtype);
+      const hasNamedStates = (editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable';
+
       if (!editor.frameStates || editor.frameStates.length !== editor.frames.length) {
-        editor.frameStates = editor.frames.map((_, i) => baseLabels[Math.min(i, baseLabels.length - 1)] || 'Cell 1');
+        editor.frameStates = editor.frames.map((_, i) =>
+          hasNamedStates
+            ? (baseLabels[Math.min(i, baseLabels.length - 1)] || `Cell ${i + 1}`)
+            : `Cell ${i + 1}`
+        );
+      } else if (!hasNamedStates) {
+        // For non-Body/Wearable objects (e.g. Bouncy, Solid, Changing Thing, etc.), number every cell sequentially (Cell 1, Cell 2, Cell 3...)
+        editor.frameStates = editor.frames.map((_, i) => `Cell ${i + 1}`);
       }
 
-      // Count how many cels belong to each state so we can number multi-cel states cleanly (e.g. WALK #1, WALK #2)
+      // Count how many cels belong to each state so we can number multi-cel states cleanly (e.g. WALK.1, WALK.2)
       const stateSeenCounts = {};
       const stateTotals = {};
       editor.frameStates.forEach(st => { stateTotals[st] = (stateTotals[st] || 0) + 1; });
@@ -7454,11 +7484,11 @@
           renderFrameTabs();
           renderPaintCanvas();
         });
-
-        // Right-clicking a cel cycles its assigned State right on the strip
+        // Right-clicking a cel cycles its assigned State right on the strip (for multi-state Body / Wearable types)
         col.addEventListener('contextmenu', (e) => {
           e.preventDefault();
-          if (baseLabels.length <= 1) return;
+          const hasNamedStates = (editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable';
+          if (!hasNamedStates || baseLabels.length <= 1) return;
           const curIdx = baseLabels.indexOf(editor.frameStates[idx]);
           const nextState = baseLabels[(curIdx + 1) % baseLabels.length];
           editor.frameStates[idx] = nextState;
@@ -7545,14 +7575,19 @@
     document.getElementById('add-frame-btn').addEventListener('click', () => {
       if (editor.frames.length >= 32) return;
       commitMarqueeSelection();
-      // Smart +Cel: Insert a new cel right after the active cel with the SAME state tag!
-      const currentState = (editor.frameStates && editor.frameStates[editor.activeFrame]) || 'Cell 1';
+      const hasNamedStates = (editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable';
       const currentDim = (editor.frameDims && editor.frameDims[editor.activeFrame]) || { w: editor.w, h: editor.h };
       const insertIdx = editor.activeFrame + 1;
+      const nextStateLabel = hasNamedStates
+        ? ((editor.frameStates && editor.frameStates[editor.activeFrame]) || 'Stand')
+        : `Cell ${insertIdx + 1}`;
 
       editor.frames.splice(insertIdx, 0, new Uint8ClampedArray(currentDim.w * currentDim.h * 4));
       editor.frameDims.splice(insertIdx, 0, { w: currentDim.w, h: currentDim.h });
-      editor.frameStates.splice(insertIdx, 0, currentState);
+      editor.frameStates.splice(insertIdx, 0, nextStateLabel);
+      if (!hasNamedStates) {
+        editor.frameStates = editor.frames.map((_, i) => `Cell ${i + 1}`);
+      }
       editor.activeFrame = insertIdx;
       syncActiveFrameDimensions();
       renderFrameTabs();
@@ -7723,6 +7758,7 @@
     }
 
     // Returns a frame buffer that includes any active floating Marquee pixels so moving a sprite updates the preview immediately!
+    // Returns a frame buffer that includes any active floating Marquee pixels (wrapped around borders) so moving a sprite updates the preview immediately!
     function getCompositedEditorFrameBuffer(idx) {
       const safeIdx = Math.max(0, Math.min(idx, editor.frames.length - 1));
       const d = editor.frameDims[safeIdx] || { w: editor.w || 19, h: editor.h || 19 };
@@ -7736,9 +7772,8 @@
         const { x, y, w: mw, h: mh, floatingData } = editor.marquee;
         for (let py = 0; py < mh; py++) {
           for (let px = 0; px < mw; px++) {
-            const dx = x + px;
-            const dy = y + py;
-            if (dx < 0 || dx >= w || dy < 0 || dy >= h) continue;
+            const dx = ((x + px) % w + w) % w;
+            const dy = ((y + py) % h + h) % h;
             const si = (py * mw + px) * 4;
             if (floatingData[si + 3] > 0) {
               const di = (dy * w + dx) * 4;

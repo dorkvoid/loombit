@@ -549,7 +549,7 @@
       <input
         id="sidebar-search-input"
         type="text"
-        placeholder="Filter..."
+        placeholder="Search name or type..."
         class="flex-1 min-w-0 bg-[#0c0d11] border border-[#282a36] rounded-sm px-2 py-0.5 text-[10px] text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-blue-500"
       />
       <button id="sidebar-search-clear" class="hidden text-[10px] text-zinc-400 hover:text-white px-1">X</button>
@@ -1360,12 +1360,7 @@
       {
         id: 'thing', name: 'THING', category: 'back', defaultW: 19, defaultH: 19,
         frames: ['Cell 1'],
-        subtypes: ['Thing', 'Thing in Front', 'Falling Thing']
-      },
-      {
-        id: 'furry', name: 'FURRY', category: 'back', defaultW: 19, defaultH: 19,
-        frames: ['Cell 1', 'Cell 2'],
-        subtypes: ['Many (Patch)', 'Singular', 'Flowing Many', 'Tall Shag']
+        subtypes: ['Thing', 'Thing in Front', 'Falling Thing', 'Furry', 'Drifty']
       },
       {
         id: 'light', name: 'LIGHT', category: 'dynamic', defaultW: 19, defaultH: 19,
@@ -1381,6 +1376,7 @@
         id: 'environment', name: 'ENVIRONMENT', category: 'back', defaultW: 19, defaultH: 19,
         frames: ['Cell 1', 'Cell 2'],
         subtypes: [
+          'Environmental Wind',
           'Environmental Mist',
           'Sky Stars',
           'Physics Rain',
@@ -1523,8 +1519,10 @@
       'Light Glow': ['Steady Translucent', 'Pulsating Glow', 'Flickering Glow']
     };
 
+    const MANYLAND_TYPES_MAP = new Map(MANYLAND_TYPES.map(t => [t.id, t]));
+
     function getTypeSpec(typeId) {
-      return MANYLAND_TYPES.find(t => t.id === typeId) || MANYLAND_TYPES[0];
+      return MANYLAND_TYPES_MAP.get(typeId) || MANYLAND_TYPES[0];
     }
 
     const TILE_SIZE = 19;
@@ -1586,6 +1584,18 @@
         r: 18, g: 18, b: 21, a: 0
       },
 
+      // Physical World Wind State (Driven by placed 'Environmental Wind' blocks)
+      wind: {
+        active: false,
+        strength: 0,
+        dir: -1,            // -1 = blowing right-to-left, +1 = blowing left-to-right
+        targetVx: 0,
+        currentVx: 0,
+        gustPhase: 0,
+        dirTimer: 420,
+        soundTimer: 150
+      },
+
       spawnPoint: { x: 0, y: -38 },
 
       // Player Avatar Physics & Health (Fixed 60Hz Manyland-like feel)
@@ -1642,7 +1652,7 @@
         swimShakePhase: 0,    // Rapid swimming wiggle phase in water
         flyTilt: 0,           // Banking tilt angle on Flying Mountables or Swimming
         worldMovePhase: 0,    // Cumulative movement phase for Sparkling Changing Things
-        fallTicks: 0,         // Continuous downward falling tick counter (180 ticks = 3s ragdoll death)
+        fallTicks: 0,         // Continuous downward falling tick counter (240 ticks = 4s ragdoll death)
         inPushingGustX: 0,    // Active horizontal Pushing gust max speed override
         animTimer: 0,
         walkCycleIdx: 0,
@@ -2815,6 +2825,72 @@
           osc.stop(t0 + n.dur + 0.01);
         });
       },
+      wireDisconnect() {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+
+        const notes = [
+          { delay: 0.00, dur: 0.06, freq: 587.33 },
+          { delay: 0.05, dur: 0.09, freq: 392.00 }
+        ];
+        notes.forEach((n) => {
+          const t0 = now + n.delay;
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(n.freq, t0);
+          osc.frequency.exponentialRampToValueAtTime(n.freq * 0.88, t0 + n.dur);
+          g.gain.setValueAtTime(0.001, t0);
+          g.gain.linearRampToValueAtTime(0.075, t0 + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.0008, t0 + n.dur);
+          osc.connect(g);
+          g.connect(this.out);
+          osc.start(t0);
+          osc.stop(t0 + n.dur + 0.01);
+        });
+      },
+      windGust(strength = 0.7, dir = -1) {
+        if (!state.soundEnabled) return;
+        const perfNow = performance.now();
+        if (this.lastWindTime && perfNow - this.lastWindTime < 1800) return;
+        this.lastWindTime = perfNow;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+        const dur = 1.65 + Math.random() * 0.75;
+        const amp = Math.min(0.09, Math.max(0.025, strength * 0.065));
+
+        const src = this.ctx.createBufferSource();
+        src.buffer = this.noiseBuf;
+        src.loop = true;
+
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        const baseF = dir > 0 ? 340 : 290;
+        const peakF = baseF + 240 * Math.min(1.4, strength) + Math.random() * 90;
+        bp.frequency.setValueAtTime(baseF * 0.75, now);
+        bp.frequency.exponentialRampToValueAtTime(peakF, now + dur * 0.42);
+        bp.frequency.exponentialRampToValueAtTime(baseF * 0.65, now + dur);
+        bp.Q.setValueAtTime(2.6, now);
+
+        const lp = this.ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.setValueAtTime(920, now);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.0005, now);
+        gain.gain.linearRampToValueAtTime(amp, now + dur * 0.38);
+        gain.gain.exponentialRampToValueAtTime(0.0005, now + dur);
+
+        src.connect(bp);
+        bp.connect(lp);
+        lp.connect(gain);
+        gain.connect(this.out);
+        src.start(now, Math.random() * 0.4);
+        src.stop(now + dur + 0.05);
+      },
       doorSlide(opening = true) {
         if (!state.soundEnabled) return;
         const perfNow = performance.now();
@@ -3573,17 +3649,26 @@
         ? 'ase-btn active px-2 py-0.5 text-[10px] text-amber-300 font-medium'
         : 'ase-btn px-2 py-0.5 text-[10px] text-cyan-200 font-medium';
     }
+    function isFurrySpriteOrCell(obj) {
+      if (!obj) return false;
+      if (obj.type === 'furry') return true;
+      return obj.type === 'thing' && (
+        obj.subtype === 'Furry' ||
+        obj.subtype === 'Many (Patch)' ||
+        obj.subtype === 'Singular' ||
+        obj.subtype === 'Flowing Many' ||
+        obj.subtype === 'Tall Shag'
+      );
+    }
 
-    if (liquidViscosityBtn) {
-      liquidViscosityBtn.addEventListener('click', () => {
-        editor.liquidViscosity = editor.liquidViscosity === 'thick' ? 'normal' : 'thick';
-        syncLiquidViscosityUI();
-      });
+    function isDriftySpriteOrCell(obj) {
+      if (!obj) return false;
+      return obj.type === 'thing' && obj.subtype === 'Drifty';
     }
 
     function populateFurryControls() {
       if (!furryControlsGroup) return;
-      if (editor.type !== 'furry') {
+      if (!isFurrySpriteOrCell(editor)) {
         furryControlsGroup.classList.add('hidden');
         furryControlsGroup.classList.remove('flex');
         return;
@@ -3608,15 +3693,6 @@
     if (furryModeBtn) {
       furryModeBtn.addEventListener('click', () => {
         editor.furryMode = editor.furryMode === 'singular' ? 'many' : 'singular';
-        if (editor.type === 'furry') {
-          if (editor.furryMode === 'singular' && editor.subtype !== 'Singular') {
-            editor.subtype = 'Singular';
-            subtypeSelect.value = 'Singular';
-          } else if (editor.furryMode === 'many' && editor.subtype === 'Singular') {
-            editor.subtype = 'Many (Patch)';
-            subtypeSelect.value = 'Many (Patch)';
-          }
-        }
         syncFurryModeUI();
       });
     }
@@ -3631,7 +3707,7 @@
     function getDefaultEnvLayerForSubtype(subtype) {
       if (subtype === 'Sky Stars' || subtype === 'Sun / Celestial') return 'sky';
       if (subtype === 'Moving Clouds') return 'farback';
-      if (subtype === 'Environmental Mist' || subtype === 'Physics Rain' || subtype === 'Physics Snow') return 'front';
+      if (subtype === 'Environmental Wind' || subtype === 'Environmental Mist' || subtype === 'Physics Rain' || subtype === 'Physics Snow') return 'front';
       return 'back';
     }
 
@@ -3940,6 +4016,9 @@
       if (typeId === 'body' && subtype === 'Motion') {
         return ['Motion 1', 'Motion 2', 'Motion 3', 'Motion 4'];
       }
+      if (typeId === 'thing' && (subtype === 'Furry' || subtype === 'Drifty')) {
+        return ['Cell 1', 'Cell 2'];
+      }
       if (typeId === 'light') {
         if (subtype === 'Light Glow') return ['Source (19x19)', 'Glow (38x38)'];
         return ['Cell 1'];
@@ -3972,11 +4051,8 @@
       if (editor.type === 'environment') {
         editor.envLayer = getDefaultEnvLayerForSubtype(editor.subtype);
       }
-      if (editor.type === 'furry') {
-        editor.furryMode = editor.subtype === 'Singular' ? 'singular' : 'many';
-        if (editor.subtype === 'Flowing Many' && (editor.furryFlow ?? 55) < 75) {
-          editor.furryFlow = 85;
-        }
+      if (isFurrySpriteOrCell(editor)) {
+        if (!editor.furryMode) editor.furryMode = 'many';
       }
       populateLightOptionsDropdown();
       populateEnvironmentControls();
@@ -4142,8 +4218,20 @@
 
     document.getElementById('respawn-btn').addEventListener('click', () => respawnPlayer(false));
 
+    // Per-tick cached world indices (populated once per tick in rebuildWorldTickCaches)
+    let tickLowestStaticY = -38 + TILE_SIZE;
+    let tickLowestStaticYTick = -1;
+    const tickActivatorCells = [];
+    const tickPushingCells = [];
+    const tickFurryCells = [];
+    const tickDriftyCells = [];
+    const tickWindCells = [];
+
     // Returns the lowest Y coordinate of any placed world block (or spawn point / Y=0 floor), ignoring falling entities or the player
     function getLowestStaticWorldY() {
+      if (tickLowestStaticYTick === worldTickCount) {
+        return tickLowestStaticY;
+      }
       let lowestY = state.spawnPoint.y + TILE_SIZE;
       if (state.hardFloorY0 && 0 > lowestY) lowestY = 0;
       for (const [, cell] of state.worldCells.entries()) {
@@ -4151,6 +4239,8 @@
         const bottom = cell.y + (cell.h || TILE_SIZE);
         if (bottom > lowestY) lowestY = bottom;
       }
+      tickLowestStaticY = lowestY;
+      tickLowestStaticYTick = worldTickCount;
       return lowestY;
     }
 
@@ -4482,7 +4572,7 @@
         return;
       }
 
-      const sp = state.sprites.find(s => s.id === motionIdOrBuiltin);
+      const sp = getSpriteById(motionIdOrBuiltin);
       if (!sp) return;
 
       if (p.activeMotionId === sp.id) {
@@ -4507,7 +4597,7 @@
       if (!motionBarSlots) return;
       motionBarSlots.innerHTML = '';
       const p = state.player;
-      const bodySp = state.sprites.find(s => s.id === state.activeBodyId);
+      const bodySp = getSpriteById(state.activeBodyId);
       motionBarTitle.textContent = bodySp ? `${bodySp.name.toUpperCase()} MOTIONS` : 'WIREFRAME MOTIONS';
 
       const entries = getAllMotionBarEntries();
@@ -4536,7 +4626,7 @@
 
       const ids = getEquippedBodyMotionIds();
       ids.forEach((id, idx) => {
-        const sp = state.sprites.find(s => s.id === id);
+        const sp = getSpriteById(id);
         if (!sp) return;
         const slotIdx = idx + 2;
         const isFocused = p.motionBarOpen && p.motionBarIndex === slotIdx;
@@ -4910,6 +5000,62 @@
       }
     }
 
+    // Single-pass per-tick world indexer: replaces 8 separate full-map iterations per frame
+    function rebuildWorldTickCaches() {
+      activeWiredTargetsSet.clear();
+      tickActivatorCells.length = 0;
+      tickPushingCells.length = 0;
+      tickFurryCells.length = 0;
+      tickDriftyCells.length = 0;
+      tickWindCells.length = 0;
+
+      let lowestY = state.spawnPoint.y + TILE_SIZE;
+      if (state.hardFloorY0 && 0 > lowestY) lowestY = 0;
+
+      const wiredSources = [];
+      for (const [, cell] of state.worldCells.entries()) {
+        cell._incomingSignalCount = 0;
+        cell._totalIncomingWires = 0;
+
+        if (!hasSpriteId(cell.spriteId)) continue;
+
+        const bottom = cell.y + (cell.h || TILE_SIZE);
+        if (bottom > lowestY) lowestY = bottom;
+
+        if (Array.isArray(cell.wires) && cell.wires.length > 0) {
+          wiredSources.push(cell);
+        }
+
+        if (cell.type === 'activator') {
+          tickActivatorCells.push(cell);
+        } else if (cell.type === 'pushing') {
+          tickPushingCells.push(cell);
+        } else if (cell.type === 'environment' && cell.subtype === 'Environmental Wind') {
+          tickWindCells.push(cell);
+        }
+
+        if (isFurrySpriteOrCell(cell)) {
+          tickFurryCells.push(cell);
+        } else if (isDriftySpriteOrCell(cell)) {
+          tickDriftyCells.push(cell);
+        }
+      }
+
+      for (let i = 0; i < wiredSources.length; i++) {
+        const wires = wiredSources[i].wires;
+        for (let j = 0; j < wires.length; j++) {
+          const w = wires[j];
+          activeWiredTargetsSet.add(`${w.x},${w.y},${w.layer || 'main'}`);
+          activeWiredTargetsSet.add(`${w.x},${w.y},main`);
+          const tCell = getWorldCellAtWireRef(w);
+          if (tCell) tCell._totalIncomingWires = (tCell._totalIncomingWires || 0) + 1;
+        }
+      }
+
+      tickLowestStaticY = lowestY;
+      tickLowestStaticYTick = worldTickCount;
+    }
+
     function isTargetWiredByAnyActivator(targetCell) {
       if (!targetCell) return false;
       return activeWiredTargetsSet.has(`${targetCell.x},${targetCell.y},${targetCell.layer || 'main'}`);
@@ -5102,7 +5248,7 @@
     function updatePhysicsTick() {
       worldTickCount++;
       const p = state.player;
-      rebuildWiredTargetsSet();
+      rebuildWorldTickCaches();
 
       // Smoothly interpolate zoom level so zooming never hard-cuts
       state.renderZoom += (state.zoom - state.renderZoom) * 0.22;
@@ -5112,21 +5258,7 @@
         state.activatorTimer--;
       }
 
-      // Reset per-tick incoming wire counters for logic gates
-      for (const [, cell] of state.worldCells.entries()) {
-        cell._incomingSignalCount = 0;
-        cell._totalIncomingWires = 0;
-      }
-      for (const [, cell] of state.worldCells.entries()) {
-        if (Array.isArray(cell.wires)) {
-          for (const w of cell.wires) {
-            const tCell = getWorldCellAtWireRef(w);
-            if (tCell) tCell._totalIncomingWires = (tCell._totalIncomingWires || 0) + 1;
-          }
-        }
-      }
-
-      // Pass A: Evaluate Sensors, Pressure Plates, Timers, Relays, Pistons, Elevators, and Active Switches
+      // Pass A: Evaluate Sensors, Pressure Plates, Timers, Relays, and Active Switches
       for (const [, cell] of state.worldCells.entries()) {
         if (cell.placeAnim !== undefined && cell.placeAnim < 1) {
           cell.placeAnim = Math.min(1, cell.placeAnim + 0.25);
@@ -5220,8 +5352,8 @@
       }
 
       // Pass B: Evaluate Logic Gates (AND Gate & NOT / Inverter) after incoming signals are tallied
-      for (const [, cell] of state.worldCells.entries()) {
-        if (cell.type !== 'activator') continue;
+      for (let i = 0; i < tickActivatorCells.length; i++) {
+        const cell = tickActivatorCells[i];
         if (cell.subtype === 'AND Gate') {
           const totalIn = cell._totalIncomingWires || 0;
           const activeIn = cell._incomingSignalCount || 0;
@@ -5429,12 +5561,14 @@
       }
 
       // Update thrown Holdables / Emitter projectiles / Weather / Delete & Floating Text animations
+      updateWorldWindPhysics();
       updateProjectiles();
       updateParticles();
       updateWeatherParticles();
       updateDeleteAndFloatingAnims();
       updateDynamicEntities();
       updateFurryCellsPhysics();
+      updateDriftyCellsPhysics();
 
       // In World Builder Mode, WASD pans the camera smoothly
       if (state.mode === 'build') {
@@ -5712,6 +5846,8 @@
       // Horizontal Move + Collision (Track prevX/prevY so jumping inside a solid placed on you never glitches)
       const wasOnGround = p.onGround;
       const preLandingVy = p.vy;
+      const tickStartX = p.x;
+      const tickStartY = p.y;
       p.onSticky = false;
       p.prevX = p.x;
       p.prevY = p.y;
@@ -5755,14 +5891,14 @@
         }
       }
 
-      // Advance worldMovePhase when the player moves around the world (drives Sparkling Changing Things crossfade)
-      const stepMoveDist = Math.hypot(p.x - p.prevX, p.y - p.prevY);
-      if (stepMoveDist > 0.04) {
-        p.worldMovePhase = (p.worldMovePhase || 0) + stepMoveDist * 0.16;
+      // Advance worldMovePhase when the player moves around the world (drives Sparkling Changing Things ping-pong crossfade)
+      const stepMoveDist = Math.hypot(p.x - tickStartX, p.y - tickStartY);
+      if (stepMoveDist > 0.02) {
+        p.worldMovePhase = (p.worldMovePhase || 0) + stepMoveDist * 0.065;
       }
 
       // Track continuous downward falling time & off-world void threshold:
-      // Falling for more than 3 seconds (180 ticks at 60Hz) or falling off the bottom of the world triggers ragdoll death & respawn
+      // Falling for more than 4 seconds (240 ticks at 60Hz) or falling off the bottom of the world triggers ragdoll death & respawn
       const isFreeFallingDown =
         !p.onGround &&
         !p.onLadder &&
@@ -5780,7 +5916,7 @@
       const lowestWorldCellY = getLowestStaticWorldY();
       const fellOffWorldVoid = !state.hardFloorY0 && p.y > lowestWorldCellY + 240 && !hasFloorBelowInColumn(p.x, p.y, p.w);
 
-      if ((p.fallTicks >= 180 || fellOffWorldVoid) && p.deadTimer === 0) {
+      if ((p.fallTicks >= 240 || fellOffWorldVoid) && p.deadTimer === 0) {
         p.fallTicks = 0;
         const prevInvuln = p.invulnTimer;
         p.invulnTimer = 0;
@@ -5926,9 +6062,13 @@
     }
 
     function updateParticles() {
+      const windVx = state.wind && state.wind.active ? state.wind.currentVx : 0;
       for (let i = state.particles.length - 1; i >= 0; i--) {
         const pt = state.particles[i];
         if (pt.ay) pt.vy += pt.ay;
+        if (windVx !== 0 && (pt.isPoof || (pt.ay && pt.ay < 0))) {
+          pt.vx += windVx * 0.025;
+        }
         if (pt.drag) {
           pt.vx *= pt.drag;
           pt.vy *= pt.drag;
@@ -6010,6 +6150,9 @@
           pr.vrot = (pr.vrot || 0) * 0.86;
         } else {
           pr.vy = Math.min(7.5, pr.vy + (pr.gravity ?? 0.16));
+          if (state.wind && state.wind.active) {
+            pr.vx += state.wind.currentVx * 0.018;
+          }
         }
 
         // 1. Horizontal step & wall collisions
@@ -6047,8 +6190,9 @@
         }
 
         // Check if projectile is passing through a Pushing wind gust
-        for (const [, cell] of state.worldCells.entries()) {
-          if (cell.type !== 'pushing') continue;
+        for (let pIdx = 0; pIdx < tickPushingCells.length; pIdx++) {
+          const cell = tickPushingCells[pIdx];
+          if (isTargetWiredByAnyActivator(cell) && !isCellCurrentlyActivated(cell)) continue;
           if (pr.x < cell.x + cell.w && pr.x + pr.w > cell.x && pr.y < cell.y + cell.h && pr.y + pr.h > cell.y) {
             const gust = getPushingVectorForCell(cell);
             pr.vx += gust.fx * 0.95;
@@ -6382,14 +6526,15 @@
 
     // Updates spring-damper physics for all placed FURRY cells (grass / shag carpet that shuffles under feet)
     function updateFurryCellsPhysics() {
+      if (tickFurryCells.length === 0) return;
       const p = state.player;
       const pFootX = p.x + p.w * 0.5;
       const pFootY = p.y + p.h;
       const pMovingHoriz = Math.abs(p.vx) > 0.14;
       const pMovingVert = Math.abs(p.vy) > 0.4;
 
-      for (const [, cell] of state.worldCells.entries()) {
-        if (cell.type !== 'furry') continue;
+      for (let cIdx = 0; cIdx < tickFurryCells.length; cIdx++) {
+        const cell = tickFurryCells[cIdx];
         const sp = getSpriteById(cell.spriteId);
         if (!sp) continue;
 
@@ -6467,41 +6612,152 @@
             }
           }
 
-          // 3. Spring-damper harmonic restoration back to upright
-          st.vel += -0.14 * st.angle;
+          // 3. Spring-damper harmonic restoration back to upright (plus physical world wind lean!)
+          const windTargetAngle = (state.wind && state.wind.active)
+            ? Math.max(-0.65, Math.min(0.65, state.wind.currentVx * 0.35))
+            : 0;
+          st.vel += -0.14 * (st.angle - windTargetAngle);
           st.vel *= 0.82;
           st.angle += st.vel;
           if (st.angle > 1.05) st.angle = 1.05;
           if (st.angle < -1.05) st.angle = -1.05;
-          if (Math.abs(st.angle) < 0.002 && Math.abs(st.vel) < 0.002) {
-            st.angle = 0;
+          if (Math.abs(st.angle - windTargetAngle) < 0.002 && Math.abs(st.vel) < 0.002) {
+            st.angle = windTargetAngle;
             st.vel = 0;
           }
           st.squash += (1 - st.squash) * 0.16;
         }
 
         if (ruffledThisTick) {
-          cell._interactTick = 18;
-          // Set player's footstep surface sound to grass (or carpet if named shag/carpet/rug)
-          const lowerName = (sp.name || '').toLowerCase();
-          p.groundSurface = /\b(carpet|shag|rug|fur|velvet|wool)\b/.test(lowerName) ? 'carpet' : 'grass';
+          cell._interactTick = 12;
+        }
+      }
+    }
 
-          // Occasionally kick up tiny grass/shag fiber specks & soft rustle when running through
-          if ((Math.abs(p.vx) > 0.9 || Math.abs(p.vy) > 1.8) && worldTickCount % 9 === 0 && Math.random() < 0.65) {
-            const speckColor = getPrimaryColorFromSprite(sp, '#4ade80');
-            state.particles.push({
-              x: pFootX + (Math.random() - 0.5) * 10,
-              y: cellAnchorY - 2 - Math.random() * 5,
-              vx: -p.vx * 0.35 + (Math.random() - 0.5) * 0.9,
-              vy: -0.55 - Math.random() * 0.85,
-              ay: 0.06,
-              drag: 0.94,
-              size: 1.5,
-              color: speckColor,
-              life: 16 + Math.floor(Math.random() * 10),
-              maxLife: 26
-            });
+    // Updates world wind physics driven by placed 'Environmental Wind' blocks
+    function updateWorldWindPhysics() {
+      const w = state.wind;
+      let maxWindStrength = 0;
+
+      for (let i = 0; i < tickWindCells.length; i++) {
+        const cell = tickWindCells[i];
+        if (isTargetWiredByAnyActivator(cell) && !isCellCurrentlyActivated(cell)) continue;
+        const sp = getSpriteById(cell.spriteId);
+        if (!sp) continue;
+        const vis = cell.envVisFade !== undefined ? cell.envVisFade : computeBiomeProximityTarget(cell);
+        if (vis <= 0.01) continue;
+        const speedMult = (sp.envSpeed ?? 100) / 100;
+        const cellStrength = vis * speedMult;
+        if (cellStrength > maxWindStrength) {
+          maxWindStrength = cellStrength;
+        }
+      }
+
+      w.active = maxWindStrength > 0.01;
+      w.strength += (maxWindStrength - w.strength) * 0.05;
+      if (w.strength < 0.005) w.strength = 0;
+
+      if (w.active) {
+        w.gustPhase += 0.022;
+        w.dirTimer--;
+        if (w.dirTimer <= 0) {
+          // Randomly change wind direction (coming from left-to-right or right-to-left) every now and again
+          w.dirTimer = 360 + Math.floor(Math.random() * 540);
+          if (Math.random() < 0.58) {
+            w.dir = -w.dir;
           }
+        }
+
+        const gustWave = 0.72 + 0.28 * Math.sin(w.gustPhase) + 0.14 * Math.sin(w.gustPhase * 2.1);
+        w.targetVx = w.dir * (0.55 * w.strength * gustWave);
+        w.currentVx += (w.targetVx - w.currentVx) * 0.025;
+
+        // Play ambient rushing wind noise every now and again
+        w.soundTimer--;
+        if (w.soundTimer <= 0) {
+          w.soundTimer = 260 + Math.floor(Math.random() * 340);
+          if (w.strength > 0.08 && !editor.isOpen) {
+            sfx.windGust(w.strength, w.dir);
+          }
+        }
+      } else {
+        w.targetVx = 0;
+        w.currentVx *= 0.95;
+        if (Math.abs(w.currentVx) < 0.003) w.currentVx = 0;
+      }
+    }
+
+    // Updates 'Drifty' Thing cells (slowly fade in at origin cell, drift upward & with physical wind, crossfade cells, fade out)
+    function updateDriftyCellsPhysics() {
+      if (tickDriftyCells.length === 0) return;
+      const windVx = (state.wind && state.wind.active) ? state.wind.currentVx : -0.18;
+
+      for (let cIdx = 0; cIdx < tickDriftyCells.length; cIdx++) {
+        const cell = tickDriftyCells[cIdx];
+        const sp = getSpriteById(cell.spriteId);
+        if (!sp) continue;
+
+        if (!Array.isArray(cell._driftyPuffs)) {
+          cell._driftyPuffs = [];
+          cell._driftySpawnTimer = 0;
+        }
+
+        const fpsScale = Math.max(0.4, Math.min(2.5, (sp.animFps || 8) / 8));
+        const spawnInterval = Math.round(92 / fpsScale);
+        const maxLife = Math.round(270 / fpsScale);
+
+        cell._driftySpawnTimer = (cell._driftySpawnTimer || 0) - 1;
+        if (cell._driftySpawnTimer <= 0 && cell._driftyPuffs.length < 4) {
+          cell._driftySpawnTimer = spawnInterval;
+          const qTurn = getCellQuarterTurn(cell);
+          // Default upward drift; if rotated 90/180/270, adjust initial drift impulse
+          let baseVx = 0;
+          let baseVy = -0.24 * fpsScale;
+          if (qTurn === 2) baseVy = 0.24 * fpsScale;
+          else if (qTurn === 1) { baseVx = 0.24 * fpsScale; baseVy = -0.08 * fpsScale; }
+          else if (qTurn === 3) { baseVx = -0.24 * fpsScale; baseVy = -0.08 * fpsScale; }
+
+          cell._driftyPuffs.push({
+            dx: 0,
+            dy: 0,
+            vx: baseVx,
+            vy: baseVy,
+            age: 0,
+            maxLife,
+            seed: Math.random() * Math.PI * 2
+          });
+        }
+
+        for (let i = cell._driftyPuffs.length - 1; i >= 0; i--) {
+          const puff = cell._driftyPuffs[i];
+          puff.age++;
+          if (puff.age >= puff.maxLife) {
+            cell._driftyPuffs.splice(i, 1);
+            continue;
+          }
+
+          const lifeProgress = puff.age / puff.maxLife;
+          // Once the puff has partially faded in (~15% of life), it detaches and drifts with the wind
+          const driftRamp = Math.min(1, Math.max(0, (lifeProgress - 0.08) / 0.22));
+          const targetWindVx = windVx * (0.85 + 0.25 * Math.sin(worldTickCount * 0.03 + puff.seed));
+          puff.vx += (targetWindVx * driftRamp - puff.vx) * 0.04;
+
+          // Also check if overlapping any placed PUSHING fan block
+          const worldX = cell.x + puff.dx;
+          const worldY = cell.y + puff.dy;
+          for (let pIdx = 0; pIdx < tickPushingCells.length; pIdx++) {
+            const pCell = tickPushingCells[pIdx];
+            if (isTargetWiredByAnyActivator(pCell) && !isCellCurrentlyActivated(pCell)) continue;
+            if (worldX < pCell.x + pCell.w && worldX + cell.w > pCell.x && worldY < pCell.y + pCell.h && worldY + cell.h > pCell.y) {
+              const gust = getPushingVectorForCell(pCell);
+              puff.vx += gust.fx * 0.12;
+              puff.vy += gust.fy * 0.12;
+            }
+          }
+
+          const wobbleX = Math.sin(puff.age * 0.055 + puff.seed) * 0.05 * driftRamp;
+          puff.dx += (puff.vx + wobbleX) * driftRamp;
+          puff.dy += puff.vy * (0.25 + 0.75 * driftRamp);
         }
       }
     }
@@ -6993,7 +7249,7 @@
 
           // Destroy physics objects that fall far below the lowest map block OR free-fall into an open void with no floor below them
           const fellBelowMap = !state.hardFloorY0 && ent.y > voidDeleteY;
-          const fellIntoColumnVoid = !state.hardFloorY0 && ent.fallTicks >= 190 && !hasFloorBelowInColumn(ent.x, ent.y, ent.w);
+          const fellIntoColumnVoid = !state.hardFloorY0 && ent.fallTicks >= 240 && !hasFloorBelowInColumn(ent.x, ent.y, ent.w);
           if (fellBelowMap || fellIntoColumnVoid) {
             const sp = getSpriteById(ent.spriteId);
             state.deleteAnimations.push({
@@ -7038,11 +7294,15 @@
             ent.vy += isSphere ? (isThickWater ? -0.06 : -0.11) : (isThickWater ? 0.03 : 0.065);
           } else {
             ent.vy = Math.min(6.4, ent.vy + 0.24);
+            // Physical wind gently pushes airborne Falling Things & Bouncy Spheres
+            if (state.wind && state.wind.active && (ent.type === 'thing' || isSphere)) {
+              ent.vx += state.wind.currentVx * (ent.type === 'thing' ? 0.035 : 0.018);
+            }
           }
 
           // Check if entity is overlapping a placed Pushing wind gust block
-          for (const [, cell] of state.worldCells.entries()) {
-            if (cell.type !== 'pushing') continue;
+          for (let pIdx = 0; pIdx < tickPushingCells.length; pIdx++) {
+            const cell = tickPushingCells[pIdx];
             if (isTargetWiredByAnyActivator(cell) && !isCellCurrentlyActivated(cell)) continue;
             if (ent.x < cell.x + cell.w && ent.x + ent.w > cell.x && ent.y < cell.y + cell.h && ent.y + ent.h > cell.y) {
               const gust = getPushingVectorForCell(cell);
@@ -7276,6 +7536,111 @@
       return 'start';
     }
 
+    // Pre-parses and caches Dynamic layer scripts so evaluateDynamicCellTransforms runs zero regexes per frame
+    function getParsedDynamicScript(sp, count) {
+      if (!sp || !sp.code || !sp.code.trim()) return null;
+      if (sp._cachedParsedDynamic && sp._cachedParsedCode === sp.code && sp._cachedParsedCount === count) {
+        return sp._cachedParsedDynamic;
+      }
+
+      const lines = sp.code.split('\n');
+      let currentBlock = 'start';
+      let loopDuration = 0;
+      const instructions = [];
+
+      for (const raw of lines) {
+        const line = raw.trim();
+        if (!line) continue;
+
+        const mLoop = line.match(/^(\d+(?:\.\d+)?)\s*:\s*RESTART/i);
+        if (mLoop) {
+          const t = parseFloat(mLoop[1]);
+          if (t > loopDuration) loopDuration = t;
+          continue;
+        }
+
+        const markerMatch = line.match(/^(start|move|rise|fall|climb|swim|sit|lie|create|action)\s*:$/i);
+        if (markerMatch) {
+          currentBlock = markerMatch[1].toLowerCase();
+          continue;
+        }
+
+        const timeMatch = line.match(/^(\d*(?:\.\d+)?)(?:\s*-\s*(\d*(?:\.\d+)?))?\s*:\s*(.+)$/);
+        if (!timeMatch) continue;
+
+        const t0 = parseFloat(timeMatch[1] || '0');
+        const hasRange = timeMatch[2] !== undefined && timeMatch[2] !== '';
+        const t1 = hasRange ? parseFloat(timeMatch[2]) : t0;
+        const cmdsStr = timeMatch[3];
+
+        const rawClauses = cmdsStr.split(',');
+        let targetIndices = [0];
+        const ops = [];
+
+        for (const rawClause of rawClauses) {
+          const c = rawClause.trim();
+          const cellPick = c.match(/^CELL\s+(\d+)\b/i);
+          let rem = c;
+          if (cellPick) {
+            const idx = Math.max(0, Math.min(count - 1, parseInt(cellPick[1], 10) - 1));
+            targetIndices = [idx];
+            rem = c.slice(cellPick[0].length).trim();
+          } else if (/^CELLS\b/i.test(c)) {
+            targetIndices = Array.from({ length: count }, (_, idx) => idx);
+            rem = c.replace(/^CELLS\b/i, '').trim();
+          }
+
+          const op = {
+            targets: targetIndices,
+            show: /\bSHOW\b/i.test(rem) ? true : (/\bHIDE\b/i.test(rem) ? false : null),
+            bright: /\bBRIGHT\b/i.test(rem) ? true : (/\bUNBRIGHT\b/i.test(rem) ? false : null),
+            flipH: /\bFLIP\s+HORIZONTAL\b/i.test(rem),
+            flipV: /\bFLIP\s+VERTICAL\b/i.test(rem),
+            up: 0,
+            down: 0,
+            left: 0,
+            right: 0,
+            rot: 0,
+            opacity: null,
+            zIndex: null,
+            pivot: null,
+            secAngle: /\bSECONDS\s+ANGLE\b/i.test(rem),
+            minAngle: /\bMINUTES\s+ANGLE\b/i.test(rem),
+            hrAngle: /\bHOURS\s+ANGLE\b/i.test(rem)
+          };
+
+          const mUp = rem.match(/\bUP\s+(-?\d+(?:\.\d+)?)/i);
+          if (mUp) op.up = parseFloat(mUp[1]);
+          const mDown = rem.match(/\bDOWN\s+(-?\d+(?:\.\d+)?)/i);
+          if (mDown) op.down = parseFloat(mDown[1]);
+          const mLeft = rem.match(/\bLEFT\s+(-?\d+(?:\.\d+)?)/i);
+          if (mLeft) op.left = parseFloat(mLeft[1]);
+          const mRight = rem.match(/\bRIGHT\s+(-?\d+(?:\.\d+)?)/i);
+          if (mRight) op.right = parseFloat(mRight[1]);
+          const mRot = rem.match(/\bROTATE\s+(-?\d+(?:\.\d+)?)/i);
+          if (mRot) op.rot = parseFloat(mRot[1]);
+          const mOp = rem.match(/\bOPACITY\s+(\d+(?:\.\d+)?)/i);
+          if (mOp) op.opacity = Math.max(0, Math.min(1, parseFloat(mOp[1])));
+          const mZ = rem.match(/\bZ-INDEX\s+(\d+)/i);
+          if (mZ) op.zIndex = parseInt(mZ[1], 10);
+          const mPiv = rem.match(/\bPIVOT\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i);
+          if (mPiv) op.pivot = { x: parseFloat(mPiv[1]), y: parseFloat(mPiv[2]) };
+
+          ops.push(op);
+        }
+
+        instructions.push({ block: currentBlock, t0, t1, hasRange, ops });
+      }
+
+      const parsed = { loopDuration, instructions };
+      if (sp.id && sp.id !== '__editor_preview__') {
+        sp._cachedParsedCode = sp.code;
+        sp._cachedParsedCount = count;
+        sp._cachedParsedDynamic = parsed;
+      }
+      return parsed;
+    }
+
     function evaluateDynamicCellTransforms(sp, elapsedSec, activeMarker = 'start') {
       const count = sp.frames ? sp.frames.length : 1;
       const cells = Array.from({ length: count }, (_, i) => ({
@@ -7293,98 +7658,44 @@
         bright: false
       }));
 
-      if (!sp.code || !sp.code.trim()) return cells;
+      const parsed = getParsedDynamicScript(sp, count);
+      if (!parsed) return cells;
 
-      const lines = sp.code.split('\n');
-      let currentBlock = 'start';
-      let loopDuration = 0;
-
-      for (const raw of lines) {
-        const clean = raw.trim();
-        const mLoop = clean.match(/^(\d+(?:\.\d+)?)\s*:\s*RESTART/i);
-        if (mLoop) {
-          const t = parseFloat(mLoop[1]);
-          if (t > loopDuration) loopDuration = t;
-        }
-      }
-
+      const { loopDuration, instructions } = parsed;
       const tNow = loopDuration > 0 ? (elapsedSec % loopDuration) : elapsedSec;
 
-      for (const raw of lines) {
-        const line = raw.trim();
-        if (!line) continue;
-        const markerMatch = line.match(/^(start|move|rise|fall|climb|swim|sit|lie|create|action)\s*:$/i);
-        if (markerMatch) {
-          currentBlock = markerMatch[1].toLowerCase();
-          continue;
-        }
-        if (currentBlock !== 'start' && currentBlock !== activeMarker) continue;
+      for (let i = 0; i < instructions.length; i++) {
+        const inst = instructions[i];
+        if (inst.block !== 'start' && inst.block !== activeMarker) continue;
+        if (tNow < inst.t0) continue;
 
-        const timeMatch = line.match(/^(\d*(?:\.\d+)?)(?:\s*-\s*(\d*(?:\.\d+)?))?\s*:\s*(.+)$/);
-        if (!timeMatch) continue;
+        const progress = inst.hasRange && inst.t1 > inst.t0 ? Math.min(1, (tNow - inst.t0) / (inst.t1 - inst.t0)) : 1;
+        const ops = inst.ops;
 
-        const t0 = parseFloat(timeMatch[1] || '0');
-        const hasRange = timeMatch[2] !== undefined && timeMatch[2] !== '';
-        const t1 = hasRange ? parseFloat(timeMatch[2]) : t0;
-        const cmdsStr = timeMatch[3];
-
-        if (tNow < t0) continue;
-        const progress = hasRange && t1 > t0 ? Math.min(1, (tNow - t0) / (t1 - t0)) : 1;
-
-        const clauses = cmdsStr.split(',');
-        let targetIndices = [0];
-
-        for (const rawClause of clauses) {
-          const c = rawClause.trim();
-          const cellPick = c.match(/^CELL\s+(\d+)\b/i);
-          let rem = c;
-          if (cellPick) {
-            const idx = Math.max(0, Math.min(count - 1, parseInt(cellPick[1], 10) - 1));
-            targetIndices = [idx];
-            rem = c.slice(cellPick[0].length).trim();
-          } else if (/^CELLS\b/i.test(c)) {
-            targetIndices = cells.map((_, idx) => idx);
-            rem = c.replace(/^CELLS\b/i, '').trim();
-          }
-
-          for (const ti of targetIndices) {
-            const target = cells[ti];
+        for (let j = 0; j < ops.length; j++) {
+          const op = ops[j];
+          const targets = op.targets;
+          for (let k = 0; k < targets.length; k++) {
+            const target = cells[targets[k]];
             if (!target) continue;
-            if (/\bSHOW\b/i.test(rem)) target.show = true;
-            if (/\bHIDE\b/i.test(rem)) target.show = false;
-            if (/\bBRIGHT\b/i.test(rem)) target.bright = true;
-            if (/\bUNBRIGHT\b/i.test(rem)) target.bright = false;
-            if (/\bFLIP\s+HORIZONTAL\b/i.test(rem)) target.flipH = !target.flipH;
-            if (/\bFLIP\s+VERTICAL\b/i.test(rem)) target.flipV = !target.flipV;
-
-            const mUp = rem.match(/\bUP\s+(-?\d+(?:\.\d+)?)/i);
-            if (mUp) target.dy -= parseFloat(mUp[1]) * progress;
-            const mDown = rem.match(/\bDOWN\s+(-?\d+(?:\.\d+)?)/i);
-            if (mDown) target.dy += parseFloat(mDown[1]) * progress;
-            const mLeft = rem.match(/\bLEFT\s+(-?\d+(?:\.\d+)?)/i);
-            if (mLeft) target.dx -= parseFloat(mLeft[1]) * progress;
-            const mRight = rem.match(/\bRIGHT\s+(-?\d+(?:\.\d+)?)/i);
-            if (mRight) target.dx += parseFloat(mRight[1]) * progress;
-            const mRot = rem.match(/\bROTATE\s+(-?\d+(?:\.\d+)?)/i);
-            if (mRot) target.rot += parseFloat(mRot[1]) * progress;
-            const mOp = rem.match(/\bOPACITY\s+(\d+(?:\.\d+)?)/i);
-            if (mOp) target.opacity = Math.max(0, Math.min(1, parseFloat(mOp[1])));
-            const mZ = rem.match(/\bZ-INDEX\s+(\d+)/i);
-            if (mZ) target.zIndex = parseInt(mZ[1], 10);
-            const mPiv = rem.match(/\bPIVOT\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i);
-            if (mPiv) {
-              target.pivotX = parseFloat(mPiv[1]);
-              target.pivotY = parseFloat(mPiv[2]);
+            if (op.show !== null) target.show = op.show;
+            if (op.bright !== null) target.bright = op.bright;
+            if (op.flipH) target.flipH = !target.flipH;
+            if (op.flipV) target.flipV = !target.flipV;
+            if (op.up) target.dy -= op.up * progress;
+            if (op.down) target.dy += op.down * progress;
+            if (op.left) target.dx -= op.left * progress;
+            if (op.right) target.dx += op.right * progress;
+            if (op.rot) target.rot += op.rot * progress;
+            if (op.opacity !== null) target.opacity = op.opacity;
+            if (op.zIndex !== null) target.zIndex = op.zIndex;
+            if (op.pivot) {
+              target.pivotX = op.pivot.x;
+              target.pivotY = op.pivot.y;
             }
-            if (/\bSECONDS\s+ANGLE\b/i.test(rem)) {
-              target.rot = (new Date().getSeconds() / 60) * 360;
-            }
-            if (/\bMINUTES\s+ANGLE\b/i.test(rem)) {
-              target.rot = (new Date().getMinutes() / 60) * 360;
-            }
-            if (/\bHOURS\s+ANGLE\b/i.test(rem)) {
-              target.rot = ((new Date().getHours() % 12) / 12) * 360;
-            }
+            if (op.secAngle) target.rot = (new Date().getSeconds() / 60) * 360;
+            if (op.minAngle) target.rot = (new Date().getMinutes() / 60) * 360;
+            if (op.hrAngle) target.rot = ((new Date().getHours() % 12) / 12) * 360;
           }
         }
       }
@@ -7674,8 +7985,28 @@
 
       const camW = (worldCanvas.width / Math.max(1, state.renderZoom));
       const camH = (worldCanvas.height / Math.max(1, state.renderZoom));
+      const windVx = (state.wind && state.wind.active) ? state.wind.currentVx : 0;
 
-      if (sub === 'Physics Rain') {
+      if (sub === 'Environmental Wind') {
+        if (worldTickCount % 5 === 0 && state.weatherParticles.length < 220) {
+          const windDir = (state.wind && state.wind.dir) ? state.wind.dir : -1;
+          state.weatherParticles.push({
+            kind: 'wind_wisp',
+            layer: envLayer,
+            spriteId: sp.id,
+            sourceCell: cell,
+            x: state.camera.x + (Math.random() - 0.5) * (camW + 160),
+            y: state.camera.y + (Math.random() - 0.5) * (camH + 80),
+            vx: (windDir * (1.8 + Math.random() * 1.4) + windVx * 1.5) * speedMult,
+            vy: (Math.random() - 0.5) * 0.25,
+            len: 10 + Math.random() * 10,
+            color: col,
+            alpha: 0.32 * alphaMult,
+            life: 90,
+            maxLife: 90
+          });
+        }
+      } else if (sub === 'Physics Rain') {
         const spawnCount = Math.max(1, Math.round(2 * speedMult));
         if (state.weatherParticles.length < 260) {
           for (let i = 0; i < spawnCount; i++) {
@@ -7686,7 +8017,7 @@
               sourceCell: cell,
               x: state.camera.x + (Math.random() - 0.5) * (camW + 140),
               y: state.camera.y - camH * 0.58 - Math.random() * 30,
-              vx: -0.75 * speedMult,
+              vx: (-0.65 + windVx * 1.8) * speedMult,
               vy: (4.6 + Math.random() * 1.8) * speedMult,
               len: 6 + Math.random() * 4,
               color: col,
@@ -7704,7 +8035,7 @@
             sourceCell: cell,
             x: state.camera.x + (Math.random() - 0.5) * (camW + 120),
             y: state.camera.y - camH * 0.58 - Math.random() * 20,
-            vx: (Math.random() - 0.5) * 0.5 * speedMult,
+            vx: ((Math.random() - 0.5) * 0.4 + windVx * 1.1) * speedMult,
             vy: (0.75 + Math.random() * 0.55) * speedMult,
             seed: Math.random() * 10,
             size: Math.random() > 0.4 ? 2 : 1.3,
@@ -7722,7 +8053,7 @@
             sourceCell: cell,
             x: cell.x + (Math.random() - 0.5) * 180,
             y: cell.y + (Math.random() - 0.5) * 120,
-            vx: (Math.random() - 0.5) * 0.45 * speedMult,
+            vx: ((Math.random() - 0.5) * 0.45 + windVx * 0.8) * speedMult,
             vy: (-0.15 - Math.random() * 0.35) * speedMult,
             seed: Math.random() * 10,
             size: Math.random() > 0.5 ? 2 : 1.2,
@@ -7737,6 +8068,7 @@
 
     function updateWeatherParticles() {
       const p = state.player;
+      const windVx = (state.wind && state.wind.active) ? state.wind.currentVx : 0;
       for (let i = state.weatherParticles.length - 1; i >= 0; i--) {
         const wp = state.weatherParticles[i];
         wp.life--;
@@ -7745,10 +8077,10 @@
           continue;
         }
         if (wp.kind === 'snow') {
-          wp.x += wp.vx + Math.sin(worldTickCount * 0.04 + wp.seed) * 0.28;
+          wp.x += wp.vx + windVx * 0.65 + Math.sin(worldTickCount * 0.04 + wp.seed) * 0.28;
           wp.y += wp.vy;
         } else if (wp.kind === 'spore') {
-          wp.x += wp.vx + Math.cos(worldTickCount * 0.03 + wp.seed) * 0.18;
+          wp.x += wp.vx + windVx * 0.5 + Math.cos(worldTickCount * 0.03 + wp.seed) * 0.18;
           wp.y += wp.vy + Math.sin(worldTickCount * 0.04 + wp.seed) * 0.12;
           const dx = (wp.x) - (p.x + p.w / 2);
           const dy = (wp.y) - (p.y + p.h / 2);
@@ -7757,8 +8089,11 @@
             wp.vx += (dx / dist) * 0.25;
             wp.vy += (dy / dist) * 0.25;
           }
-        } else {
+        } else if (wp.kind === 'wind_wisp') {
           wp.x += wp.vx;
+          wp.y += wp.vy + Math.sin(worldTickCount * 0.06 + wp.x * 0.02) * 0.15;
+        } else {
+          wp.x += wp.vx + windVx * 0.35;
           wp.y += wp.vy;
         }
 
@@ -7910,9 +8245,10 @@
         } else if (sub === 'Moving Clouds') {
           worldCtx.save();
           const cloudCount = 7;
+          const windDirMult = (state.wind && state.wind.active) ? (state.wind.dir * Math.max(0.5, state.wind.strength)) : 1;
           for (let i = 0; i < cloudCount; i++) {
             const depthFactor = 0.75 + (i % 3) * 0.2;
-            const drift = worldTickCount * 0.28 * speed * depthFactor + i * (SKY_SPAN_W / cloudCount);
+            const drift = worldTickCount * 0.28 * speed * windDirMult * depthFactor + i * (SKY_SPAN_W / cloudCount);
             const wrapX = ((drift - relCamX * 0.16 * depthFactor) % SKY_SPAN_W + SKY_SPAN_W) % SKY_SPAN_W;
             const vertBand = ((i * 137) % 360) - 180;
             const wrapY = ((vertBand - relCamY * 0.09 * depthFactor + SKY_SPAN_H * 0.5) % SKY_SPAN_H + SKY_SPAN_H) % SKY_SPAN_H;
@@ -8002,6 +8338,18 @@
             worldCtx.lineTo(sx + wp.vx * zoom * 1.4, sy + wp.len * zoom * 0.75);
             worldCtx.stroke();
           }
+        } else if (wp.kind === 'wind_wisp') {
+          if (hasArt && sp.w <= 19) {
+            const fc = getCachedFrameCanvas(sp, 0);
+            worldCtx.drawImage(fc, sx, sy, Math.max(3, Math.round(fc.width * zoom * 0.6)), Math.max(3, Math.round(fc.height * zoom * 0.6)));
+          } else {
+            worldCtx.strokeStyle = wp.color;
+            worldCtx.lineWidth = Math.max(1, zoom * 0.45);
+            worldCtx.beginPath();
+            worldCtx.moveTo(sx, sy);
+            worldCtx.lineTo(sx + Math.sign(wp.vx || -1) * wp.len * zoom, sy);
+            worldCtx.stroke();
+          }
         } else {
           worldCtx.fillStyle = wp.color;
           const sz = Math.max(2, Math.round((wp.size || 1.5) * zoom));
@@ -8066,6 +8414,7 @@
       const underPlayerMainCells = [];
       const overPlayerMainCells = [];
       const furryCells = [];
+      const driftyCells = [];
       const liquidCells = [];
       const frontCells = [];
 
@@ -8079,8 +8428,10 @@
       };
 
       for (const [, cell] of state.worldCells.entries()) {
-        if (cell.type === 'furry') {
+        if (isFurrySpriteOrCell(cell)) {
           furryCells.push(cell);
+        } else if (isDriftySpriteOrCell(cell)) {
+          driftyCells.push(cell);
         } else if (cell.type === 'liquid') {
           liquidCells.push(cell);
         } else if (cell.layer === 'farback') {
@@ -8392,7 +8743,7 @@
             : sx;
 
           // Hide raw tile icon in Play Mode for sky/weather Environment emitters so only the effect shows (visible in Build mode)
-          const isWeatherEmitter = cell.type === 'environment' && ['Sky Stars', 'Sun / Celestial', 'Moving Clouds', 'Environmental Mist', 'Physics Rain', 'Physics Snow'].includes(cell.subtype);
+          const isWeatherEmitter = cell.type === 'environment' && ['Environmental Wind', 'Sky Stars', 'Sun / Celestial', 'Moving Clouds', 'Environmental Mist', 'Physics Rain', 'Physics Snow'].includes(cell.subtype);
           const cellOrient = (cell.orient ?? cell.rotation ?? 0) % 8;
           if (cell.type === 'moving' && cell.subtype === 'Piston / Pusher' && (cell._pistonExt || 0) > 0.5) {
             // Draw mechanical piston arm connecting the base coordinate to the extended piston head
@@ -8436,20 +8787,21 @@
             worldCtx.restore();
           } else if (cell.type === 'changing_thing' && cell.subtype === 'Sparkling' && sp.frames.length >= 2) {
             // Sparkling Changing Thing: ping-pongs and crossfades between its cells as the character moves around the world
-            const movePhase = (state.player.worldMovePhase || 0) + (cell.x * 0.045 + cell.y * 0.065);
+            const movePhase = (state.player.worldMovePhase || 0) + (cell.x * 0.018 + cell.y * 0.027);
             const totalCels = sp.frames.length;
             const cycleSpan = Math.max(1, totalCels - 1);
-            // Triangle ping-pong wave in [0, cycleSpan]
+            // Triangle ping-pong wave in [0, cycleSpan] with smooth cosine easing
             const rawMod = ((movePhase % (cycleSpan * 2)) + (cycleSpan * 2)) % (cycleSpan * 2);
             const pingPongPos = rawMod <= cycleSpan ? rawMod : (cycleSpan * 2 - rawMod);
             const idxA = Math.min(totalCels - 1, Math.floor(pingPongPos));
             const idxB = Math.min(totalCels - 1, idxA + 1);
-            const blend = pingPongPos - idxA;
+            const linearFrac = pingPongPos - idxA;
+            const blend = 0.5 - 0.5 * Math.cos(linearFrac * Math.PI);
 
             const fcA = getCachedFrameCanvas(sp, idxA);
             worldCtx.globalAlpha = typeAlpha * placeAlpha * (1 - blend);
             drawImageWithOrient(worldCtx, fcA, drawX, sy, sw, sh, cellOrient, placeScale);
-            if (blend > 0.01) {
+            if (blend > 0.005) {
               const fcB = getCachedFrameCanvas(sp, idxB);
               worldCtx.globalAlpha = typeAlpha * placeAlpha * blend;
               drawImageWithOrient(worldCtx, fcB, drawX, sy, sw, sh, cellOrient, placeScale);
@@ -8518,6 +8870,74 @@
       renderEnvironmentsForLayer('back', W, H, camScreenX, camScreenY, zoom);
 
       drawCellList(underPlayerMainCells);
+
+      // 3.8 Render DRIFTY Thing Cells (Slowly fade in at origin cell, drift with physical wind & upward, crossfade cells, fade out)
+      if (driftyCells.length > 0) {
+        for (const cell of driftyCells) {
+          const sp = getSpriteById(cell.spriteId);
+          if (!sp) continue;
+          const cellOrient = (cell.orient ?? cell.rotation ?? 0) % 8;
+          const sw = Math.max(1, Math.round(cell.w * zoom));
+          const sh = Math.max(1, Math.round(cell.h * zoom));
+
+          // In Build Mode, draw a faint origin ghost so the builder can easily see where the Drifty spawner is anchored
+          if (state.mode === 'build') {
+            const ox = Math.round(camScreenX + cell.x * zoom);
+            const oy = Math.round(camScreenY + cell.y * zoom);
+            if (ox + sw >= -64 && ox <= W + 64 && oy + sh >= -64 && oy <= H + 64) {
+              const fc0 = getCachedFrameCanvas(sp, 0);
+              worldCtx.save();
+              worldCtx.globalAlpha = 0.25;
+              drawImageWithOrient(worldCtx, fc0, ox, oy, sw, sh, cellOrient, 1);
+              worldCtx.restore();
+            }
+          }
+
+          const puffs = Array.isArray(cell._driftyPuffs) ? cell._driftyPuffs : [];
+          for (let i = 0; i < puffs.length; i++) {
+            const puff = puffs[i];
+            const px = Math.round(camScreenX + (cell.x + puff.dx) * zoom);
+            const py = Math.round(camScreenY + (cell.y + puff.dy) * zoom);
+            if (px + sw < -64 || px > W + 64 || py + sh < -64 || py > H + 64) continue;
+
+            const prog = Math.max(0, Math.min(1, puff.age / Math.max(1, puff.maxLife)));
+            // Smooth fade-in over the first 22% of life, hold, then smooth fade-out over the last 32% of life
+            let alpha = 1;
+            if (prog < 0.22) {
+              const tIn = prog / 0.22;
+              alpha = tIn * tIn * (3 - 2 * tIn);
+            } else if (prog > 0.68) {
+              const tOut = (1 - prog) / 0.32;
+              alpha = Math.max(0, tOut * tOut * (3 - 2 * tOut));
+            }
+            if (alpha <= 0.005) continue;
+
+            worldCtx.save();
+            if (sp.frames.length >= 2) {
+              // Crossfade smoothly across the sprite's cells as the puff rises & drifts in the wind
+              const totalCels = sp.frames.length;
+              const cellPos = Math.min(totalCels - 1, Math.max(0, (prog - 0.12) / 0.72) * (totalCels - 1));
+              const idxA = Math.min(totalCels - 1, Math.floor(cellPos));
+              const idxB = Math.min(totalCels - 1, idxA + 1);
+              const blend = cellPos - idxA;
+
+              const fcA = getCachedFrameCanvas(sp, idxA);
+              worldCtx.globalAlpha = alpha * (1 - blend);
+              drawImageWithOrient(worldCtx, fcA, px, py, sw, sh, cellOrient, 1);
+              if (blend > 0.01 && idxB !== idxA) {
+                const fcB = getCachedFrameCanvas(sp, idxB);
+                worldCtx.globalAlpha = alpha * blend;
+                drawImageWithOrient(worldCtx, fcB, px, py, sw, sh, cellOrient, 1);
+              }
+            } else {
+              const fc0 = getCachedFrameCanvas(sp, 0);
+              worldCtx.globalAlpha = alpha;
+              drawImageWithOrient(worldCtx, fc0, px, py, sw, sh, cellOrient, 1);
+            }
+            worldCtx.restore();
+          }
+        }
+      }
 
       // 4. Render Dynamic Entities (Falling / Physics Solids, Moving platforms, Living NPCs) & Delete/Erase Animations
       for (const da of state.deleteAnimations) {
@@ -9819,6 +10239,9 @@
         delete sp._cachedTopPixelRow;
         delete sp._cachedDynAttrs;
         delete sp._cachedInferredSurface;
+        delete sp._cachedParsedDynamic;
+        delete sp._cachedParsedCode;
+        delete sp._cachedParsedCount;
       }
     }
 
@@ -10954,7 +11377,7 @@
       if (!isNaN(val) && val >= 1 && val <= 60) {
         state.walkFps = val;
         // Also sync the currently equipped Body's animFps so changing the top-bar FPS immediately changes avatar speed
-        const activeBodySp = state.sprites.find(s => s.id === state.activeBodyId);
+        const activeBodySp = getSpriteById(state.activeBodyId);
         if (activeBodySp) {
           activeBodySp.animFps = val;
           saveAutoBackup();
@@ -11392,17 +11815,29 @@
     });
 
     function renderSidebarSprites() {
-      const q = (state.searchQuery || '').toLowerCase();
+      const q = (state.searchQuery || '').trim().toLowerCase();
+      const qNorm = q.replace(/[_-]+/g, ' ');
+      const qTokens = qNorm ? qNorm.split(/\s+/).filter(Boolean) : [];
+
       const list = state.sprites.filter(s => {
-        if (state.filter !== 'all') {
-          const spec = getTypeSpec(s.type);
+        const spec = getTypeSpec(s.type);
+        // When no search query is typed, filter by the active category tab; when searching, search across all creations!
+        if (!q && state.filter !== 'all') {
           if (spec.category !== state.filter) return false;
         }
-        if (q) {
-          const matchName = s.name.toLowerCase().includes(q);
-          const matchType = s.type.toLowerCase().includes(q);
-          const matchSub = (s.subtype || '').toLowerCase().includes(q);
-          if (!matchName && !matchType && !matchSub) return false;
+        if (qTokens.length > 0) {
+          const searchableText = [
+            s.name || '',
+            s.type || '',
+            (s.type || '').replace(/_/g, ' '),
+            spec.name || '',
+            s.subtype || '',
+            spec.category || ''
+          ].join(' ').toLowerCase();
+
+          for (const tok of qTokens) {
+            if (!searchableText.includes(tok)) return false;
+          }
         }
         return true;
       }).slice().reverse();
@@ -11410,6 +11845,10 @@
       if (list.length === 0) {
         emptyState.classList.remove('hidden');
         spriteGrid.classList.add('hidden');
+        const emptyTextEl = emptyState.querySelector('p');
+        if (emptyTextEl) {
+          emptyTextEl.textContent = state.sprites.length > 0 ? 'No matching creations.' : 'No saved creations.';
+        }
         return;
       }
 
@@ -11622,7 +12061,7 @@
       stripNoticeBar.classList.add('hidden');
       editorModal.classList.add('open');
 
-      const existing = state.sprites.find(s => s.id === spriteId);
+      const existing = getSpriteById(spriteId);
       if (existing) {
         editor.editingId = asClone ? null : existing.id;
         editor.name = asClone ? `${existing.name} Copy` : existing.name;
@@ -12332,24 +12771,6 @@
       const step = e.deltaY < 0 ? 2 : -2;
       setEditorCanvasZoom(cur + step);
     }, { passive: false });
-
-    // Clicking off the drawing canvas unselects/commits any active marquee selection
-    editorModal.addEventListener('mousedown', (e) => {
-      if (!editor.marquee) return;
-      if (
-        e.target !== paintCanvas &&
-        !e.target.closest('#marquee-subbar') &&
-        !e.target.closest('#shape-subbar') &&
-        !e.target.closest('#spray-subbar') &&
-        !e.target.closest('#color-fx-popover') &&
-        !e.target.closest('#color-fx-btn') &&
-        !e.target.closest('#copy-cel-btn') &&
-        !e.target.closest('#paste-cel-btn') &&
-        !e.target.closest('#clear-canvas-btn')
-      ) {
-        commitMarqueeSelection();
-      }
-    });
 
     /********************************************************************
      * DRAWING TOOLS, BRUSH SHAPES, MARQUEE MODES & SYMMETRY PRESETS
@@ -14538,24 +14959,20 @@
           subtypeSelect.dispatchEvent(new Event('change'));
         });
         previewControlsBar.appendChild(nextSubBtn);
-      } else if (t === 'furry') {
+      } else if (isFurrySpriteOrCell(editor)) {
         document.getElementById('preview-state-label').textContent = editor.furryMode === 'singular' ? 'Singular' : 'Many (Patch)';
         previewControlsBar.appendChild(makeBtn('Many (Patch)', editor.furryMode === 'many', () => {
           editor.furryMode = 'many';
-          if (editor.subtype === 'Singular') {
-            editor.subtype = 'Many (Patch)';
-            subtypeSelect.value = 'Many (Patch)';
-          }
           syncFurryModeUI();
           renderPreviewControlsForType();
         }));
         previewControlsBar.appendChild(makeBtn('Singular', editor.furryMode === 'singular', () => {
           editor.furryMode = 'singular';
-          editor.subtype = 'Singular';
-          subtypeSelect.value = 'Singular';
           syncFurryModeUI();
           renderPreviewControlsForType();
         }));
+      } else if (isDriftySpriteOrCell(editor)) {
+        document.getElementById('preview-state-label').textContent = 'Drifty';
       } else if (['dynamic', 'changing_thing', 'living', 'liquid', 'harmful', 'bouncy', 'activator', 'transporting', 'gatherable', 'holder', 'interacting'].includes(t)) {
         document.getElementById('preview-state-label').textContent = editor.previewLoopMode === 'pingpong' ? 'Ping-Pong' : 'Loop';
         previewControlsBar.appendChild(makeBtn(editor.previewLoopMode === 'pingpong' ? 'Mode: Ping-Pong' : 'Mode: Loop', editor.previewLoopMode === 'pingpong', () => {
@@ -14764,6 +15181,17 @@
               previewCtx.fillRect(cx, 12 + i * 8, 24, 8);
             }
           }
+        } else if (sub === 'Environmental Wind') {
+          previewCtx.strokeStyle = col;
+          previewCtx.globalAlpha = alpha * 0.75;
+          for (let i = 0; i < 6; i++) {
+            const wx = 76 - (((i * 23 + editor.previewTick * 1.4 * speed) % 92));
+            const wy = 8 + (i * 7) % 34;
+            previewCtx.beginPath();
+            previewCtx.moveTo(wx, wy);
+            previewCtx.lineTo(wx + 12, wy);
+            previewCtx.stroke();
+          }
         } else {
           // Environmental Mist / Spores
           const [r, g, b] = hexToRgba(col);
@@ -14784,7 +15212,7 @@
       }
 
       // 1.75 FURRY LIVE PREVIEW (Shows grass/shag sitting on a block, flowing and ruffling as a foot passes through)
-      if (t === 'furry') {
+      if (isFurrySpriteOrCell(editor)) {
         previewCanvas.width = 76;
         previewCanvas.height = 57;
         previewCtx.clearRect(0, 0, 76, 57);
@@ -14848,6 +15276,44 @@
           previewCtx.save();
           previewCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
           previewCtx.strokeRect(Math.round(simFootX - 5) + 0.5, floorY - 12.5, 10, 12);
+          previewCtx.restore();
+        }
+        return;
+      }
+
+      // 1.85 DRIFTY THING LIVE PREVIEW (Slowly fades in at base, drifts upward & left in wind, crossfades to Cell 2, fades out)
+      if (isDriftySpriteOrCell(editor) && editor.previewPlaying) {
+        previewCanvas.width = 76;
+        previewCanvas.height = 57;
+        previewCtx.clearRect(0, 0, 76, 57);
+
+        const c0 = createFrameCanvasFromEditor(0);
+        const c1 = editor.frames.length >= 2 ? createFrameCanvasFromEditor(1) : c0;
+        const originX = 44;
+        const originY = 34;
+
+        for (let pIdx = 0; pIdx < 3; pIdx++) {
+          const cycle = ((editor.previewTick * 0.008 + pIdx / 3) % 1);
+          let alpha = 1;
+          if (cycle < 0.22) {
+            const tIn = cycle / 0.22;
+            alpha = tIn * tIn * (3 - 2 * tIn);
+          } else if (cycle > 0.68) {
+            const tOut = (1 - cycle) / 0.32;
+            alpha = Math.max(0, tOut * tOut * (3 - 2 * tOut));
+          }
+          const driftRamp = Math.max(0, (cycle - 0.08) / 0.92);
+          const dx = -driftRamp * 28;
+          const dy = -driftRamp * 24;
+          const blend = editor.frames.length >= 2 ? Math.min(1, Math.max(0, (cycle - 0.15) / 0.65)) : 0;
+
+          previewCtx.save();
+          previewCtx.globalAlpha = alpha * (1 - blend);
+          previewCtx.drawImage(c0, Math.round(originX + dx), Math.round(originY + dy));
+          if (blend > 0.01) {
+            previewCtx.globalAlpha = alpha * blend;
+            previewCtx.drawImage(c1, Math.round(originX + dx), Math.round(originY + dy));
+          }
           previewCtx.restore();
         }
         return;
@@ -15803,6 +16269,8 @@
         delete copy._incomingSignalCount;
         delete copy._totalIncomingWires;
         delete copy._furryStrands;
+        delete copy._driftyPuffs;
+        delete copy._driftySpawnTimer;
         delete copy._interactTick;
         delete copy._bounceTick;
         delete copy._bounceMax;
@@ -15837,6 +16305,9 @@
           delete spCopy._cachedInferredSurface;
           delete spCopy._cachedPrimaryColor;
           delete spCopy._cachedTopPixelRow;
+          delete spCopy._cachedParsedDynamic;
+          delete spCopy._cachedParsedCode;
+          delete spCopy._cachedParsedCount;
           return spCopy;
         }),
         worldCells: cleanCells,
@@ -15866,8 +16337,13 @@
             }
             return arr;
           });
+          // Migrate legacy standalone 'furry' creations to THING -> Furry
+          const migratedType = s.type === 'furry' ? 'thing' : s.type;
+          const migratedSubtype = s.type === 'furry' ? 'Furry' : s.subtype;
           return {
             ...s,
+            type: migratedType,
+            subtype: migratedSubtype,
             w,
             h,
             frames
@@ -15892,7 +16368,14 @@
       }
       if (!mergeSpritesOnly) {
         if (Array.isArray(data.worldCells)) {
-          state.worldCells = new Map(data.worldCells);
+          state.worldCells = new Map(
+            data.worldCells.map(([k, cell]) => {
+              if (cell && cell.type === 'furry') {
+                return [k, { ...cell, type: 'thing', subtype: 'Furry' }];
+              }
+              return [k, cell];
+            })
+          );
         }
         state.dynamicEntities = data.dynamicEntities || [];
         if (data.spawnPoint) state.spawnPoint = data.spawnPoint;
@@ -16265,6 +16748,65 @@
       reader.readAsText(file);
       e.target.value = '';
     });
+
+    // Sidebar Footer Save / Load Project JSON & Vault Utility Buttons
+    const exportJsonBtn = document.getElementById('export-json-btn');
+    if (exportJsonBtn) {
+      exportJsonBtn.addEventListener('click', () => {
+        const payload = serializeCurrentState();
+        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'loombit-world.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    const importJsonInput = document.getElementById('import-json-input');
+    if (importJsonInput) {
+      importJsonInput.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const data = JSON.parse(reader.result);
+            pushWorldUndo();
+            applySerializedData(data, false);
+            respawnPlayer(false);
+            saveAutoBackup();
+          } catch (err) {
+            console.error('Failed to load project JSON:', err);
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      });
+    }
+
+    const exportAllStripsBtn = document.getElementById('export-all-strips-btn');
+    if (exportAllStripsBtn) {
+      exportAllStripsBtn.addEventListener('click', () => {
+        if (state.sprites.length === 0) {
+          sfx.buzzer();
+          return;
+        }
+        state.sprites.forEach((sp, idx) => {
+          setTimeout(() => exportSpriteObjectAsStripPng(sp), idx * 140);
+        });
+      });
+    }
+
+    const restoreAutosaveBtn = document.getElementById('restore-autosave-btn');
+    if (restoreAutosaveBtn) {
+      restoreAutosaveBtn.addEventListener('click', () => {
+        loadAutoBackupOnStartup();
+        respawnPlayer(false);
+        closeWorldsModal();
+      });
+    }
 
     function mainLoop(now) {
       const dt = Math.min(100, Math.max(0, now - lastTime));

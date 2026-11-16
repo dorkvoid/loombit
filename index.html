@@ -935,12 +935,25 @@
               <input id="fx-alpha-slider" type="range" min="0" max="200" value="100" class="flex-1 min-w-0" />
               <span id="fx-alpha-label" class="w-11 shrink-0 text-right mono text-zinc-200">100%</span>
             </div>
+            <!-- Replace Specific Color (Manyland / Aseprite Color Replacement) -->
+            <div class="flex items-center justify-between gap-1.5 pt-1.5 border-t border-[#282a36] w-full">
+              <span class="text-zinc-300 shrink-0 text-[9px]">Replace</span>
+              <div class="flex items-center gap-1.5">
+                <input id="fx-replace-from" type="color" value="#ffffff" title="Color to Replace (Source)" class="w-5 h-5 bg-transparent border border-[#3f3f4a] rounded-xs cursor-pointer p-0 shrink-0" />
+                <span class="text-zinc-500 text-[9px]">-&gt;</span>
+                <input id="fx-replace-to" type="color" value="#3b82f6" title="New Replacement Color (Target)" class="w-5 h-5 bg-transparent border border-[#3f3f4a] rounded-xs cursor-pointer p-0 shrink-0" />
+                <button id="fx-replace-btn" type="button" class="ase-btn px-2 py-0.5 text-[9px] text-amber-300">Swap</button>
+              </div>
+            </div>
             <!-- Scope & Actions -->
             <div class="flex items-center justify-between pt-1.5 border-t border-[#282a36]">
-              <label class="flex items-center gap-1.5 text-[9px] text-zinc-300 cursor-pointer">
-                <input id="fx-all-cels-toggle" type="checkbox" class="accent-blue-500" />
-                <span>All Cels</span>
-              </label>
+              <div class="flex items-center gap-1.5">
+                <label class="flex items-center gap-1 text-[9px] text-zinc-300 cursor-pointer">
+                  <input id="fx-all-cels-toggle" type="checkbox" class="accent-blue-500" />
+                  <span>All Cels</span>
+                </label>
+                <button id="fx-outline-btn" type="button" title="Add 1px Outline in Active Brush Color" class="ase-btn px-1.5 py-0.5 text-[9px] text-sky-300">+Outline</button>
+              </div>
               <div class="flex items-center gap-1.5">
                 <button id="fx-reset-btn" class="ase-btn px-2 py-0.5 text-[9px] text-zinc-300">Reset</button>
                 <button id="fx-apply-btn" class="ase-btn-primary px-2.5 py-0.5 text-[9px] font-semibold">Apply</button>
@@ -969,6 +982,15 @@
               <label class="flex items-center gap-1 px-1.5 text-[9px] text-zinc-300 cursor-pointer border-l border-[#2e2e38]" title="Lock 1:1 Aspect Ratio (Perfect Square / Circle)">
                 <input id="shape-equal-toggle" type="checkbox" class="accent-blue-500" />
                 <span>1:1</span>
+              </label>
+            </div>
+            <!-- Bucket Fill / Color Replacement Subbar -->
+            <div id="fill-subbar" class="hidden items-center bg-[#1b1b22] border border-[#343440] p-0.5 rounded-sm gap-0.5 shadow-md">
+              <button data-fmode="contiguous" title="Contiguous Bucket Fill" class="fmode-btn ase-btn active px-2 py-0.5 text-[9px]">Contiguous</button>
+              <button data-fmode="replace" title="Replace All Pixels of Clicked Color (or Hold Ctrl + Fill)" class="fmode-btn ase-btn px-2 py-0.5 text-[9px] text-amber-300">Replace Color</button>
+              <label class="flex items-center gap-1 px-1.5 text-[9px] text-zinc-300 cursor-pointer border-l border-[#2e2e38]" title="Apply Color Replacement Across All Animation Cels">
+                <input id="fill-all-cels-toggle" type="checkbox" class="accent-blue-500" />
+                <span>All Cels</span>
               </label>
             </div>
             <!-- Spray / Airbrush Subbar -->
@@ -1438,8 +1460,8 @@
       },
       {
         id: 'moving', name: 'MOVING', category: 'solid', defaultW: 19, defaultH: 19,
-        frames: ['Cell 1'],
-        subtypes: ['Moving', 'Mover']
+        frames: ['Cell 1', 'Cell 2'],
+        subtypes: ['Moving', 'Mover', 'Piston / Pusher', 'Elevator', 'Conveyor']
       },
       {
         id: 'interacting', name: 'INTERACTING', category: 'dynamic', defaultW: 19, defaultH: 19,
@@ -1474,7 +1496,18 @@
       {
         id: 'activator', name: 'ACTIVATOR', category: 'dynamic', defaultW: 19, defaultH: 19,
         frames: ['Cell 1', 'Cell 2'],
-        subtypes: ['Activater', 'Open on Activate', 'Change on Activate']
+        subtypes: [
+          'Activater',
+          'Pressure Plate',
+          'Proximity Sensor',
+          'Timer / Clock',
+          'Relay / Delay',
+          'NOT / Inverter',
+          'AND Gate',
+          'Sound Block',
+          'Open on Activate',
+          'Change on Activate'
+        ]
       }
     ];
 
@@ -1604,6 +1637,9 @@
         squashY: 1,           // Elastic squash-and-stretch Y
         swimShakePhase: 0,    // Rapid swimming wiggle phase in water
         flyTilt: 0,           // Banking tilt angle on Flying Mountables or Swimming
+        worldMovePhase: 0,    // Cumulative movement phase for Sparkling Changing Things
+        fallTicks: 0,         // Continuous downward falling tick counter (180 ticks = 3s ragdoll death)
+        inPushingGustX: 0,    // Active horizontal Pushing gust max speed override
         animTimer: 0,
         walkCycleIdx: 0,
         climbCycleIdx: 0,
@@ -1671,6 +1707,8 @@
       shapeFilled: false,     // false = Lined (Stroke), true = Filled for 'rect' & 'ellipse'
       shapeEqualAspect: false,// 1:1 square/circle lock
       sprayRadius: 5,
+      fillMode: 'contiguous', // 'contiguous' | 'replace'
+      fillAllCels: false,     // Replace color across all cels when in 'replace' mode
       marqueeType: 'rect',    // 'rect' | 'circle' | 'wand'
       symmetryOpen: false,
       symmetryX: false,       // Vertical axis |
@@ -1823,6 +1861,7 @@
     const canvasZoomLabel = document.getElementById('canvas-zoom-label');
     const marqueeSubbar = document.getElementById('marquee-subbar');
     const shapeSubbar = document.getElementById('shape-subbar');
+    const fillSubbar = document.getElementById('fill-subbar');
     const spraySubbar = document.getElementById('spray-subbar');
     const activeToolReadout = document.getElementById('active-tool-readout');
     const symmetryPopover = document.getElementById('symmetry-popover');
@@ -2732,6 +2771,154 @@
         pop.start(now);
         pop.stop(now + 0.15);
       },
+      wireConnect() {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+
+        // 1. Crisp mechanical jack-plug snap
+        const snap = this.ctx.createOscillator();
+        const sGain = this.ctx.createGain();
+        snap.type = 'triangle';
+        snap.frequency.setValueAtTime(190, now);
+        snap.frequency.exponentialRampToValueAtTime(620, now + 0.032);
+        sGain.gain.setValueAtTime(0.09, now);
+        sGain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+        snap.connect(sGain);
+        sGain.connect(this.out);
+        snap.start(now);
+        snap.stop(now + 0.038);
+
+        // 2. Two-tone harmonic connection link chime
+        const notes = [
+          { delay: 0.028, dur: 0.09, freq: 523.25 },
+          { delay: 0.085, dur: 0.16, freq: 783.99 }
+        ];
+        notes.forEach((n) => {
+          const t0 = now + n.delay;
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(n.freq, t0);
+          osc.frequency.exponentialRampToValueAtTime(n.freq * 1.015, t0 + n.dur);
+          g.gain.setValueAtTime(0.001, t0);
+          g.gain.linearRampToValueAtTime(0.085, t0 + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0008, t0 + n.dur);
+          osc.connect(g);
+          g.connect(this.out);
+          osc.start(t0);
+          osc.stop(t0 + n.dur + 0.01);
+        });
+      },
+      doorSlide(opening = true) {
+        if (!state.soundEnabled) return;
+        const perfNow = performance.now();
+        if (this.lastDoorTime && perfNow - this.lastDoorTime < 80) return;
+        this.lastDoorTime = perfNow;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+
+        const src = this.ctx.createBufferSource();
+        src.buffer = this.noiseBuf;
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(opening ? 380 : 680, now);
+        bp.frequency.exponentialRampToValueAtTime(opening ? 760 : 320, now + 0.16);
+        bp.Q.setValueAtTime(2.6, now);
+
+        const nGain = this.ctx.createGain();
+        nGain.gain.setValueAtTime(0.001, now);
+        nGain.gain.linearRampToValueAtTime(0.065, now + 0.025);
+        nGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.17);
+        src.connect(bp);
+        bp.connect(nGain);
+        nGain.connect(this.out);
+        src.start(now, Math.random() * 0.3, 0.18);
+        src.stop(now + 0.18);
+
+        const latch = this.ctx.createOscillator();
+        const lGain = this.ctx.createGain();
+        latch.type = 'triangle';
+        const tLatch = now + 0.11;
+        latch.frequency.setValueAtTime(opening ? 195 : 135, tLatch);
+        latch.frequency.exponentialRampToValueAtTime(opening ? 260 : 72, tLatch + 0.045);
+        lGain.gain.setValueAtTime(0.075, tLatch);
+        lGain.gain.exponentialRampToValueAtTime(0.0008, tLatch + 0.05);
+        latch.connect(lGain);
+        lGain.connect(this.out);
+        latch.start(tLatch);
+        latch.stop(tLatch + 0.055);
+      },
+      piston(extending = true) {
+        if (!state.soundEnabled) return;
+        const perfNow = performance.now();
+        if (this.lastPistonTime && perfNow - this.lastPistonTime < 75) return;
+        this.lastPistonTime = perfNow;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+
+        // Pneumatic air burst + mechanical clunk
+        const src = this.ctx.createBufferSource();
+        src.buffer = this.noiseBuf;
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(extending ? 620 : 940, now);
+        bp.frequency.exponentialRampToValueAtTime(extending ? 1280 : 420, now + 0.09);
+        bp.Q.setValueAtTime(2.4, now);
+        const nGain = this.ctx.createGain();
+        nGain.gain.setValueAtTime(0.001, now);
+        nGain.gain.linearRampToValueAtTime(0.075, now + 0.01);
+        nGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.10);
+        src.connect(bp);
+        bp.connect(nGain);
+        nGain.connect(this.out);
+        src.start(now, Math.random() * 0.3, 0.11);
+        src.stop(now + 0.11);
+
+        const clunk = this.ctx.createOscillator();
+        const cGain = this.ctx.createGain();
+        clunk.type = 'triangle';
+        clunk.frequency.setValueAtTime(extending ? 140 : 180, now);
+        clunk.frequency.exponentialRampToValueAtTime(extending ? 245 : 85, now + 0.055);
+        cGain.gain.setValueAtTime(0.09, now);
+        cGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.06);
+        clunk.connect(cGain);
+        cGain.connect(this.out);
+        clunk.start(now);
+        clunk.stop(now + 0.065);
+      },
+      note(freq = 440, waveType = 'triangle') {
+        if (!state.soundEnabled) return;
+        const perfNow = performance.now();
+        if (this.lastNoteTime && perfNow - this.lastNoteTime < 45) return;
+        this.lastNoteTime = perfNow;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+
+        const osc = this.ctx.createOscillator();
+        const sub = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = waveType;
+        sub.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        sub.frequency.setValueAtTime(freq * 0.5, now);
+
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.11, now + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.32);
+
+        osc.connect(gain);
+        sub.connect(gain);
+        gain.connect(this.out);
+        osc.start(now);
+        sub.start(now);
+        osc.stop(now + 0.34);
+        sub.stop(now + 0.34);
+      },
       buzzer() {
         if (!state.soundEnabled) return;
         const perfNow = performance.now();
@@ -3307,6 +3494,11 @@
     document.getElementById('open-type-picker-btn').addEventListener('click', openTypePickerModal);
     document.getElementById('close-type-picker-btn').addEventListener('click', closeTypePickerModal);
     typeSearchInput.addEventListener('input', (e) => renderTypePickerModal(e.target.value));
+    typePickerModal.addEventListener('mousedown', (e) => {
+      if (e.target === typePickerModal) {
+        closeTypePickerModal();
+      }
+    });
 
     function populateLightOptionsDropdown() {
       if (editor.type !== 'light') {
@@ -4035,6 +4227,11 @@
         }
       }
 
+      // If the player died far out in the void (e.g. falling off the world), fall back to their last safe grounded tile
+      if (!bestSpot && lastSafePos && isSafeRespawnTile(lastSafePos.x, lastSafePos.y)) {
+        return { x: lastSafePos.x, y: lastSafePos.y };
+      }
+
       return bestSpot;
     }
 
@@ -4063,6 +4260,8 @@
       p.renderY = target.y;
       p.vx = 0;
       p.vy = 0;
+      p.fallTicks = 0;
+      p.inPushingGustX = 0;
       p.hp = p.maxHp;
       p.displayHp = p.maxHp;
       p.invulnTimer = 30;
@@ -4615,14 +4814,44 @@
      ********************************************************************/
     // Spaghetti Wire Helpers: O(1) lookup set rebuilt once per tick so collision checks never scan all worldCells
     const activeWiredTargetsSet = new Set();
+    const WIRE_SOURCE_SUBTYPES = new Set([
+      'Activater',
+      'Pressure Plate',
+      'Proximity Sensor',
+      'Timer / Clock',
+      'Relay / Delay',
+      'NOT / Inverter',
+      'AND Gate'
+    ]);
+
+    function isWireSourceCell(cell) {
+      if (!cell) return false;
+      if (cell.type === 'activator' && WIRE_SOURCE_SUBTYPES.has(cell.subtype)) return true;
+      if (cell.type === 'transporting' || cell.type === 'interacting') return true;
+      if (cell.type === 'changing_thing' && cell.subtype === 'Changing on Touch') return true;
+      return false;
+    }
+
+    function getWorldCellAtWireRef(w) {
+      if (!w) return null;
+      return (
+        state.worldCells.get(`${w.x},${w.y},${w.layer || 'main'}`) ||
+        state.worldCells.get(`${w.x},${w.y},main`) ||
+        state.worldCells.get(`${w.x},${w.y},back`) ||
+        state.worldCells.get(`${w.x},${w.y},front`) ||
+        state.worldCells.get(`${w.x},${w.y},farback`) ||
+        null
+      );
+    }
 
     function rebuildWiredTargetsSet() {
       activeWiredTargetsSet.clear();
       for (const [, cell] of state.worldCells.entries()) {
-        if (cell.type === 'activator' && cell.subtype === 'Activater' && Array.isArray(cell.wires)) {
+        if (Array.isArray(cell.wires) && cell.wires.length > 0) {
           for (let i = 0; i < cell.wires.length; i++) {
             const w = cell.wires[i];
             activeWiredTargetsSet.add(`${w.x},${w.y},${w.layer || 'main'}`);
+            activeWiredTargetsSet.add(`${w.x},${w.y},main`);
           }
         }
       }
@@ -4636,58 +4865,127 @@
     function isCellCurrentlyActivated(cell) {
       if (!cell) return false;
       if ((cell._wireActiveTimer || 0) > 0) return true;
-      // If a block has a spaghetti wire attached to it, it ONLY activates when its connected Activater triggers it
+      // If a block has a spaghetti wire attached to it, it ONLY activates when its connected wire source triggers it
       if (isTargetWiredByAnyActivator(cell)) return false;
       return state.activatorTimer > 0;
     }
 
-    function triggerActivatorCell(actCell, duration = 240) {
+    function playSoundBlockNote(cell, sp) {
+      if (!cell) return;
+      const hex = getPrimaryColorFromSprite(sp, '#60a5fa');
+      const [r, g, b] = hexToRgba(hex);
+      const { h } = rgbToHsv(r, g, b);
+      // Map hue + vertical world position to a pleasant pentatonic scale
+      const scaleSemitones = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
+      const hueIdx = Math.floor((h / 360) * scaleSemitones.length);
+      const heightOffset = Math.round((-cell.y / TILE_SIZE)) % 12;
+      const idx = ((hueIdx + heightOffset) % scaleSemitones.length + scaleSemitones.length) % scaleSemitones.length;
+      const semitone = scaleSemitones[idx];
+      const freq = 220 * Math.pow(2, semitone / 12);
+      sfx.note(freq, 'triangle');
+      cell._interactTick = 20;
+      spawnWorldParticles(cell.x + cell.w / 2, cell.y + 2, hex, 4);
+    }
+
+    // Fires a single pulse effect on a target cell when a signal transitions from OFF -> ON
+    function triggerTargetBlockPulseAction(targetCell, duration = 60) {
+      if (!targetCell) return;
+      const wasInactive = (targetCell._wireActiveTimer || 0) <= 0;
+      targetCell._wireActiveTimer = Math.max(targetCell._wireActiveTimer || 0, duration);
+      targetCell._interactTick = Math.max(targetCell._interactTick || 0, 18);
+
+      if (!wasInactive) return;
+      const sp = getSpriteById(targetCell.spriteId);
+
+      if (targetCell.type === 'activator' && targetCell.subtype === 'Sound Block') {
+        playSoundBlockNote(targetCell, sp);
+      } else if (targetCell.type === 'crumbling' && targetCell.subtype !== 'Flexible' && targetCell.crumbleState === 0) {
+        targetCell.crumbleState = 1;
+        targetCell.timer = 0;
+        sfx.crumble(false);
+      } else if (targetCell.type === 'changing_thing' && sp) {
+        if (targetCell.subtype === 'Item Thrower') {
+          const orient = ((targetCell.orient ?? targetCell.rotation ?? 0) % 4 + 4) % 4;
+          let vx = (Math.random() - 0.5) * 3.6;
+          let vy = -3.8 - Math.random() * 1.2;
+          if (orient === 1) { vx = 4.6; vy = -1.2; }
+          else if (orient === 3) { vx = -4.6; vy = -1.2; }
+          else if (orient === 2) { vx = (Math.random() - 0.5) * 2.0; vy = 3.2; }
+          state.projectiles.push({
+            spriteId: sp.id,
+            frameIdx: Math.min(1, sp.frames.length - 1),
+            x: targetCell.x + 2,
+            y: targetCell.y - 4,
+            vx,
+            vy,
+            rot: 0,
+            vrot: vx * 0.09,
+            bounciness: 0.52,
+            friction: 0.84,
+            w: sp.w,
+            h: sp.h,
+            gravity: 0.18,
+            life: 210,
+            maxLife: 210
+          });
+          sfx.ui(560);
+        } else {
+          targetCell.frameIdx = ((targetCell.frameIdx || 0) + 1) % sp.frames.length;
+        }
+      }
+    }
+
+    function propagateWireSignalFromCell(sourceCell, duration = 6) {
+      if (!sourceCell || !Array.isArray(sourceCell.wires) || sourceCell.wires.length === 0) return;
+      for (const w of sourceCell.wires) {
+        const targetCell = getWorldCellAtWireRef(w);
+        if (!targetCell) continue;
+        if (targetCell.type === 'activator' && (targetCell.subtype === 'AND Gate' || targetCell.subtype === 'NOT / Inverter')) {
+          targetCell._incomingSignalCount = (targetCell._incomingSignalCount || 0) + 1;
+        } else if (targetCell.type === 'activator' && targetCell.subtype === 'Relay / Delay') {
+          if (!targetCell._relayQueueTimer && (targetCell.activeTimer || 0) <= 0) {
+            targetCell._relayQueueTimer = 24; // 0.4s delay before firing its outgoing wires
+          }
+          targetCell._wireActiveTimer = Math.max(targetCell._wireActiveTimer || 0, duration);
+        } else {
+          triggerTargetBlockPulseAction(targetCell, duration);
+        }
+      }
+    }
+
+    function triggerActivatorCell(actCell, duration = 240, allowToggleOff = false) {
       if (!actCell) return;
+      const sp = getSpriteById(actCell.spriteId);
+      if (actCell.type === 'activator' && actCell.subtype === 'Sound Block') {
+        playSoundBlockNote(actCell, sp);
+        return;
+      }
+
+      const hasWires = Array.isArray(actCell.wires) && actCell.wires.length > 0;
+      const currentlyOn = hasWires ? ((actCell.activeTimer || 0) > 0) : (state.activatorTimer > 0);
+
+      // If interacted with while already active and allowToggleOff is true, toggle the activator off early
+      if (allowToggleOff && currentlyOn) {
+        actCell.activeTimer = 0;
+        actCell._interactTick = 12;
+        if (hasWires) {
+          for (const w of actCell.wires) {
+            const tCell = getWorldCellAtWireRef(w);
+            if (tCell) tCell._wireActiveTimer = 0;
+          }
+        } else {
+          state.activatorTimer = 0;
+        }
+        sfx.ui(360);
+        return;
+      }
+
+      sfx.ui(620);
       actCell.activeTimer = duration;
       actCell._interactTick = 24;
 
-      if (Array.isArray(actCell.wires) && actCell.wires.length > 0) {
-        for (const w of actCell.wires) {
-          const tKey = `${w.x},${w.y},${w.layer || 'main'}`;
-          const targetCell = state.worldCells.get(tKey) ||
-            state.worldCells.get(`${w.x},${w.y},main`) ||
-            state.worldCells.get(`${w.x},${w.y},back`) ||
-            state.worldCells.get(`${w.x},${w.y},front`);
-          if (!targetCell) continue;
-
-          const wasInactive = (targetCell._wireActiveTimer || 0) <= 0;
-          targetCell._wireActiveTimer = duration;
-          targetCell._interactTick = 24;
-
-          // If wired to a Changing Thing or Item Thrower, trigger its action on activation pulse
-          if (wasInactive) {
-            const sp = getSpriteById(targetCell.spriteId);
-            if (targetCell.type === 'changing_thing' && sp) {
-              if (targetCell.subtype === 'Item Thrower') {
-                const vx = (Math.random() - 0.5) * 3.8;
-                state.projectiles.push({
-                  spriteId: sp.id,
-                  frameIdx: Math.min(1, sp.frames.length - 1),
-                  x: targetCell.x + 2,
-                  y: targetCell.y - 6,
-                  vx,
-                  vy: -3.8 - Math.random() * 1.4,
-                  rot: 0,
-                  vrot: vx * 0.09,
-                  bounciness: 0.52,
-                  friction: 0.84,
-                  w: sp.w,
-                  h: sp.h,
-                  gravity: 0.18,
-                  life: 210,
-                  maxLife: 210
-                });
-              } else {
-                targetCell.frameIdx = ((targetCell.frameIdx || 0) + 1) % sp.frames.length;
-              }
-            }
-          }
-        }
+      if (hasWires) {
+        propagateWireSignalFromCell(actCell, duration);
       } else {
         // Fallback: unwired Activaters trigger global unwired targets
         state.activatorTimer = duration;
@@ -4710,11 +5008,28 @@
         if (dirIdx === 0) dirIdx = 2;
         else if (dirIdx === 2) dirIdx = 0;
       }
-      // Wind gust force: pushes entities through the gust and gently repels opposing movement
-      if (dirIdx === 0) return { dx: 1, dy: 0, fx: 0.34, fy: 0, maxVx: 2.85, maxVy: 0 };
-      if (dirIdx === 2) return { dx: -1, dy: 0, fx: -0.34, fy: 0, maxVx: -2.85, maxVy: 0 };
-      if (dirIdx === 3) return { dx: 0, dy: -1, fx: 0, fy: -0.40, maxVx: 0, maxVy: -3.4 };
-      return { dx: 0, dy: 1, fx: 0, fy: 0.34, maxVx: 0, maxVy: 3.2 };
+      // Strong, fast wind gust force: rapidly propels entities through the gust and repels opposing movement
+      if (dirIdx === 0) return { dx: 1, dy: 0, fx: 0.68, fy: 0, maxVx: 5.2, maxVy: 0 };
+      if (dirIdx === 2) return { dx: -1, dy: 0, fx: -0.68, fy: 0, maxVx: -5.2, maxVy: 0 };
+      if (dirIdx === 3) return { dx: 0, dy: -1, fx: 0, fy: -0.74, maxVx: 0, maxVy: -5.6 };
+      return { dx: 0, dy: 1, fx: 0, fy: 0.68, maxVx: 0, maxVy: 5.4 };
+    }
+
+    // Computes a smooth biome distance fade (1.0 inside inner radius, smoothly fading to 0.0 at outer radius)
+    const BIOME_INNER_RADIUS = TILE_SIZE * 24; // ~456px (24 blocks full strength around player)
+    const BIOME_OUTER_RADIUS = TILE_SIZE * 46; // ~874px (46 blocks outer fade boundary)
+
+    function computeBiomeProximityTarget(cell) {
+      const refX = state.mode === 'play' ? (state.player.x + state.player.w * 0.5) : state.camera.x;
+      const refY = state.mode === 'play' ? (state.player.y + state.player.h * 0.5) : state.camera.y;
+      const cx = cell.x + (cell.w || TILE_SIZE) * 0.5;
+      const cy = cell.y + (cell.h || TILE_SIZE) * 0.5;
+      // Weight vertical distance slightly more than horizontal so tall sky/ground transitions feel natural
+      const dist = Math.hypot(cx - refX, (cy - refY) * 1.15);
+      if (dist <= BIOME_INNER_RADIUS) return 1;
+      if (dist >= BIOME_OUTER_RADIUS) return 0;
+      const t = 1 - (dist - BIOME_INNER_RADIUS) / (BIOME_OUTER_RADIUS - BIOME_INNER_RADIUS);
+      return t * t * (3 - 2 * t);
     }
 
     // Returns the active quarter-turn direction of a placed cell (0 = upright/top, 1 = right, 2 = upside-down/bottom, 3 = left)
@@ -4743,7 +5058,21 @@
         state.activatorTimer--;
       }
 
-      // Update world cells (Placement scale animation, Light fade-in, Crumbling, Flexible, Open on Activate, Gatherable, Item Thrower, Sparkling, Environment)
+      // Reset per-tick incoming wire counters for logic gates
+      for (const [, cell] of state.worldCells.entries()) {
+        cell._incomingSignalCount = 0;
+        cell._totalIncomingWires = 0;
+      }
+      for (const [, cell] of state.worldCells.entries()) {
+        if (Array.isArray(cell.wires)) {
+          for (const w of cell.wires) {
+            const tCell = getWorldCellAtWireRef(w);
+            if (tCell) tCell._totalIncomingWires = (tCell._totalIncomingWires || 0) + 1;
+          }
+        }
+      }
+
+      // Pass A: Evaluate Sensors, Pressure Plates, Timers, Relays, Pistons, Elevators, and Active Switches
       for (const [, cell] of state.worldCells.entries()) {
         if (cell.placeAnim !== undefined && cell.placeAnim < 1) {
           cell.placeAnim = Math.min(1, cell.placeAnim + 0.25);
@@ -4751,25 +5080,204 @@
         if (cell.lightFade !== undefined && cell.lightFade < 1) {
           cell.lightFade = Math.min(1, cell.lightFade + 0.038);
         }
-        if (cell.activeTimer > 0) {
-          cell.activeTimer--;
-          // Keep wired targets active while activator timer runs
-          if (Array.isArray(cell.wires)) {
-            for (const w of cell.wires) {
-              const tCell = state.worldCells.get(`${w.x},${w.y},${w.layer || 'main'}`);
-              if (tCell && (tCell._wireActiveTimer || 0) < cell.activeTimer) {
-                tCell._wireActiveTimer = cell.activeTimer;
+
+        if (cell.type === 'activator') {
+          const sub = cell.subtype || 'Activater';
+          if (sub === 'Pressure Plate') {
+            // Check if player, physics entity, or projectile is resting on or overlapping the Pressure Plate
+            let pressed = false;
+            const px1 = cell.x - 1, px2 = cell.x + cell.w + 1;
+            const py1 = cell.y - 4, py2 = cell.y + cell.h + 2;
+            if (p.deadTimer === 0 && p.x + p.w > px1 && p.x < px2 && p.y + p.h >= py1 && p.y <= py2) {
+              pressed = true;
+            }
+            if (!pressed) {
+              for (const ent of state.dynamicEntities) {
+                if (ent.x + ent.w > px1 && ent.x < px2 && ent.y + ent.h >= py1 && ent.y <= py2) {
+                  pressed = true;
+                  break;
+                }
+              }
+            }
+            if (!pressed) {
+              for (const pr of state.projectiles) {
+                if (pr.x + pr.w > px1 && pr.x < px2 && pr.y + pr.h >= py1 && pr.y <= py2) {
+                  pressed = true;
+                  break;
+                }
+              }
+            }
+            if (pressed) {
+              if ((cell.activeTimer || 0) <= 0) sfx.ui(540);
+              cell.activeTimer = 8;
+              cell._interactTick = 8;
+            }
+          } else if (sub === 'Proximity Sensor') {
+            const cx = cell.x + cell.w * 0.5;
+            const cy = cell.y + cell.h * 0.5;
+            const senseRadius = TILE_SIZE * 3.5;
+            let sensed = false;
+            if (p.deadTimer === 0 && Math.hypot((p.x + p.w * 0.5) - cx, (p.y + p.h * 0.5) - cy) <= senseRadius) {
+              sensed = true;
+            }
+            if (!sensed) {
+              for (const ent of state.dynamicEntities) {
+                if (Math.hypot((ent.x + ent.w * 0.5) - cx, (ent.y + ent.h * 0.5) - cy) <= senseRadius) {
+                  sensed = true;
+                  break;
+                }
+              }
+            }
+            if (sensed) {
+              if ((cell.activeTimer || 0) <= 0) sfx.ui(680);
+              cell.activeTimer = 8;
+              cell._interactTick = 8;
+            }
+          } else if (sub === 'Timer / Clock') {
+            // If wired FROM another switch, only tick when powered; if unwired from behind, tick continuously
+            const canTick = (cell._totalIncomingWires || 0) === 0 || (cell._wireActiveTimer || 0) > 0;
+            if (canTick) {
+              const spTimer = getSpriteById(cell.spriteId);
+              const period = Math.max(20, Math.round(120 / Math.max(1, (spTimer?.animFps || 4) / 4)));
+              cell._clockTick = ((cell._clockTick || 0) + 1) % period;
+              if (cell._clockTick < Math.floor(period * 0.45)) {
+                cell.activeTimer = 4;
+              } else {
+                cell.activeTimer = 0;
+              }
+            } else {
+              cell.activeTimer = 0;
+            }
+          } else if (sub === 'Relay / Delay') {
+            if (cell._relayQueueTimer > 0) {
+              cell._relayQueueTimer--;
+              if (cell._relayQueueTimer === 0) {
+                cell.activeTimer = 36;
+                sfx.ui(590);
               }
             }
           }
         }
+
+        if (cell.activeTimer > 0) {
+          cell.activeTimer--;
+          propagateWireSignalFromCell(cell, Math.max(4, cell.activeTimer));
+        }
+      }
+
+      // Pass B: Evaluate Logic Gates (AND Gate & NOT / Inverter) after incoming signals are tallied
+      for (const [, cell] of state.worldCells.entries()) {
+        if (cell.type !== 'activator') continue;
+        if (cell.subtype === 'AND Gate') {
+          const totalIn = cell._totalIncomingWires || 0;
+          const activeIn = cell._incomingSignalCount || 0;
+          if (totalIn > 0 && activeIn >= totalIn) {
+            cell.activeTimer = 4;
+            propagateWireSignalFromCell(cell, 6);
+          } else {
+            cell.activeTimer = 0;
+          }
+        } else if (cell.subtype === 'NOT / Inverter') {
+          const activeIn = cell._incomingSignalCount || 0;
+          if (activeIn === 0) {
+            cell.activeTimer = 4;
+            propagateWireSignalFromCell(cell, 6);
+          } else {
+            cell.activeTimer = 0;
+          }
+        }
+      }
+
+      // Update world cells (Light fade-in, Crumbling, Flexible, Open on Activate, Pistons, Elevators, Gatherable, Item Thrower, Environment)
+      for (const [, cell] of state.worldCells.entries()) {
         if (cell._wireActiveTimer > 0) {
           cell._wireActiveTimer--;
         }
-        // Smooth door opening animation for Open on Activate (respects spaghetti wires!)
+        // Smooth sliding door animation for Open on Activate (respects spaghetti wires + plays door slide audio!)
         if (cell.type === 'activator' && cell.subtype === 'Open on Activate') {
-          const targetOpen = isCellCurrentlyActivated(cell) ? 1 : 0;
-          cell.openProgress = (cell.openProgress || 0) + (targetOpen - (cell.openProgress || 0)) * 0.18;
+          const isOpenNow = isCellCurrentlyActivated(cell);
+          const targetOpen = isOpenNow ? 1 : 0;
+          if (cell._wasDoorOpen === undefined) cell._wasDoorOpen = isOpenNow;
+          if (cell._wasDoorOpen !== isOpenNow) {
+            cell._wasDoorOpen = isOpenNow;
+            sfx.doorSlide(isOpenNow);
+          }
+          const curOpen = cell.openProgress || 0;
+          const stepSpeed = isOpenNow ? 0.085 : 0.075;
+          if (Math.abs(targetOpen - curOpen) <= stepSpeed) {
+            cell.openProgress = targetOpen;
+          } else {
+            cell.openProgress = curOpen + Math.sign(targetOpen - curOpen) * stepSpeed;
+          }
+        }
+        // Mechanical Piston / Pusher & Elevator animations
+        if (cell.type === 'moving' && (cell.subtype === 'Piston / Pusher' || cell.subtype === 'Elevator')) {
+          if (cell.baseX === undefined) cell.baseX = cell.x;
+          if (cell.baseY === undefined) cell.baseY = cell.y;
+          const qTurn = getCellQuarterTurn(cell);
+          const dirX = qTurn === 1 ? 1 : (qTurn === 3 ? -1 : 0);
+          const dirY = qTurn === 0 ? -1 : (qTurn === 2 ? 1 : 0);
+
+          if (cell.subtype === 'Piston / Pusher') {
+            const isPowered = isCellCurrentlyActivated(cell);
+            if (cell._wasExtended === undefined) cell._wasExtended = isPowered;
+            if (cell._wasExtended !== isPowered) {
+              cell._wasExtended = isPowered;
+              sfx.piston(isPowered);
+            }
+            const targetExt = isPowered ? TILE_SIZE : 0;
+            const prevExt = cell._pistonExt || 0;
+            const nextExt = prevExt + (targetExt - prevExt) * 0.32;
+            cell._pistonExt = Math.abs(targetExt - nextExt) < 0.25 ? targetExt : nextExt;
+            const prevX = cell.x;
+            const prevY = cell.y;
+            cell.x = cell.baseX + dirX * cell._pistonExt;
+            cell.y = cell.baseY + dirY * cell._pistonExt;
+            const stepDx = cell.x - prevX;
+            const stepDy = cell.y - prevY;
+            // Push player or dynamic entities when piston extends into them
+            if (Math.abs(stepDx) > 0.05 || Math.abs(stepDy) > 0.05) {
+              if (p.deadTimer === 0 && p.x < cell.x + cell.w && p.x + p.w > cell.x && p.y < cell.y + cell.h && p.y + p.h > cell.y) {
+                p.x += stepDx * 1.15;
+                p.y += stepDy * 1.15;
+                if (stepDy < -0.5) p.vy = Math.min(p.vy, -3.6);
+                if (Math.abs(stepDx) > 0.5) p.vx = stepDx * 1.6;
+              }
+              for (const ent of state.dynamicEntities) {
+                if (ent.x < cell.x + cell.w && ent.x + ent.w > cell.x && ent.y < cell.y + cell.h && ent.y + ent.h > cell.y) {
+                  ent.x += stepDx * 1.15;
+                  ent.y += stepDy * 1.15;
+                  ent.vx = (ent.vx || 0) + stepDx * 0.9;
+                  if (stepDy < -0.5) ent.vy = Math.min(ent.vy || 0, -3.2);
+                }
+              }
+            }
+          } else if (cell.subtype === 'Elevator') {
+            const isWired = isTargetWiredByAnyActivator(cell);
+            const isRunning = isWired ? isCellCurrentlyActivated(cell) : true;
+            const prevX = cell.x;
+            const prevY = cell.y;
+            if (isRunning) {
+              cell._elevPhase = (cell._elevPhase || 0) + 0.032;
+            }
+            const travel = (Math.sin((cell._elevPhase || 0) - Math.PI * 0.5) * 0.5 + 0.5) * (TILE_SIZE * 3);
+            cell.x = cell.baseX + dirX * travel;
+            cell.y = cell.baseY + dirY * travel;
+            cell._stepDx = cell.x - prevX;
+            cell._stepDy = cell.y - prevY;
+            // Carry player smoothly when standing on top of the Elevator
+            if (
+              p.deadTimer === 0 &&
+              p.x + p.w > cell.x + 2 &&
+              p.x < cell.x + cell.w - 2 &&
+              Math.abs((p.y + p.h) - prevY) <= 5 &&
+              p.vy >= -0.5
+            ) {
+              p.x += cell._stepDx;
+              p.y = cell.y - p.h;
+              p.onGround = true;
+            }
+          }
         }
         if (cell.type === 'crumbling') {
           if (cell.subtype === 'Flexible') {
@@ -4809,9 +5317,7 @@
             cell.timer = 0;
           }
         } else if (cell.type === 'changing_thing') {
-          if (cell.subtype === 'Sparkling' && worldTickCount % 16 === 0) {
-            spawnWorldParticles(cell.x + Math.random() * cell.w, cell.y + Math.random() * cell.h, '#fde047', 1);
-          } else if (cell.subtype === 'Item Thrower' && worldTickCount % 95 === 0) {
+          if (cell.subtype === 'Item Thrower' && worldTickCount % 95 === 0) {
             const sp = getSpriteById(cell.spriteId);
             if (sp) {
               const vx = (Math.random() - 0.5) * 3.8;
@@ -4837,28 +5343,32 @@
         } else if (cell.type === 'environment') {
           const spEnv = getSpriteById(cell.spriteId);
           if (spEnv) {
-            // Smoothly fade the environment effect in when the block is in view, and softly fade it out when off-screen
-            const zoomNow = state.renderZoom;
-            const camSX = Math.floor(worldCanvas.width / 2 - state.camera.x * zoomNow);
-            const camSY = Math.floor(worldCanvas.height / 2 - state.camera.y * zoomNow);
-            const bx = camSX + (cell.x + cell.w / 2) * zoomNow;
-            const by = camSY + (cell.y + cell.h / 2) * zoomNow;
-            const padPx = Math.max(48, cell.w * zoomNow);
-            const isOnScreen =
-              bx >= -padPx &&
-              bx <= worldCanvas.width + padPx &&
-              by >= -padPx &&
-              by <= worldCanvas.height + padPx;
-
-            if (cell.envVisFade === undefined) cell.envVisFade = isOnScreen ? 1 : 0;
-            if (isOnScreen) {
-              cell.envVisFade = Math.min(1, cell.envVisFade + 0.032);
-            } else {
-              cell.envVisFade = Math.max(0, cell.envVisFade - 0.022);
-            }
+            // Smooth biome radius fade around the player/camera so walking from one landscape to another crossfades naturally
+            const targetVis = computeBiomeProximityTarget(cell);
+            if (cell.envVisFade === undefined) cell.envVisFade = targetVis;
+            cell.envVisFade += (targetVis - cell.envVisFade) * 0.045;
+            if (cell.envVisFade < 0.002) cell.envVisFade = 0;
+            if (cell.envVisFade > 0.998) cell.envVisFade = 1;
 
             if (cell.envVisFade > 0.01) {
               updateWorldEnvironmentEmitter(cell, spEnv);
+            }
+          }
+        } else if (cell.type === 'light') {
+          const spLight = getSpriteById(cell.spriteId);
+          if (spLight) {
+            const effLayer = spLight.lightLayer || cell.lightLayer || 'sky';
+            const isBgLight =
+              ['Fill Light', 'Top Light', 'Surround Light'].includes(cell.subtype || spLight.subtype) ||
+              ['sky', 'farback', 'back'].includes(effLayer);
+            if (isBgLight) {
+              const targetVis = computeBiomeProximityTarget(cell);
+              if (cell.bgLightVisFade === undefined) cell.bgLightVisFade = targetVis;
+              cell.bgLightVisFade += (targetVis - cell.bgLightVisFade) * 0.045;
+              if (cell.bgLightVisFade < 0.002) cell.bgLightVisFade = 0;
+              if (cell.bgLightVisFade > 0.998) cell.bgLightVisFade = 1;
+            } else {
+              cell.bgLightVisFade = 1;
             }
           }
         }
@@ -4887,6 +5397,7 @@
           if (state.keys.up) state.camera.y -= panSpeed;
           if (state.keys.down) state.camera.y += panSpeed;
           mouseWorld.keyPanActive = true;
+          p.worldMovePhase = (p.worldMovePhase || 0) + panSpeed * 0.14;
         }
         p.renderX += (p.x - p.renderX) * 0.35;
         p.renderY += (p.y - p.renderY) * 0.35;
@@ -4937,7 +5448,7 @@
       // Calm, deliberate Manyland movement parameters (Normal water is brisk & fluid; Thick liquid has heavy resistance)
       const accel = p.onSticky ? 0.08 : (p.inLiquid ? (isThickLiquid ? 0.11 : 0.21) : (isMountedFlying ? 0.16 : (p.onSlidey ? 0.08 : 0.22)));
       const maxSpeed = p.onSticky ? 0.65 : (p.inLiquid ? (isThickLiquid ? 1.05 : 1.72) : (isMountedFlying ? 2.85 : (state.activeMountId ? 2.4 : 1.8)));
-      const friction = p.onSlidey ? 0.965 : (p.inLiquid ? (isThickLiquid ? 0.80 : 0.90) : (isMountedFlying ? 0.92 : 0.78));
+      const friction = p.onSlidey ? 0.965 : (p.inLiquid ? (isThickLiquid ? 0.80 : 0.90) : (isMountedFlying ? 0.92 : (p.inPushingGustX ? 0.96 : 0.78)));
       const gravity = p.inLiquid ? (isThickLiquid ? 0.035 : 0.05) : 0.23;
       const jumpImpulse = p.inLiquid ? (isThickLiquid ? -2.1 : -3.1) : -4.85;
       const maxFall = p.inLiquid ? (isThickLiquid ? 1.15 : 1.85) : 6.0;
@@ -4948,14 +5459,18 @@
 
       if (!state.chatOpen && !editor.isOpen) {
         if (state.keys.left) {
-          p.vx -= accel;
+          if (p.vx > -maxSpeed || p.inPushingGustX < 0) {
+            p.vx -= accel;
+          }
           p.facing = -1;
           p.sitting = false;
           p.lying = false;
           p.activeMotionId = null;
           p.motionBarOpen = false;
         } else if (state.keys.right) {
-          p.vx += accel;
+          if (p.vx < maxSpeed || p.inPushingGustX > 0) {
+            p.vx += accel;
+          }
           p.facing = 1;
           p.sitting = false;
           p.lying = false;
@@ -4966,12 +5481,14 @@
           if (Math.abs(p.vx) < 0.04) p.vx = 0;
         }
 
-        if (p.vx > maxSpeed) p.vx = maxSpeed;
-        if (p.vx < -maxSpeed) p.vx = -maxSpeed;
+        const effectiveMaxRight = p.inPushingGustX > 0 ? Math.max(maxSpeed, p.inPushingGustX) : maxSpeed;
+        const effectiveMaxLeft = p.inPushingGustX < 0 ? Math.min(-maxSpeed, p.inPushingGustX) : -maxSpeed;
+        if (p.vx > effectiveMaxRight) p.vx = p.inPushingGustX ? p.vx * 0.92 : effectiveMaxRight;
+        if (p.vx < effectiveMaxLeft) p.vx = p.inPushingGustX ? p.vx * 0.92 : effectiveMaxLeft;
 
-        // Pressing Down/S while standing still opens the Motion Box below the player without forcing the Sit pose
-        if (state.keys.down && p.onGround && !p.onLadder && Math.abs(p.vx) < 0.1) {
-          if (!p.downKeyLatch) {
+        // Pressing Down on solid ground opens the in-world Motion Bar
+        if (state.keys.down) {
+          if (!p.downKeyLatch && p.onGround && !p.onLadder && !p.inLiquid && !isMountedFlying) {
             p.downKeyLatch = true;
             if (!p.motionBarOpen) {
               p.motionBarOpen = true;
@@ -5184,6 +5701,47 @@
         }
       }
 
+      // Advance worldMovePhase when the player moves around the world (drives Sparkling Changing Things crossfade)
+      const stepMoveDist = Math.hypot(p.x - p.prevX, p.y - p.prevY);
+      if (stepMoveDist > 0.04) {
+        p.worldMovePhase = (p.worldMovePhase || 0) + stepMoveDist * 0.16;
+      }
+
+      // Track continuous downward falling time & off-world void threshold:
+      // Falling for more than 3 seconds (180 ticks at 60Hz) or falling off the bottom of the world triggers ragdoll death & respawn
+      const isFreeFallingDown =
+        !p.onGround &&
+        !p.onLadder &&
+        !p.inLiquid &&
+        !isMountedFlying &&
+        !p.grappleTarget &&
+        p.vy > 0.6;
+
+      if (isFreeFallingDown) {
+        p.fallTicks = (p.fallTicks || 0) + 1;
+      } else {
+        p.fallTicks = 0;
+      }
+
+      let lowestWorldCellY = state.spawnPoint.y;
+      for (const [, c] of state.worldCells.entries()) {
+        if (c.y + c.h > lowestWorldCellY) lowestWorldCellY = c.y + c.h;
+      }
+      const fellOffWorldVoid = p.y > lowestWorldCellY + 420;
+
+      if ((p.fallTicks >= 180 || fellOffWorldVoid) && p.deadTimer === 0) {
+        p.fallTicks = 0;
+        const prevInvuln = p.invulnTimer;
+        p.invulnTimer = 0;
+        damagePlayer(100, p.x + p.w / 2 - p.facing * 8, true);
+        if (p.deadTimer === 0) p.invulnTimer = prevInvuln;
+        if (p.lastSafePos) {
+          p.deathOriginX = p.lastSafePos.x;
+          p.deathOriginY = p.lastSafePos.y;
+        }
+        return;
+      }
+
       // Auto-Sit / Auto-Lay after standing still on a sittable or layable object for 1 second (60 ticks at 60Hz)
       if (p.poseSettleAnim > 0) p.poseSettleAnim--;
       const poseTarget = getSittableOrLayableAtPlayer(p);
@@ -5368,31 +5926,38 @@
         const baseFriction = pr.friction !== undefined ? pr.friction : 0.84;
 
         // Check if projectile is inside liquid for buoyancy and splash physics
-        let inWater = false;
-        let waterVisc = 'normal';
-        let waterTopY = null;
+        let inLiquid = false;
+        let isThickWater = false;
+        let liquidTopY = null;
         for (const [, cell] of state.worldCells.entries()) {
-          if (cell.type !== 'liquid') continue;
+          if (cell.type !== 'liquid' || !hasSpriteId(cell.spriteId)) continue;
           if (pr.x < cell.x + cell.w && pr.x + pr.w > cell.x && pr.y < cell.y + cell.h && pr.y + pr.h > cell.y) {
-            inWater = true;
+            inLiquid = true;
             const lSp = getSpriteById(cell.spriteId);
-            if (lSp && lSp.liquidViscosity === 'thick') waterVisc = 'thick';
-            if (waterTopY === null || cell.y < waterTopY) waterTopY = cell.y;
+            if (lSp && lSp.liquidViscosity === 'thick') isThickWater = true;
+            let topY = cell.y;
+            while (state.worldCells.has(`${cell.x},${topY - TILE_SIZE},${cell.layer}`)) {
+              const above = state.worldCells.get(`${cell.x},${topY - TILE_SIZE},${cell.layer}`);
+              if (above && above.type === 'liquid') topY -= TILE_SIZE;
+              else break;
+            }
+            if (liquidTopY === null || topY < liquidTopY) liquidTopY = topY;
           }
         }
 
-        if (inWater) {
-          if (!pr._inWater && Math.hypot(pr.vx, pr.vy) > 1.1) {
-            spawnLiquidSplash(pr.x + pr.w / 2, waterTopY ?? pr.y, Math.min(3.5, Math.hypot(pr.vx, pr.vy) * 0.65));
-          }
-          pr._inWater = true;
-          pr.vx *= waterVisc === 'thick' ? 0.80 : 0.90;
-          pr.vy *= waterVisc === 'thick' ? 0.78 : 0.88;
-          pr.vy -= waterVisc === 'thick' ? 0.035 : 0.06; // Gentle upward buoyancy in water
-          pr.vrot = (pr.vrot || 0) * (waterVisc === 'thick' ? 0.80 : 0.90);
+        if (inLiquid && !pr._inWater && Math.abs(pr.vy) > 0.9) {
+          spawnLiquidSplash(pr.x + pr.w / 2, liquidTopY !== null ? liquidTopY : pr.y, Math.abs(pr.vy) * 0.75);
+        }
+        pr._inWater = inLiquid;
+
+        if (inLiquid) {
+          const dragMult = isThickWater ? 0.78 : 0.88;
+          pr.vx *= dragMult;
+          pr.vy *= dragMult;
+          pr.vy -= isThickWater ? 0.04 : 0.08; // Gentle water buoyancy
+          pr.vrot = (pr.vrot || 0) * 0.86;
         } else {
-          pr._inWater = false;
-          pr.vy = Math.min(7.5, pr.vy + (pr.gravity ?? 0.18));
+          pr.vy = Math.min(7.5, pr.vy + (pr.gravity ?? 0.16));
         }
 
         // 1. Horizontal step & wall collisions
@@ -5434,13 +5999,13 @@
           if (cell.type !== 'pushing') continue;
           if (pr.x < cell.x + cell.w && pr.x + pr.w > cell.x && pr.y < cell.y + cell.h && pr.y + pr.h > cell.y) {
             const gust = getPushingVectorForCell(cell);
-            pr.vx += gust.fx * 0.65;
-            pr.vy += gust.fy * 0.65;
+            pr.vx += gust.fx * 0.95;
+            pr.vy += gust.fy * 0.95;
             cell._interactTick = 10;
           }
         }
 
-        // 2. Vertical step & floor/ceiling/bouncy collisions
+        // 2. Vertical step & floor/ceiling/bouncy/slope collisions
         pr.y += pr.vy;
         let onSlideySurface = false;
         let grounded = false;
@@ -5449,12 +6014,33 @@
           if (!hasSpriteId(cell.spriteId)) continue;
           if (pr.x >= cell.x + cell.w || pr.x + pr.w <= cell.x || pr.y >= cell.y + cell.h || pr.y + pr.h <= cell.y) continue;
 
+          if (cell.type === 'slope') {
+            const { targetY, isUpsideDown, downhillDir } = computeSlopeSurfaceForBox(cell, pr.x, pr.w, pr.h);
+            if (!isUpsideDown && pr.y >= targetY - 2 && pr.vy >= -0.5) {
+              pr.y = targetY;
+              if (Math.abs(pr.vy) > 1.2) {
+                sfx.step(resolveCellSurfaceMaterial(cell));
+                pr.vx += downhillDir * Math.abs(pr.vy) * 0.42;
+                pr.vy = -pr.vy * bounciness;
+              } else {
+                pr.vy = 0;
+                pr.vx += downhillDir * 0.12;
+                grounded = true;
+              }
+              if (cell.subtype === 'Slidey Slope') onSlideySurface = true;
+              break;
+            } else if (isUpsideDown && pr.y <= targetY + 2 && pr.vy < 0) {
+              pr.y = targetY;
+              pr.vy = -pr.vy * 0.4;
+              pr.vx += downhillDir * 0.3;
+              break;
+            }
+            continue;
+          }
+
           if (cell.type === 'crumbling' && cell.subtype !== 'Flexible' && cell.crumbleState === 0) {
             cell.crumbleState = 1;
             cell.timer = 0;
-          }
-          if (cell.type === 'activator' && cell.subtype === 'Activater') {
-            triggerActivatorCell(cell, 240);
           }
 
           const solidKind = isCellSolid(cell);
@@ -5555,6 +6141,7 @@
       p.inLiquid = false;
       p.liquidViscosity = 'normal';
       p.liquidSurfaceY = null;
+      p.inPushingGustX = 0;
       let bestLadderDist = Infinity;
 
       for (const [key, cell] of state.worldCells.entries()) {
@@ -5649,24 +6236,30 @@
               if (sp) cell.frameIdx = ((cell.frameIdx || 0) + 1) % sp.frames.length;
               cell._touched = true;
               cell._interactTick = 24;
+              if (Array.isArray(cell.wires) && cell.wires.length > 0) {
+                cell.activeTimer = 60;
+                propagateWireSignalFromCell(cell, 60);
+              }
             }
           }
-          if (cell.type === 'activator' && cell.subtype === 'Activater') {
-            triggerActivatorCell(cell, 240);
-          }
           if (cell.type === 'pushing') {
-            // Gust of wind: player can pass right through it, gets pushed along with the gust,
-            // and is lightly repelled if trying to walk/move in the opposite direction!
+            // If wired to an activator, the wind gust only blows while powered!
+            if (isTargetWiredByAnyActivator(cell) && !isCellCurrentlyActivated(cell)) {
+              continue;
+            }
+            // Gust of wind: player can pass right through it, gets pushed rapidly along with the gust,
+            // and is repelled if trying to walk/move in the opposite direction!
             const gust = getPushingVectorForCell(cell);
             if (gust.dx !== 0) {
+              p.inPushingGustX = gust.maxVx;
               const movingAgainstWind =
                 (gust.dx > 0 && (state.keys.left || p.vx < -0.05)) ||
                 (gust.dx < 0 && (state.keys.right || p.vx > 0.05));
               if (movingAgainstWind) {
-                // Dampen opposing walk speed and gently repel back with the wind
-                p.vx = p.vx * 0.72 + gust.fx * 0.95;
+                // Dampen opposing walk speed and push back with the wind
+                p.vx = p.vx * 0.65 + gust.fx * 1.15;
               } else {
-                p.vx += gust.fx * 0.78;
+                p.vx += gust.fx * 1.1;
                 if (gust.dx > 0 && p.vx > gust.maxVx) p.vx = gust.maxVx;
                 if (gust.dx < 0 && p.vx < gust.maxVx) p.vx = gust.maxVx;
               }
@@ -5677,23 +6270,24 @@
                 (gust.dy > 0 && state.keys.up);
               if (gust.dy < 0) {
                 p.onGround = false;
-                p.vy += movingAgainstVertWind ? gust.fy * 0.55 : gust.fy;
+                p.fallTicks = 0;
+                p.vy += movingAgainstVertWind ? gust.fy * 0.65 : gust.fy * 1.1;
                 if (p.vy < gust.maxVy) p.vy = gust.maxVy;
               } else {
-                p.vy += movingAgainstVertWind ? gust.fy * 0.6 : gust.fy * 0.85;
+                p.vy += movingAgainstVertWind ? gust.fy * 0.7 : gust.fy * 1.05;
                 if (p.vy > gust.maxVy) p.vy = gust.maxVy;
               }
             }
             cell._interactTick = 14;
-            if (worldTickCount % 7 === 0 && Math.random() < 0.65) {
+            if (worldTickCount % 5 === 0 && Math.random() < 0.75) {
               state.particles.push({
                 x: cell.x + Math.random() * cell.w,
                 y: cell.y + Math.random() * cell.h,
-                vx: gust.dx * (1.2 + Math.random() * 0.9),
-                vy: gust.dy * (1.2 + Math.random() * 0.9),
+                vx: gust.dx * (2.1 + Math.random() * 1.4),
+                vy: gust.dy * (2.1 + Math.random() * 1.4),
                 drag: 0.95,
-                size: 1.4,
-                color: 'rgba(228, 228, 231, 0.45)',
+                size: 1.5,
+                color: 'rgba(228, 228, 231, 0.52)',
                 life: 14,
                 maxLife: 14
               });
@@ -5703,11 +6297,15 @@
             cell._interactTick = 12;
           }
           if (cell.type === 'harmful' || dynAttrs.has('HARMFUL') || dynAttrs.has('DEADLY')) {
+            // If a Harmful trap block is wired to an activator, it stays retracted/safe until powered!
+            if (isTargetWiredByAnyActivator(cell) && !isCellCurrentlyActivated(cell)) {
+              continue;
+            }
             // Deadly Emerging is safe on Cell 1 (index 0) and lethal on any emerged cell (Cell 2, Cell 3, etc.)
             const spHarm = sp;
             const harmFrames = spHarm ? Math.max(1, spHarm.frames.length) : 2;
             const harmStep = Math.floor(worldTickCount / Math.max(2, Math.round(60 / (spHarm?.animFps || state.walkFps))));
-            if (cell.subtype === 'Deadly Emerging' && harmFrames > 1 && (harmStep % harmFrames === 0)) {
+            if (!isTargetWiredByAnyActivator(cell) && cell.subtype === 'Deadly Emerging' && harmFrames > 1 && (harmStep % harmFrames === 0)) {
               continue;
             }
             const isDeadly = (cell.subtype && cell.subtype.includes('Deadly')) || dynAttrs.has('DEADLY');
@@ -5860,7 +6458,7 @@
       if (!hasSpriteId(cell.spriteId)) return false;
       if (cell.type === 'crumbling' && cell.crumbleState === 2) return false;
       if (cell.type === 'activator' && cell.subtype === 'Open on Activate') {
-        return !isCellCurrentlyActivated(cell);
+        return (cell.openProgress || 0) < 0.62;
       }
       if (cell.type === 'dynamic') {
         const sp = getSpriteById(cell.spriteId);
@@ -5876,8 +6474,32 @@
         if (!aboveLadder || aboveLadder.type !== 'climbable') return 'oneway';
       }
       if (['solid', 'crumbling', 'bouncy', 'slidey'].includes(cell.type)) return true;
-      if (cell.type === 'moving' && cell.subtype === 'Mover') return true;
+      if (cell.type === 'moving' && ['Mover', 'Piston / Pusher', 'Elevator', 'Conveyor'].includes(cell.subtype)) return true;
       return false;
+    }
+
+    // Shared slope height & downhill calculator for any bounding box (Player, Falling/Physics Solid, Bouncy Sphere, Projectile)
+    function computeSlopeSurfaceForBox(cell, boxX, boxW, boxH) {
+      const bw = cell.w;
+      const bh = cell.h;
+      const bx = cell.x;
+      const by = cell.y;
+      const orient = (cell.orient ?? cell.rotation ?? 0) % 8;
+      const qTurn = orient % 4;
+      const isUpsideDown = qTurn === 2;
+      const isOrientMirrored = (orient >= 4) !== (qTurn === 1 || qTurn === 2);
+      const isDescendingRight = (cell.frameIdx === 1) !== isOrientMirrored;
+      const inset = Math.min(3, Math.max(1, boxW * 0.16));
+      const leftSample = Math.max(0, Math.min(bw, (boxX + inset) - bx));
+      const rightSample = Math.max(0, Math.min(bw, (boxX + boxW - inset) - bx));
+      const centerSample = Math.max(0, Math.min(bw, (boxX + boxW / 2) - bx));
+      const relX = isDescendingRight
+        ? Math.min(leftSample, centerSample)
+        : Math.max(rightSample, centerSample);
+      const slopeH = isDescendingRight ? (bh - (relX / bw) * bh) : ((relX / bw) * bh);
+      const targetY = isUpsideDown ? (by + slopeH) : (by + bh - slopeH - boxH);
+      const downhillDir = isDescendingRight ? 1 : -1;
+      return { targetY, isUpsideDown, downhillDir, slopeH };
     }
 
     function doesPlayerRectOverlapSolid(rx, ry, rw, rh, ignoreCell = null) {
@@ -5954,31 +6576,6 @@
       const prevX = p.prevX !== undefined ? p.prevX : (p.x - p.vx);
       const prevY = p.prevY !== undefined ? p.prevY : (p.y - p.vy);
 
-      // Helper to compute the floor or upside-down ceiling slope surface Y under/above the player's horizontal span
-      const getSlopeTargetYForPlayer = (cell, playerX) => {
-        const bw = cell.w;
-        const bh = cell.h;
-        const bx = cell.x;
-        const by = cell.y;
-        const orient = (cell.orient ?? cell.rotation ?? 0) % 8;
-        const qTurn = orient % 4;
-        const isUpsideDown = qTurn === 2;
-        const isOrientMirrored = (orient >= 4) !== (qTurn === 1 || qTurn === 2);
-        const isDescendingRight = (cell.frameIdx === 1) !== isOrientMirrored;
-        const leftSample = Math.max(0, Math.min(bw, (playerX + 3) - bx));
-        const rightSample = Math.max(0, Math.min(bw, (playerX + p.w - 3) - bx));
-        const centerSample = Math.max(0, Math.min(bw, (playerX + p.w / 2) - bx));
-        const relX = isDescendingRight
-          ? Math.min(leftSample, centerSample)
-          : Math.max(rightSample, centerSample);
-        const slopeH = isDescendingRight ? (bh - (relX / bw) * bh) : ((relX / bw) * bh);
-        if (isUpsideDown) {
-          // Upside-down ceiling slope: solid thickness hangs down from top `by` by `slopeH`
-          return by + slopeH;
-        }
-        return by + bh - slopeH - p.h;
-      };
-
       // Pass 1: Resolve all overlapping SLOPE tiles first (supports both upright floor slopes and upside-down ceiling slopes)
       let onSlopeThisStep = false;
       for (const [key, cell] of state.worldCells.entries()) {
@@ -5990,9 +6587,8 @@
         const bw = cell.w, bh = cell.h, bx = cell.x, by = cell.y;
         if (p.x >= bx + bw || p.x + p.w <= bx || p.y >= by + bh || p.y + p.h <= by) continue;
 
-        const qTurn = getCellQuarterTurn(cell);
-        const targetY = getSlopeTargetYForPlayer(cell, p.x);
-        if (qTurn === 2) {
+        const { targetY, isUpsideDown } = computeSlopeSurfaceForBox(cell, p.x, p.w, p.h);
+        if (isUpsideDown) {
           // Upside-down ceiling slope deflects player downward when their head enters the slope ceiling
           if (p.y <= targetY + 1.5 && p.vy <= 0.5) {
             p.y = targetY;
@@ -6179,6 +6775,15 @@
                 p.onSlidey = true;
                 cell._interactTick = 14;
               }
+              if (cell.type === 'moving' && cell.subtype === 'Conveyor') {
+                const isRunning = isTargetWiredByAnyActivator(cell) ? isCellCurrentlyActivated(cell) : true;
+                if (isRunning) {
+                  const orient = (cell.orient ?? cell.rotation ?? 0) % 8;
+                  const beltDir = (orient >= 4 || orient % 4 === 2) ? -1 : 1;
+                  p.x += beltDir * 1.15;
+                  cell._interactTick = 10;
+                }
+              }
               if (cell.type === 'solid' && cell.subtype === 'Sticky') {
                 p.onSticky = true;
                 cell._interactTick = 14;
@@ -6338,62 +6943,77 @@
             scheduleWorldAutoBackup();
             continue;
           }
+          if (ent.vx === undefined) ent.vx = 0;
+          if (ent.vy === undefined) ent.vy = 0;
+          if (ent.rot === undefined) ent.rot = 0;
 
           const isSphere = ent.subtype === 'Bouncy Sphere';
-          ent.vx = ent.vx || 0;
-          ent.vy = ent.vy || 0;
-          ent.rot = ent.rot || 0;
 
-          // Check if the gravity entity is in liquid or touching a Pushing block
-          let inWater = false;
-          let waterVisc = 'normal';
-          let waterTopY = null;
+          // Check if entity is in liquid for buoyancy and splash
+          let inLiquid = false;
+          let isThickWater = false;
+          let liquidTopY = null;
           for (const [, cell] of state.worldCells.entries()) {
-            if (ent.x - 1 < cell.x + cell.w && ent.x + ent.w + 1 > cell.x && ent.y - 1 < cell.y + cell.h && ent.y + ent.h + 1 > cell.y) {
-              if (cell.type === 'pushing') {
-                const pushVec = getPushingVectorForCell(cell);
-                ent.vx += pushVec.fx * 0.65;
-                if (pushVec.fy < 0) ent.vy = Math.max(-4.5, ent.vy + pushVec.fy);
-                cell._interactTick = 12;
-              }
-              if (cell.type === 'activator' && cell.subtype === 'Activater') {
-                triggerActivatorCell(cell, 240);
-              }
-            }
-            if (cell.type !== 'liquid') continue;
+            if (cell.type !== 'liquid' || !hasSpriteId(cell.spriteId)) continue;
             if (ent.x < cell.x + cell.w && ent.x + ent.w > cell.x && ent.y < cell.y + cell.h && ent.y + ent.h > cell.y) {
-              inWater = true;
+              inLiquid = true;
               const lSp = getSpriteById(cell.spriteId);
-              if (lSp && lSp.liquidViscosity === 'thick') waterVisc = 'thick';
-              if (waterTopY === null || cell.y < waterTopY) waterTopY = cell.y;
+              if (lSp && lSp.liquidViscosity === 'thick') isThickWater = true;
+              if (liquidTopY === null || cell.y < liquidTopY) liquidTopY = cell.y;
             }
           }
 
-          if (inWater) {
-            if (!ent._inWater && Math.abs(ent.vy) > 1.3) {
-              spawnLiquidSplash(ent.x + ent.w / 2, waterTopY ?? ent.y, Math.min(3.8, Math.abs(ent.vy) * 0.75));
-            }
-            ent._inWater = true;
-            ent.vx *= waterVisc === 'thick' ? 0.78 : 0.88;
-            ent.vy *= waterVisc === 'thick' ? 0.76 : 0.86;
-            if (isSphere || ent.type === 'thing') {
-              // Lighter things and bouncy spheres float/bob near the water surface
-              const targetY = (waterTopY ?? ent.y) - ent.h * 0.35 + Math.sin(worldTickCount * 0.06 + i) * 1.2;
-              ent.vy += Math.max(-0.1, Math.min(0.1, (targetY - ent.y) * 0.03));
-            } else {
-              // Heavy pushing/solid blocks sink slowly in water
-              ent.vy = Math.min(waterVisc === 'thick' ? 0.65 : 1.25, ent.vy + (waterVisc === 'thick' ? 0.025 : 0.05));
-            }
+          if (inLiquid && !ent._inWater && Math.abs(ent.vy) > 1.2) {
+            spawnLiquidSplash(ent.x + ent.w / 2, liquidTopY !== null ? liquidTopY : ent.y, Math.abs(ent.vy) * 0.8);
+          }
+          ent._inWater = inLiquid;
+
+          if (inLiquid) {
+            const dragMult = isThickWater ? 0.78 : 0.88;
+            ent.vx *= dragMult;
+            ent.vy *= dragMult;
+            ent.vy += isSphere ? (isThickWater ? -0.06 : -0.11) : (isThickWater ? 0.03 : 0.065);
           } else {
-            ent._inWater = false;
-            ent.vy = Math.min(6.2, ent.vy + 0.22);
+            ent.vy = Math.min(6.4, ent.vy + 0.24);
           }
 
-          // 1. Horizontal movement & collisions
+          // Check if entity is overlapping a placed Pushing wind gust block
+          for (const [, cell] of state.worldCells.entries()) {
+            if (cell.type !== 'pushing') continue;
+            if (isTargetWiredByAnyActivator(cell) && !isCellCurrentlyActivated(cell)) continue;
+            if (ent.x < cell.x + cell.w && ent.x + ent.w > cell.x && ent.y < cell.y + cell.h && ent.y + ent.h > cell.y) {
+              const gust = getPushingVectorForCell(cell);
+              ent.vx += gust.fx * 0.9;
+              if (gust.dx > 0 && ent.vx > gust.maxVx) ent.vx = gust.maxVx;
+              if (gust.dx < 0 && ent.vx < gust.maxVx) ent.vx = gust.maxVx;
+              if (gust.fy < 0) ent.vy = Math.max(gust.maxVy, ent.vy + gust.fy * 0.95);
+              else if (gust.fy > 0) ent.vy = Math.min(gust.maxVy, ent.vy + gust.fy * 0.95);
+              cell._interactTick = 12;
+            }
+          }
+
+          // 1. Horizontal movement & collisions (including slope climb & step-up onto solids)
           ent.x += ent.vx;
+          let entOnSlope = false;
+          for (const [, cell] of state.worldCells.entries()) {
+            if (cell.type !== 'slope' || !hasSpriteId(cell.spriteId)) continue;
+            if (ent.x >= cell.x + cell.w || ent.x + ent.w <= cell.x || ent.y >= cell.y + cell.h || ent.y + ent.h <= cell.y) continue;
+            const { targetY, isUpsideDown } = computeSlopeSurfaceForBox(cell, ent.x, ent.w, ent.h);
+            if (!isUpsideDown && ent.y >= targetY - 2 && ent.vy >= -0.5) {
+              ent.y = targetY;
+              entOnSlope = true;
+            }
+          }
+
           for (const [, cell] of state.worldCells.entries()) {
             if (isCellSolid(cell) !== true) continue;
             if (ent.x < cell.x + cell.w && ent.x + ent.w > cell.x && ent.y < cell.y + cell.h && ent.y + ent.h > cell.y) {
+              // Allow physics objects sliding up a slope to step smoothly onto an adjacent solid block
+              const footDepth = (ent.y + ent.h) - cell.y;
+              if (entOnSlope && footDepth > 0 && footDepth <= 9.5 && ent.vy >= -0.5) {
+                ent.y = cell.y - ent.h;
+                continue;
+              }
               if (ent.vx > 0) ent.x = cell.x - ent.w;
               else if (ent.vx < 0) ent.x = cell.x + cell.w;
               ent.vx = isSphere ? -ent.vx * 0.7 : 0;
@@ -6417,11 +7037,45 @@
             }
           }
 
-          // 2. Vertical movement & collisions
+          // 2. Vertical movement & collisions (Slopes + Solids + One-Way)
           const preVy = ent.vy;
           ent.y += ent.vy;
           let grounded = false;
           let onSlidey = false;
+
+          // Resolve Slope collisions for Falling / Physics Solids & Bouncy Spheres
+          for (const [, cell] of state.worldCells.entries()) {
+            if (cell.type !== 'slope' || !hasSpriteId(cell.spriteId)) continue;
+            if (ent.x >= cell.x + cell.w || ent.x + ent.w <= cell.x || ent.y >= cell.y + cell.h || ent.y + ent.h <= cell.y) continue;
+            const { targetY, isUpsideDown, downhillDir } = computeSlopeSurfaceForBox(cell, ent.x, ent.w, ent.h);
+            if (!isUpsideDown && ent.y >= targetY - 2 && ent.vy >= -0.5) {
+              ent.y = targetY;
+              if (isSphere && Math.abs(preVy) > 1.35) {
+                ent.vy = -preVy * 0.65;
+                ent.vx += downhillDir * Math.abs(preVy) * 0.42;
+                sfx.step(resolveCellSurfaceMaterial(cell));
+              } else {
+                if (preVy > 2.2) {
+                  sfx.step(resolveCellSurfaceMaterial(cell));
+                  spawnDustParticles(ent.x + ent.w / 2, ent.y + ent.h, ent.w, 4, 3);
+                }
+                ent.vy = 0;
+                grounded = true;
+                if (cell.subtype === 'Slidey Slope') {
+                  onSlidey = true;
+                  ent.vx += downhillDir * 0.16;
+                } else if (isSphere) {
+                  ent.vx += downhillDir * 0.12;
+                } else {
+                  ent.vx += downhillDir * 0.045;
+                }
+              }
+            } else if (isUpsideDown && ent.y <= targetY + 2 && ent.vy < 0) {
+              ent.y = targetY;
+              ent.vy = isSphere ? -ent.vy * 0.5 : 0;
+              ent.vx += downhillDir * 0.25;
+            }
+          }
 
           for (const [, cell] of state.worldCells.entries()) {
             const solidKind = isCellSolid(cell);
@@ -6448,6 +7102,14 @@
                   ent.vy = 0;
                   grounded = true;
                   if (cell.type === 'slidey') onSlidey = true;
+                  if (cell.type === 'moving' && cell.subtype === 'Conveyor') {
+                    const isRunning = isTargetWiredByAnyActivator(cell) ? isCellCurrentlyActivated(cell) : true;
+                    if (isRunning) {
+                      const orient = (cell.orient ?? cell.rotation ?? 0) % 8;
+                      const beltDir = (orient >= 4 || orient % 4 === 2) ? -1 : 1;
+                      ent.vx = beltDir * 1.35;
+                    }
+                  }
                 }
               } else if (solidKind === true || (solidKind === 'oneway' && qTurn === 2)) {
                 ent.y = cell.y + cell.h;
@@ -6711,20 +7373,30 @@
 
       for (const [, cell] of state.worldCells.entries()) {
         if (cell.type !== 'light') continue;
+        // If a Light block is wired to an activator, smoothly fade its light on when powered and off when unpowered!
+        const isWiredLight = isTargetWiredByAnyActivator(cell);
+        const lightPowerTarget = isWiredLight ? (isCellCurrentlyActivated(cell) ? 1 : 0) : 1;
+        if (cell._wirePowerFade === undefined) cell._wirePowerFade = lightPowerTarget;
+        cell._wirePowerFade += (lightPowerTarget - cell._wirePowerFade) * 0.16;
+        if (cell._wirePowerFade <= 0.005) continue;
+
         const sp = getSpriteById(cell.spriteId);
         if (!sp) continue;
         const effectiveLayer = sp.lightLayer || cell.lightLayer || 'sky';
         if (effectiveLayer !== targetLayer) continue;
 
         const rawFade = cell.lightFade !== undefined ? Math.max(0, Math.min(1, cell.lightFade)) : 1;
-        const smoothFade = 1 - Math.pow(1 - rawFade, 2.2);
+        const smoothPlaceFade = 1 - Math.pow(1 - rawFade, 2.2);
+        const biomeFade = cell.bgLightVisFade !== undefined ? Math.max(0, Math.min(1, cell.bgLightVisFade)) : 1;
+        const totalFade = smoothPlaceFade * biomeFade * cell._wirePowerFade;
+        if (totalFade <= 0.004) continue;
         layerLights.push({
           cell,
           sp,
           sub: cell.subtype || sp.subtype || 'Light',
           opt: sp.lightOption || 'Standard',
           col: getSpriteLightColorAndAlpha(sp),
-          fade: smoothFade,
+          fade: totalFade,
           order: cell.placedOrder || 0
         });
       }
@@ -6751,25 +7423,38 @@
       if (layerLights.length === 0) return;
       layerLights.sort((a, b) => a.order - b.order);
 
-      // Prevent "flashbang" overexposure:
-      // 1) Full-screen ambient lights (Fill Light, Top Light, Surround Light) use only the latest placed instance per subtype+option on this layer instead of stacking N times.
-      // 2) Cap maximum ambient alpha on foreground layers ('main', 'front') so blocks and avatars are never whited out.
+      // Biome-aware ambient light blending without "flashbang" overexposure:
+      // Each ambient light (Fill Light, Top Light, Surround Light) has a smooth biome distance fade (`item.fade`).
+      // If multiple lights of the same subtype+option are placed in the exact same spot, keep the strongest/newest one;
+      // if different biome lights are overlapping during a transition (e.g. airy field -> dark swamp), normalize their combined alpha so they crossfade smoothly without exceeding the cap!
       const layerMaxAmbientCap = (targetLayer === 'front' || targetLayer === 'main') ? 0.55 : 0.85;
-      const latestAmbientByKey = new Map();
+      const ambientGroups = new Map();
       const pointLights = [];
 
       for (const item of layerLights) {
         if (item.sub === 'Fill Light' || item.sub === 'Top Light' || item.sub === 'Surround Light') {
-          const ambKey = `${item.sub}_${item.opt}`;
-          latestAmbientByKey.set(ambKey, item);
+          const groupKey = `${item.sub}_${item.opt}_${item.sp.id}`;
+          const prev = ambientGroups.get(groupKey);
+          if (!prev || item.fade >= prev.fade) {
+            ambientGroups.set(groupKey, item);
+          }
         } else if (item.sub === 'Light') {
           pointLights.push(item);
         }
       }
 
-      for (const item of latestAmbientByKey.values()) {
+      const activeAmbients = Array.from(ambientGroups.values());
+      let totalDesiredAlpha = 0;
+      for (const item of activeAmbients) {
+        totalDesiredAlpha += Math.min(layerMaxAmbientCap, item.col.alpha * item.fade);
+      }
+      const normScale = totalDesiredAlpha > layerMaxAmbientCap
+        ? (layerMaxAmbientCap / totalDesiredAlpha)
+        : 1;
+
+      for (const item of activeAmbients) {
         const { r, g, b, alpha } = item.col;
-        const effAlpha = Math.min(layerMaxAmbientCap, alpha * item.fade);
+        const effAlpha = Math.min(layerMaxAmbientCap, alpha * item.fade) * normScale;
         if (effAlpha <= 0.004) continue;
 
         if (item.sub === 'Fill Light') {
@@ -7380,16 +8065,12 @@
             if (placeScale !== 1) {
               worldCtx.translate(sx + sw / 2, sy + sh / 2);
               worldCtx.scale(placeScale, placeScale);
-              worldCtx.fillStyle = '#23232b';
-              worldCtx.fillRect(-sw / 2, -sh / 2, sw, sh);
-              worldCtx.fillStyle = '#343442';
-              worldCtx.fillRect(-sw / 2, -sh / 2, sw, Math.max(2, Math.round(zoom)));
-            } else {
-              worldCtx.fillStyle = '#23232b';
-              worldCtx.fillRect(sx, sy, sw, sh);
-              worldCtx.fillStyle = '#343442';
-              worldCtx.fillRect(sx, sy, sw, Math.max(2, Math.round(zoom)));
+              worldCtx.translate(-(sx + sw / 2), -(sy + sh / 2));
             }
+            worldCtx.fillStyle = '#23232b';
+            worldCtx.fillRect(sx, sy, sw, sh);
+            worldCtx.fillStyle = '#343442';
+            worldCtx.fillRect(sx, sy, sw, Math.max(2, Math.round(zoom)));
             worldCtx.restore();
             continue;
           }
@@ -7439,14 +8120,25 @@
             }
           }
 
-          if (cell.type === 'activator' && cell.subtype === 'Open on Activate' && (cell.openProgress || 0) > 0.96) {
+          if (cell.type === 'activator' && cell.subtype === 'Open on Activate' && (cell.openProgress || 0) > 0.985) {
             continue;
           }
 
-          // Multi-cell Dynamic Scripted Creation rendering
+          // Multi-cell Dynamic Scripted Creation rendering (with 8-step rotation/flip support)
           if (cell.type === 'dynamic' && sp.code && sp.code.trim()) {
             const marker = getActiveDynamicMarker('world');
+            const cellOrient = (cell.orient ?? cell.rotation ?? 0) % 8;
+            worldCtx.save();
+            if (cellOrient !== 0) {
+              const quarterTurns = cellOrient % 4;
+              const flipped = cellOrient >= 4;
+              worldCtx.translate(sx + sw / 2, sy + sh / 2);
+              if (flipped) worldCtx.scale(-1, 1);
+              if (quarterTurns !== 0) worldCtx.rotate(quarterTurns * (Math.PI / 2));
+              worldCtx.translate(-(sx + sw / 2), -(sy + sh / 2));
+            }
             drawDynamicComposite(worldCtx, sp, sx, sy, zoom, worldTickCount / 60, marker, false);
+            worldCtx.restore();
             continue;
           }
 
@@ -7464,6 +8156,8 @@
               fIdx = Math.floor(worldTickCount / 4) % sp.frames.length;
             } else if (cell.subtype === 'Changing on Touch') {
               fIdx = cell.frameIdx || 0;
+            } else if (cell.subtype === 'Sparkling') {
+              fIdx = 0;
             } else {
               fIdx = spAnimStep % sp.frames.length;
             }
@@ -7481,14 +8175,22 @@
               fIdx = 0;
             }
           } else if (cell.type === 'activator') {
-            const isActOn = cell.subtype === 'Activater'
-              ? (cell.activeTimer > 0 || state.activatorTimer > 0)
+            const isActOn = WIRE_SOURCE_SUBTYPES.has(cell.subtype)
+              ? ((cell.activeTimer || 0) > 0 || (!Array.isArray(cell.wires) && state.activatorTimer > 0))
               : isCellCurrentlyActivated(cell);
             if (isActOn && sp.frames.length > 1) {
               fIdx = 1 + (spAnimStep % (sp.frames.length - 1));
             } else {
               fIdx = 0;
             }
+          } else if (cell.type === 'moving' && ['Piston / Pusher', 'Elevator', 'Conveyor'].includes(cell.subtype)) {
+            const isRunning = isTargetWiredByAnyActivator(cell)
+              ? isCellCurrentlyActivated(cell)
+              : (cell.subtype !== 'Piston / Pusher');
+            fIdx = (isRunning && sp.frames.length > 1) ? (spAnimStep % sp.frames.length) : 0;
+          } else if (cell.type === 'pushing') {
+            const windOn = isTargetWiredByAnyActivator(cell) ? isCellCurrentlyActivated(cell) : true;
+            fIdx = (windOn && sp.frames.length > 1) ? (spAnimStep % sp.frames.length) : 0;
           } else if (cell.type === 'bouncy') {
             if (cell._bounceTick > 0 && sp.frames.length > 1) {
               cell._bounceTick--;
@@ -7534,7 +8236,11 @@
           } else if (cell.type === 'slope') {
             fIdx = cell.frameIdx || 0;
           } else if (cell.type === 'harmful') {
-            if (cell.subtype === 'Harmful' || cell.subtype === 'Deadly') {
+            if (isTargetWiredByAnyActivator(cell)) {
+              fIdx = (isCellCurrentlyActivated(cell) && sp.frames.length > 1)
+                ? (1 + (spAnimStep % (sp.frames.length - 1)))
+                : 0;
+            } else if (cell.subtype === 'Harmful' || cell.subtype === 'Deadly') {
               fIdx = 0;
             } else {
               fIdx = spAnimStep % sp.frames.length;
@@ -7563,7 +8269,67 @@
           // Hide raw tile icon in Play Mode for sky/weather Environment emitters so only the effect shows (visible in Build mode)
           const isWeatherEmitter = cell.type === 'environment' && ['Sky Stars', 'Sun / Celestial', 'Moving Clouds', 'Environmental Mist', 'Physics Rain', 'Physics Snow'].includes(cell.subtype);
           const cellOrient = (cell.orient ?? cell.rotation ?? 0) % 8;
-          if (!isWeatherEmitter || state.mode === 'build') {
+          if (cell.type === 'moving' && cell.subtype === 'Piston / Pusher' && (cell._pistonExt || 0) > 0.5) {
+            // Draw mechanical piston arm connecting the base coordinate to the extended piston head
+            const baseSx = Math.round(camScreenX + (cell.baseX ?? cell.x) * zoom);
+            const baseSy = Math.round(camScreenY + (cell.baseY ?? cell.y) * zoom);
+            worldCtx.save();
+            worldCtx.strokeStyle = '#52525b';
+            worldCtx.lineWidth = Math.max(3, Math.round(4 * zoom));
+            worldCtx.beginPath();
+            worldCtx.moveTo(baseSx + sw / 2, baseSy + sh / 2);
+            worldCtx.lineTo(sx + sw / 2, sy + sh / 2);
+            worldCtx.stroke();
+            worldCtx.strokeStyle = '#a1a1aa';
+            worldCtx.lineWidth = Math.max(1, Math.round(1.5 * zoom));
+            worldCtx.beginPath();
+            worldCtx.moveTo(baseSx + sw / 2, baseSy + sh / 2);
+            worldCtx.lineTo(sx + sw / 2, sy + sh / 2);
+            worldCtx.stroke();
+            worldCtx.restore();
+          }
+          if (cell.type === 'activator' && cell.subtype === 'Open on Activate' && (cell.openProgress || 0) > 0.005) {
+            // Sliding Door Animation: smoothly retracts the door panel into its frame along its orientation axis
+            const rawOpen = Math.max(0, Math.min(1, cell.openProgress || 0));
+            const easeOpen = rawOpen < 0.5
+              ? 2 * rawOpen * rawOpen
+              : 1 - Math.pow(-2 * rawOpen + 2, 2) / 2;
+            const qTurn = cellOrient % 4;
+            // Upright (0) slides up into top of doorway; 180° (2) slides down; 90° (1) slides right; 270° (3) slides left
+            let slideDx = 0;
+            let slideDy = 0;
+            if (qTurn === 0) slideDy = -Math.round(easeOpen * sh);
+            else if (qTurn === 2) slideDy = Math.round(easeOpen * sh);
+            else if (qTurn === 1) slideDx = Math.round(easeOpen * sw);
+            else if (qTurn === 3) slideDx = -Math.round(easeOpen * sw);
+
+            worldCtx.save();
+            worldCtx.beginPath();
+            worldCtx.rect(sx, sy, sw, sh);
+            worldCtx.clip();
+            drawImageWithOrient(worldCtx, fc, drawX + slideDx, sy + slideDy, sw, sh, cellOrient, placeScale);
+            worldCtx.restore();
+          } else if (cell.type === 'changing_thing' && cell.subtype === 'Sparkling' && sp.frames.length >= 2) {
+            // Sparkling Changing Thing: ping-pongs and crossfades between its cells as the character moves around the world
+            const movePhase = (state.player.worldMovePhase || 0) + (cell.x * 0.045 + cell.y * 0.065);
+            const totalCels = sp.frames.length;
+            const cycleSpan = Math.max(1, totalCels - 1);
+            // Triangle ping-pong wave in [0, cycleSpan]
+            const rawMod = ((movePhase % (cycleSpan * 2)) + (cycleSpan * 2)) % (cycleSpan * 2);
+            const pingPongPos = rawMod <= cycleSpan ? rawMod : (cycleSpan * 2 - rawMod);
+            const idxA = Math.min(totalCels - 1, Math.floor(pingPongPos));
+            const idxB = Math.min(totalCels - 1, idxA + 1);
+            const blend = pingPongPos - idxA;
+
+            const fcA = getCachedFrameCanvas(sp, idxA);
+            worldCtx.globalAlpha = typeAlpha * placeAlpha * (1 - blend);
+            drawImageWithOrient(worldCtx, fcA, drawX, sy, sw, sh, cellOrient, placeScale);
+            if (blend > 0.01) {
+              const fcB = getCachedFrameCanvas(sp, idxB);
+              worldCtx.globalAlpha = typeAlpha * placeAlpha * blend;
+              drawImageWithOrient(worldCtx, fcB, drawX, sy, sw, sh, cellOrient, placeScale);
+            }
+          } else if (!isWeatherEmitter || state.mode === 'build') {
             if (isWeatherEmitter && state.mode === 'build') {
               worldCtx.globalAlpha = 0.55 * placeAlpha;
             }
@@ -7588,7 +8354,7 @@
             const gy = Math.round(sy + (sh - gh) / 2);
             worldCtx.save();
             worldCtx.globalAlpha = glowAlpha;
-            worldCtx.drawImage(fcGlow, gx, gy, gw, gh);
+            drawImageWithOrient(worldCtx, fcGlow, gx, gy, gw, gh, cellOrient, 1);
             worldCtx.restore();
           }
 
@@ -7683,13 +8449,14 @@
         if (ent.rot) worldCtx.rotate(ent.rot);
         const quarterTurns = entOrient % 4;
         const orientFlipped = (entOrient >= 4) !== flipFacing;
+        if (orientFlipped) worldCtx.scale(-1, 1);
         if (quarterTurns !== 0) worldCtx.rotate(quarterTurns * (Math.PI / 2));
-        worldCtx.scale(entScale * (orientFlipped ? -1 : 1), entScale);
+        if (entScale !== 1) worldCtx.scale(entScale, entScale);
         worldCtx.drawImage(fc, -sw / 2, -sh / 2, sw, sh);
         worldCtx.restore();
       }
 
-      // 5. Render Thrown Holdables / Projectiles & Liner Trail & Particles
+      // 5. Render Liner Trail, Projectiles & Particles
       if (state.linerPoints.length > 1) {
         worldCtx.strokeStyle = '#60a5fa';
         worldCtx.lineWidth = Math.max(2, zoom);
@@ -7700,6 +8467,16 @@
           if (idx === 0) worldCtx.moveTo(lx, ly);
           else worldCtx.lineTo(lx, ly);
         });
+        worldCtx.stroke();
+      }
+
+      if (state.player.grappleTarget) {
+        const p = state.player;
+        worldCtx.strokeStyle = '#e4e4e7';
+        worldCtx.lineWidth = Math.max(1, zoom * 0.7);
+        worldCtx.beginPath();
+        worldCtx.moveTo(camScreenX + (p.renderX + p.w / 2) * zoom, camScreenY + (p.renderY + p.h / 2) * zoom);
+        worldCtx.lineTo(camScreenX + state.player.grappleTarget.x * zoom, camScreenY + state.player.grappleTarget.y * zoom);
         worldCtx.stroke();
       }
 
@@ -7733,7 +8510,6 @@
         worldCtx.fillStyle = pt.color;
         if (pt.isPoof) {
           const lifeRatio = pt.maxLife ? (pt.life / pt.maxLife) : 0.5;
-          // Cloud puff expands quickly then shrinks as it dissipates
           const puffScale = lifeRatio > 0.7 ? (0.6 + (1 - lifeRatio) * 1.4) : (lifeRatio / 0.7);
           const sz = Math.max(2, Math.round((pt.size || 4) * puffScale * zoom));
           const sx = Math.round(camScreenX + pt.x * zoom - sz / 2);
@@ -7765,7 +8541,7 @@
         worldCtx.restore();
       }
 
-      // 7. Render Player Avatar & Equipped Layers
+      // 7. Render Player Avatar & Equipped Layers (Encapsulated so on death it renders on top of everything!)
       const p = state.player;
       const px = Math.round(camScreenX + p.renderX * zoom);
       const py = Math.round(camScreenY + p.renderY * zoom);
@@ -7797,13 +8573,11 @@
         const lw = fc.width * zoom;
         const lh = fc.height * zoom;
 
-        // Calculate smooth rhythmic swimming glide & tilt when in liquid (no rapid shaking)
         let swimGlideX = 0;
         let swimGlideY = 0;
         let swimTiltAngle = 0;
         if (p.inLiquid && p.deadTimer === 0) {
           const isSwimming = state.keys.left || state.keys.right || state.keys.up || state.keys.down || Math.hypot(p.vx, p.vy) > 0.16;
-          // Gentle breaststroke surge forward and vertical wave over the stroke cycle
           swimGlideX = isSwimming ? Math.sin(p.swimShakePhase) * 0.65 * p.facing * zoom : 0;
           swimGlideY = Math.cos(p.swimShakePhase) * (isSwimming ? 1.15 : 0.55) * zoom;
           swimTiltAngle = p.flyTilt || 0;
@@ -7811,7 +8585,6 @@
           swimTiltAngle = p.flyTilt;
         }
 
-        // Center canvas horizontally on player hitbox, align canvas bottom to player feet (preserving all internal pixel offsets!)
         const lx = Math.round(px + (pw - lw) / 2 + extraOffsetX * zoom + swimGlideX);
         const ly = Math.round(py + (ph - lh) + extraOffsetY * zoom + swimGlideY);
         const shouldFlipX = forceFlipX !== null ? forceFlipX : (p.facing === -1);
@@ -7858,7 +8631,6 @@
           worldCtx.translate(-cx, -cy);
         }
         if (rotateLying) {
-          // Rotate idle sprite 90 degrees so the avatar lies horizontally to sleep
           const cx = lx + lw / 2;
           const cy = ly + lh - Math.max(4, (TILE_SIZE * zoom) * 0.35);
           worldCtx.translate(cx, cy);
@@ -7881,181 +8653,183 @@
       const wornMount = getSpriteById(state.activeMountId);
       const activeMotionSprite = getSpriteById(p.activeMotionId);
 
-      if (wornMount) {
-        const mFrame = Math.abs(p.vx) > 0.15 ? (animStep % wornMount.frames.length) : 0;
-        drawCenteredAvatarSprite(wornMount, mFrame, 4, 0, false);
-      }
-
-      if (activeMotionSprite) {
-        // Render active Body Motion or attached Dynamic emote!
-        if (activeMotionSprite.code && activeMotionSprite.code.trim()) {
-          const lw = activeMotionSprite.w * zoom;
-          const lh = activeMotionSprite.h * zoom;
-          const lx = Math.round(px + (pw - lw) / 2);
-          const ly = Math.round(py + (ph - lh));
-          drawDynamicComposite(worldCtx, activeMotionSprite, lx, ly, zoom, p.activeMotionTick / 60, 'start', p.facing === -1);
-        } else {
-          const mFps = activeMotionSprite.animFps || state.walkFps;
-          const mStep = Math.floor(p.activeMotionTick / Math.max(2, Math.round(60 / mFps)));
-          const nonEmptyIndices = activeMotionSprite.frames
-            .map((buf, idx) => (isBufferNonEmpty(buf) ? idx : -1))
-            .filter(idx => idx !== -1);
-          const mIdx = nonEmptyIndices.length > 0
-            ? nonEmptyIndices[mStep % nonEmptyIndices.length]
-            : (mStep % activeMotionSprite.frames.length);
-          drawCenteredAvatarSprite(activeMotionSprite, mIdx, 0, 0, false);
+      const renderPlayerAvatarLayer = () => {
+        if (wornMount) {
+          const mFrame = Math.abs(p.vx) > 0.15 ? (animStep % wornMount.frames.length) : 0;
+          drawCenteredAvatarSprite(wornMount, mFrame, 4, 0, false);
         }
-      } else if (wornBody) {
-        if (wornBody.type === 'dynamic' && wornBody.code && wornBody.code.trim()) {
-          const lw = wornBody.w * zoom;
-          const lh = wornBody.h * zoom;
-          const lx = Math.round(px + (pw - lw) / 2);
-          const ly = Math.round(py + (ph - lh));
-          const marker = getActiveDynamicMarker('world');
-          drawDynamicComposite(worldCtx, wornBody, lx, ly, zoom, worldTickCount / 60, marker, p.facing === -1);
-        } else {
-          let resolvedBodyIdx = 0;
-          const allStateCels = getStateFrameIndices(wornBody, bodyStateName);
-          const nonEmptyStateCels = allStateCels.filter(idx => isBufferNonEmpty(wornBody.frames[idx]));
-          const stateCels = nonEmptyStateCels.length > 0 ? nonEmptyStateCels : allStateCels;
 
-          // Per-state FPS step counter for this specific Body state
-          const thisStateFps = (wornBody.stateFps && wornBody.stateFps[bodyStateName])
-            ? wornBody.stateFps[bodyStateName]
-            : (wornBody.animFps || state.walkFps);
-          const stateStep = Math.floor(worldTickCount / Math.max(1, Math.round(60 / Math.max(1, thisStateFps))));
-
-          if (p.lying) {
-            // When lying down without a custom sleep motion, use the Stand (idle) sprite rotated 90 degrees!
-            const standCels = getStateFrameIndices(wornBody, 'Stand');
-            resolvedBodyIdx = standCels.length > 0 ? standCels[stateStep % standCels.length] : 0;
-            drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, true);
+        if (activeMotionSprite) {
+          if (activeMotionSprite.code && activeMotionSprite.code.trim()) {
+            const lw = activeMotionSprite.w * zoom;
+            const lh = activeMotionSprite.h * zoom;
+            const lx = Math.round(px + (pw - lw) / 2);
+            const ly = Math.round(py + (ph - lh));
+            drawDynamicComposite(worldCtx, activeMotionSprite, lx, ly, zoom, p.activeMotionTick / 60, 'start', p.facing === -1);
           } else {
-            if (bodyStateName === 'Walk') {
-              if (stateCels.length > 1) {
-                resolvedBodyIdx = stateCels[p.walkCycleIdx % stateCels.length];
-              } else {
-                const walkCel = stateCels[0] ?? Math.min(1, wornBody.frames.length - 1);
-                const standCel = getStateFrameIndices(wornBody, 'Stand')[0] ?? 0;
-                // Alternate between Stand (0) and Walk (1) so a 1-frame Walk sprite bobs immediately on step!
-                resolvedBodyIdx = (p.walkCycleIdx % 2 === 0) ? walkCel : standCel;
-              }
-              drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false);
-            } else if (bodyStateName === 'Climb') {
-              if (stateCels.length > 1) {
-                resolvedBodyIdx = stateCels[p.climbCycleIdx % stateCels.length];
+            const mFps = activeMotionSprite.animFps || state.walkFps;
+            const mStep = Math.floor(p.activeMotionTick / Math.max(2, Math.round(60 / mFps)));
+            const nonEmptyIndices = activeMotionSprite.frames
+              .map((buf, idx) => (isBufferNonEmpty(buf) ? idx : -1))
+              .filter(idx => idx !== -1);
+            const mIdx = nonEmptyIndices.length > 0
+              ? nonEmptyIndices[mStep % nonEmptyIndices.length]
+              : (mStep % activeMotionSprite.frames.length);
+            drawCenteredAvatarSprite(activeMotionSprite, mIdx, 0, 0, false);
+          }
+        } else if (wornBody) {
+          if (wornBody.type === 'dynamic' && wornBody.code && wornBody.code.trim()) {
+            const lw = wornBody.w * zoom;
+            const lh = wornBody.h * zoom;
+            const lx = Math.round(px + (pw - lw) / 2);
+            const ly = Math.round(py + (ph - lh));
+            const marker = getActiveDynamicMarker('world');
+            drawDynamicComposite(worldCtx, wornBody, lx, ly, zoom, worldTickCount / 60, marker, p.facing === -1);
+          } else {
+            let resolvedBodyIdx = 0;
+            const allStateCels = getStateFrameIndices(wornBody, bodyStateName);
+            const nonEmptyStateCels = allStateCels.filter(idx => isBufferNonEmpty(wornBody.frames[idx]));
+            const stateCels = nonEmptyStateCels.length > 0 ? nonEmptyStateCels : allStateCels;
+
+            const thisStateFps = (wornBody.stateFps && wornBody.stateFps[bodyStateName])
+              ? wornBody.stateFps[bodyStateName]
+              : (wornBody.animFps || state.walkFps);
+            const stateStep = Math.floor(worldTickCount / Math.max(1, Math.round(60 / Math.max(1, thisStateFps))));
+
+            if (p.lying) {
+              const standCels = getStateFrameIndices(wornBody, 'Stand');
+              resolvedBodyIdx = standCels.length > 0 ? standCels[stateStep % standCels.length] : 0;
+              drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, true);
+            } else {
+              if (bodyStateName === 'Walk') {
+                if (stateCels.length > 1) {
+                  resolvedBodyIdx = stateCels[p.walkCycleIdx % stateCels.length];
+                } else {
+                  const walkCel = stateCels[0] ?? Math.min(1, wornBody.frames.length - 1);
+                  const standCel = getStateFrameIndices(wornBody, 'Stand')[0] ?? 0;
+                  resolvedBodyIdx = (p.walkCycleIdx % 2 === 0) ? walkCel : standCel;
+                }
+                drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false);
+              } else if (bodyStateName === 'Climb') {
+                if (stateCels.length > 1) {
+                  resolvedBodyIdx = stateCels[p.climbCycleIdx % stateCels.length];
+                  drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false);
+                } else {
+                  resolvedBodyIdx = stateCels[0] ?? Math.min(fallbackCellIdx, wornBody.frames.length - 1);
+                  const autoFlipClimb = (p.climbCycleIdx % 2 === 1);
+                  drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false, autoFlipClimb);
+                }
+              } else if (stateCels.length > 0) {
+                resolvedBodyIdx = stateCels[stateStep % stateCels.length];
                 drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false);
               } else {
-                resolvedBodyIdx = stateCels[0] ?? Math.min(fallbackCellIdx, wornBody.frames.length - 1);
-                // When only 1 Climb cel frame exists, automatically flip it horizontally on each climb step
-                const autoFlipClimb = (p.climbCycleIdx % 2 === 1);
-                drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false, autoFlipClimb);
+                resolvedBodyIdx = Math.min(fallbackCellIdx, wornBody.frames.length - 1);
+                drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false);
               }
-            } else if (stateCels.length > 0) {
-              resolvedBodyIdx = stateCels[stateStep % stateCels.length];
-              drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false);
-            } else {
-              resolvedBodyIdx = Math.min(fallbackCellIdx, wornBody.frames.length - 1);
-              drawCenteredAvatarSprite(wornBody, resolvedBodyIdx, 0, 0, false);
-            }
 
-            // Blink & Talk overlays on Stand state (using their own per-state FPS)
-            if (bodyStateName === 'Stand') {
-              const blinkCels = getStateFrameIndices(wornBody, 'Blink').filter(idx => isBufferNonEmpty(wornBody.frames[idx]));
-              if (blinkCels.length > 0 && p.blinkTimer > 224 && p.speechTimer <= 0) {
-                const blinkFps = (wornBody.stateFps && wornBody.stateFps.Blink) || wornBody.animFps || 6;
-                const blinkStep = Math.floor(worldTickCount / Math.max(1, Math.round(60 / Math.max(1, blinkFps))));
-                drawCenteredAvatarSprite(wornBody, blinkCels[blinkStep % blinkCels.length], 0, 0, false);
+              if (bodyStateName === 'Stand') {
+                const blinkCels = getStateFrameIndices(wornBody, 'Blink').filter(idx => isBufferNonEmpty(wornBody.frames[idx]));
+                if (blinkCels.length > 0 && p.blinkTimer > 224 && p.speechTimer <= 0) {
+                  const blinkFps = (wornBody.stateFps && wornBody.stateFps.Blink) || wornBody.animFps || 6;
+                  const blinkStep = Math.floor(worldTickCount / Math.max(1, Math.round(60 / Math.max(1, blinkFps))));
+                  drawCenteredAvatarSprite(wornBody, blinkCels[blinkStep % blinkCels.length], 0, 0, false);
+                }
               }
+
+              // Play Talking frame when speaking (plays in Stand for multi-frame Talk, and even while moving when 1-frame Talk!)
               const talkCels = getStateFrameIndices(wornBody, 'Talk').filter(idx => isBufferNonEmpty(wornBody.frames[idx]));
               if (talkCels.length > 0 && p.speechTimer > 0) {
                 const talkFps = (wornBody.stateFps && wornBody.stateFps.Talk) || wornBody.animFps || 10;
                 const talkStep = Math.floor(worldTickCount / Math.max(1, Math.round(60 / Math.max(1, talkFps))));
                 if (talkCels.length === 1) {
-                  // Single Talk cel: blink the Talk sprite on and off while spoken text is active
                   if (talkStep % 2 === 0) {
                     drawCenteredAvatarSprite(wornBody, talkCels[0], 0, 0, false);
                   }
-                } else {
-                  // Multi-frame Talk animation: cycle through all drawn Talk cels
+                } else if (bodyStateName === 'Stand') {
                   drawCenteredAvatarSprite(wornBody, talkCels[talkStep % talkCels.length], 0, 0, false);
+                } else if (talkStep % 2 === 0) {
+                  drawCenteredAvatarSprite(wornBody, talkCels[0], 0, 0, false);
                 }
               }
             }
           }
-        }
-      } else {
-        worldCtx.save();
-        if (Math.abs((p.squashX || 1) - 1) > 0.005 || Math.abs((p.squashY || 1) - 1) > 0.005) {
-          worldCtx.translate(px + pw / 2, py + ph);
-          worldCtx.scale(p.squashX || 1, p.squashY || 1);
-          worldCtx.translate(-(px + pw / 2), -(py + ph));
-        }
-        if (p.inLiquid && p.deadTimer === 0) {
-          const isSwimming = state.keys.left || state.keys.right || state.keys.up || state.keys.down || Math.hypot(p.vx, p.vy) > 0.16;
-          const sxOff = isSwimming ? Math.sin(p.swimShakePhase) * 0.65 * p.facing * zoom : 0;
-          const syOff = Math.cos(p.swimShakePhase) * (isSwimming ? 1.15 : 0.55) * zoom;
-          const sRot = p.flyTilt || 0;
-          worldCtx.translate(px + pw / 2 + sxOff, py + ph / 2 + syOff);
-          worldCtx.rotate(sRot);
-          worldCtx.translate(-(px + pw / 2), -(py + ph / 2));
-        } else if (Math.abs(p.flyTilt || 0) > 0.005 && p.deadTimer === 0) {
-          worldCtx.translate(px + pw / 2, py + ph / 2);
-          worldCtx.rotate(p.flyTilt);
-          worldCtx.translate(-(px + pw / 2), -(py + ph / 2));
-        }
-        if (p.poseSettleAnim > 0 && p.deadTimer === 0) {
-          const t = 1 - p.poseSettleAnim / 18;
-          const hopY = -Math.sin(t * Math.PI) * 4.5 * zoom;
-          const sqX = 1 + Math.sin(t * Math.PI * 2) * 0.14;
-          const sqY = 1 - Math.sin(t * Math.PI * 2) * 0.14;
-          worldCtx.translate(px + pw / 2, py + ph + hopY);
-          worldCtx.scale(sqX, sqY);
-          worldCtx.translate(-(px + pw / 2), -(py + ph));
-        }
-        if (p.deadTimer > 0) {
-          worldCtx.translate(px + pw / 2, py + ph / 2);
-          worldCtx.rotate(p.deathRot);
-          worldCtx.strokeStyle = '#f87171';
-          worldCtx.strokeRect(-pw / 2, -ph / 2, pw - 1, ph - 1);
-        } else if (p.lying) {
-          worldCtx.translate(px + pw / 2, py + ph * 0.7);
-          worldCtx.rotate(-Math.PI / 2);
-          worldCtx.strokeStyle = '#71717a';
-          worldCtx.strokeRect(-pw / 2, -ph / 2, pw - 1, ph - 1);
         } else {
-          worldCtx.strokeStyle = '#71717a';
-          worldCtx.lineWidth = 1;
-          worldCtx.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
-          const dirX = p.facing === 1 ? px + pw - 4 : px + 4;
-          worldCtx.fillStyle = '#a1a1aa';
-          worldCtx.fillRect(dirX - 1, py + Math.floor(ph * 0.35), 2, 4);
+          worldCtx.save();
+          if (Math.abs((p.squashX || 1) - 1) > 0.005 || Math.abs((p.squashY || 1) - 1) > 0.005) {
+            worldCtx.translate(px + pw / 2, py + ph);
+            worldCtx.scale(p.squashX || 1, p.squashY || 1);
+            worldCtx.translate(-(px + pw / 2), -(py + ph));
+          }
+          if (p.inLiquid && p.deadTimer === 0) {
+            const isSwimming = state.keys.left || state.keys.right || state.keys.up || state.keys.down || Math.hypot(p.vx, p.vy) > 0.16;
+            const sxOff = isSwimming ? Math.sin(p.swimShakePhase) * 0.65 * p.facing * zoom : 0;
+            const syOff = Math.cos(p.swimShakePhase) * (isSwimming ? 1.15 : 0.55) * zoom;
+            const sRot = p.flyTilt || 0;
+            worldCtx.translate(px + pw / 2 + sxOff, py + ph / 2 + syOff);
+            worldCtx.rotate(sRot);
+            worldCtx.translate(-(px + pw / 2), -(py + ph / 2));
+          } else if (Math.abs(p.flyTilt || 0) > 0.005 && p.deadTimer === 0) {
+            worldCtx.translate(px + pw / 2, py + ph / 2);
+            worldCtx.rotate(p.flyTilt);
+            worldCtx.translate(-(px + pw / 2), -(py + ph / 2));
+          }
+          if (p.poseSettleAnim > 0 && p.deadTimer === 0) {
+            const t = 1 - p.poseSettleAnim / 18;
+            const hopY = -Math.sin(t * Math.PI) * 4.5 * zoom;
+            const sqX = 1 + Math.sin(t * Math.PI * 2) * 0.14;
+            const sqY = 1 - Math.sin(t * Math.PI * 2) * 0.14;
+            worldCtx.translate(px + pw / 2, py + ph + hopY);
+            worldCtx.scale(sqX, sqY);
+            worldCtx.translate(-(px + pw / 2), -(py + ph));
+          }
+          if (p.deadTimer > 0) {
+            worldCtx.translate(px + pw / 2, py + ph / 2);
+            worldCtx.rotate(p.deathRot);
+            worldCtx.strokeStyle = '#f87171';
+            worldCtx.strokeRect(-pw / 2, -ph / 2, pw - 1, ph - 1);
+          } else if (p.lying) {
+            worldCtx.translate(px + pw / 2, py + ph * 0.7);
+            worldCtx.rotate(-Math.PI / 2);
+            worldCtx.strokeStyle = '#71717a';
+            worldCtx.strokeRect(-pw / 2, -ph / 2, pw - 1, ph - 1);
+          } else {
+            worldCtx.strokeStyle = '#71717a';
+            worldCtx.lineWidth = 1;
+            worldCtx.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
+            const dirX = p.facing === 1 ? px + pw - 4 : px + 4;
+            worldCtx.fillStyle = '#a1a1aa';
+            worldCtx.fillRect(dirX - 1, py + Math.floor(ph * 0.35), 2, 4);
+          }
+          worldCtx.restore();
         }
-        worldCtx.restore();
-      }
 
-      // Wearable supports multiple cels per state ('Stand / Walk' vs 'Climb')
-      if (wornWearable) {
-        const wState = p.onLadder ? 'Climb' : 'Stand / Walk';
-        const wCels = getStateFrameIndices(wornWearable, wState).filter(idx => isBufferNonEmpty(wornWearable.frames[idx]));
-        const wStep = p.onLadder ? p.climbCycleIdx : ((Math.abs(p.vx) > 0.15) ? animStep : 0);
-        const wearCell = getSpriteStateFrameIndex(wornWearable, wState, wStep, p.onLadder ? 1 : 0);
-        const wearClimbFlip = (p.onLadder && wCels.length <= 1) ? (p.climbCycleIdx % 2 === 1) : null;
-        drawCenteredAvatarSprite(wornWearable, wearCell, -3, 0, p.lying, wearClimbFlip);
-      }
+        if (wornWearable) {
+          const wState = p.onLadder ? 'Climb' : 'Stand / Walk';
+          const wCels = getStateFrameIndices(wornWearable, wState).filter(idx => isBufferNonEmpty(wornWearable.frames[idx]));
+          const wStep = p.onLadder ? p.climbCycleIdx : ((Math.abs(p.vx) > 0.15) ? animStep : 0);
+          const wearCell = getSpriteStateFrameIndex(wornWearable, wState, wStep, p.onLadder ? 1 : 0);
+          const wearClimbFlip = (p.onLadder && wCels.length <= 1) ? (p.climbCycleIdx % 2 === 1) : null;
+          drawCenteredAvatarSprite(wornWearable, wearCell, -3, 0, p.lying, wearClimbFlip);
+        }
+
+        if (wornHoldable) {
+          const holdOffsetX = p.facing === 1 ? 7 : -7;
+          let holdFrame = 0;
+          if (p.usingHoldable > 0 && wornHoldable.frames.length > 1) {
+            const extraCount = wornHoldable.frames.length - 1;
+            const progress = Math.max(0, Math.min(0.999, 1 - p.usingHoldable / 18));
+            holdFrame = 1 + Math.floor(progress * extraCount);
+          }
+          drawCenteredAvatarSprite(wornHoldable, holdFrame, -2, holdOffsetX);
+        }
+      };
 
       // Keep the In-World Motion Bar positioned smoothly below the player
       updateWorldMotionBarUI();
 
-      if (wornHoldable) {
-        const holdOffsetX = p.facing === 1 ? 7 : -7;
-        let holdFrame = 0;
-        if (p.usingHoldable > 0 && wornHoldable.frames.length > 1) {
-          const extraCount = wornHoldable.frames.length - 1;
-          const progress = Math.max(0, Math.min(0.999, 1 - p.usingHoldable / 18));
-          holdFrame = 1 + Math.floor(progress * extraCount);
-        }
-        drawCenteredAvatarSprite(wornHoldable, holdFrame, -2, holdOffsetX);
+      // Render player here during normal play; on death (p.deadTimer > 0), defer so the ragdoll renders on top of everything!
+      if (p.deadTimer === 0) {
+        renderPlayerAvatarLayer();
       }
 
       // 7.25 Render Solids Over Player (Default for Solids unless set to "Layer: Under Player") + Main Layer Lights/Environments
@@ -8102,6 +8876,12 @@
 
           worldCtx.save();
           worldCtx.globalAlpha = placeAlpha;
+          // Support all 8 rotation/flip orientations for FURRY tiles (including 90° and 270° walls!)
+          if (qTurn === 1 || qTurn === 3) {
+            worldCtx.translate(sx + sw / 2, sy + sh / 2);
+            worldCtx.rotate(qTurn * (Math.PI / 2));
+            worldCtx.translate(-(sx + sw / 2), -(sy + sh / 2));
+          }
 
           for (let i = 0; i < strands.length; i++) {
             const st = strands[i];
@@ -8230,6 +9010,11 @@
       // Render 'front' Layer Lights & Environments (Overlapping in front of Player and Foreground)
       renderLightsForLayer('front', W, H, camScreenX, camScreenY, zoom);
       renderEnvironmentsForLayer('front', W, H, camScreenX, camScreenY, zoom);
+
+      // 8.5 When the player dies and their body flies off screen, render the body on top of everything!
+      if (p.deadTimer > 0) {
+        renderPlayerAvatarLayer();
+      }
 
       // 9. Optional Hitbox Overlay
       if (state.showHitbox) {
@@ -8519,28 +9304,22 @@
       let colorIdx = 0;
 
       for (const [, cell] of state.worldCells.entries()) {
-        if (cell.type !== 'activator') continue;
+        const isSource = isWireSourceCell(cell);
+        const hasWires = Array.isArray(cell.wires) && cell.wires.length > 0;
+        if (!isSource && !hasWires && cell.type !== 'activator') continue;
+
         const sx = Math.round(camScreenX + (cell.x + cell.w / 2) * zoom);
         const sy = Math.round(camScreenY + (cell.y + cell.h / 2) * zoom);
 
-        if (cell.subtype === 'Activater') {
+        if (isSource || hasWires) {
           const wireColor = wirePalette[colorIdx % wirePalette.length];
           colorIdx++;
-          const isSignalOn = (cell.activeTimer || 0) > 0;
+          const isSignalOn = (cell.activeTimer || 0) > 0 || (cell._wireActiveTimer || 0) > 0;
 
           if (Array.isArray(cell.wires)) {
-            // Filter out any wires whose target cell was deleted
-            cell.wires = cell.wires.filter(w =>
-              state.worldCells.has(`${w.x},${w.y},${w.layer || 'main'}`) ||
-              state.worldCells.has(`${w.x},${w.y},main`) ||
-              state.worldCells.has(`${w.x},${w.y},back`) ||
-              state.worldCells.has(`${w.x},${w.y},front`)
-            );
+            cell.wires = cell.wires.filter(w => Boolean(getWorldCellAtWireRef(w)));
             for (const w of cell.wires) {
-              const tCell = state.worldCells.get(`${w.x},${w.y},${w.layer || 'main'}`) ||
-                state.worldCells.get(`${w.x},${w.y},main`) ||
-                state.worldCells.get(`${w.x},${w.y},back`) ||
-                state.worldCells.get(`${w.x},${w.y},front`);
+              const tCell = getWorldCellAtWireRef(w);
               if (!tCell) continue;
               const tx = Math.round(camScreenX + (tCell.x + tCell.w / 2) * zoom);
               const ty = Math.round(camScreenY + (tCell.y + tCell.h / 2) * zoom);
@@ -8548,15 +9327,17 @@
             }
           }
 
-          // Draw a subtle connector socket on every Activater in Build mode so the user knows they can drag wires from it
-          worldCtx.save();
-          worldCtx.fillStyle = '#09090b';
-          worldCtx.fillRect(sx - 4, sy - 4, 8, 8);
-          worldCtx.fillStyle = '#fbbf24';
-          worldCtx.fillRect(sx - 2.5, sy - 2.5, 5, 5);
-          worldCtx.restore();
+          // Draw a connector socket on wire-capable source blocks in Build Mode
+          if (cell.type === 'activator' || hasWires || state.worldTool === 'wire') {
+            worldCtx.save();
+            worldCtx.fillStyle = '#09090b';
+            worldCtx.fillRect(sx - 4, sy - 4, 8, 8);
+            worldCtx.fillStyle = isSignalOn ? '#4ade80' : '#fbbf24';
+            worldCtx.fillRect(sx - 2.5, sy - 2.5, 5, 5);
+            worldCtx.restore();
+          }
         } else {
-          // Draw a subtle receiver socket on Open on Activate / Change on Activate blocks
+          // Draw a receiver socket on Open on Activate / Change on Activate / Sound Block
           worldCtx.save();
           worldCtx.fillStyle = '#09090b';
           worldCtx.fillRect(sx - 3.5, sy - 3.5, 7, 7);
@@ -8566,7 +9347,7 @@
         }
       }
 
-      // Live spaghetti wire being dragged from an Activater to the cursor
+      // Live spaghetti wire being dragged from a source block to the cursor
       if (mouseWorld.wireDragSource) {
         const src = mouseWorld.wireDragSource;
         const sx = Math.round(camScreenX + (src.x + src.w / 2) * zoom);
@@ -9008,7 +9789,7 @@
     function syncPlacedWorldInstancesForSprite(sp) {
       if (!sp || !sp.id) return;
       const shouldBeEntity =
-        (['moving', 'living'].includes(sp.type) && !(sp.type === 'moving' && sp.subtype === 'Mover')) ||
+        (['moving', 'living'].includes(sp.type) && !(sp.type === 'moving' && ['Mover', 'Piston / Pusher', 'Elevator', 'Conveyor'].includes(sp.subtype))) ||
         isGravityEntity(sp);
       const targetLayer = getLayerForSprite(sp);
 
@@ -9030,6 +9811,7 @@
               vx: isGravityEntity(sp) ? 0 : 0.75,
               vy: 0,
               rot: 0,
+              orient: cell.orient || 0,
               facing: 1,
               placeAnim: 1
             });
@@ -9129,8 +9911,8 @@
           subtype: 'Solid',
           layer: 'main',
           placeAnim: Math.max(-0.5, 0.15 - animDelay),
-          orient: 0,
-          rotation: 0,
+          orient,
+          rotation: orient,
           frameIdx: 0,
           timer: 0,
           crumbleState: 0,
@@ -9141,7 +9923,9 @@
         scheduleWorldAutoBackup();
         return;
       }
-      if ((['moving', 'living'].includes(sp.type) && !(sp.type === 'moving' && sp.subtype === 'Mover')) || isGravityEntity(sp)) {
+
+      // Moving (except Mover/Piston/Elevator/Conveyor), Living & Gravity Entities spawn as active dynamic entities
+      if ((['moving', 'living'].includes(sp.type) && !(sp.type === 'moving' && ['Mover', 'Piston / Pusher', 'Elevator', 'Conveyor'].includes(sp.subtype))) || isGravityEntity(sp)) {
         const existingEnt = state.dynamicEntities.find(e => Math.abs(e.x - snapX) < 4 && Math.abs(e.y - snapY) < 4 && e.spriteId === sp.id);
         if (!existingEnt) {
           state.dynamicEntities.push({
@@ -9177,7 +9961,25 @@
       const key = `${snapX},${snapY},${layer}`;
       const existing = state.worldCells.get(key);
 
-      // If this exact sprite with the same orientation is already placed at this cell, do not re-place while dragging
+      //Slope toggle when clicking same slope block with the same orientation
+      if (existing && existing.spriteId === sp.id && sp.type === 'slope' && ((existing.orient ?? 0) % 8) === orient) {
+        existing.frameIdx = ((existing.frameIdx || 0) + 1) % 2;
+        if (playSound) sfx.place();
+        scheduleWorldAutoBackup();
+        return;
+      }
+
+      // If this exact sprite is already at this cell with a different orientation, update its orientation in-place!
+      if (existing && existing.spriteId === sp.id && ((existing.orient ?? 0) % 8) !== orient) {
+        existing.orient = orient;
+        existing.rotation = orient;
+        existing.placeAnim = 0.25;
+        if (playSound) sfx.place();
+        scheduleWorldAutoBackup();
+        return;
+      }
+
+      // Otherwise if this exact sprite with the same orientation is already placed at this cell, do not re-place while dragging
       if (existing && existing.spriteId === sp.id && ((existing.orient ?? 0) % 8) === orient) {
         return;
       }
@@ -9284,7 +10086,22 @@
       mouseWorld.inside = false;
       // Do not clear mouseWorld.downButton or dragStart on mouseleave so rectangle/line drags near HUD edges never abort
     });
-    worldCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // Block Shift + Right-Click and standard Right-Click from opening Firefox's tooltip/context menu bar
+    const suppressContextMenu = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+    window.addEventListener('contextmenu', suppressContextMenu, { capture: true });
+    document.addEventListener('contextmenu', suppressContextMenu, { capture: true });
+    worldCanvas.addEventListener('contextmenu', suppressContextMenu, { capture: true });
+    window.addEventListener('auxclick', (e) => {
+      if (e.button === 2) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, { capture: true });
 
     worldCanvas.addEventListener('mousedown', (e) => {
       if (editor.isOpen) return;
@@ -9317,6 +10134,19 @@
       }
 
       mouseWorld.downButton = e.button;
+
+      // In Play Mode, left-clicking directly on a placed Activater or Sound Block (when no placement brush is active) interacts with it!
+      if (
+        state.mode === 'play' &&
+        e.button === 0 &&
+        !state.activeBrushId &&
+        hoveredItem &&
+        hoveredItem.type === 'activator' &&
+        (hoveredItem.subtype === 'Activater' || hoveredItem.subtype === 'Sound Block')
+      ) {
+        triggerActivatorCell(hoveredItem, 240, true);
+        return;
+      }
 
       // Holdable: Aimable or Swing Line in Play mode when clicking empty space without a tile brush
       const heldSp = getSpriteById(state.activeHoldableId);
@@ -9366,10 +10196,10 @@
           updateWorldCursor(e);
           return;
         }
-        // Right-clicking in Wire tool mode disconnects wires attached to the clicked Activater or target block
+        // Right-clicking in Wire tool mode disconnects wires attached to the clicked source or target block
         if (state.mode === 'build' && activeTool === 'wire' && hoveredItem) {
           pushWorldUndo();
-          if (hoveredItem.type === 'activator' && hoveredItem.subtype === 'Activater') {
+          if (Array.isArray(hoveredItem.wires) && hoveredItem.wires.length > 0) {
             hoveredItem.wires = [];
           } else {
             for (const [, c] of state.worldCells.entries()) {
@@ -9378,7 +10208,7 @@
               }
             }
           }
-          sfx.erase();
+          sfx.wireDisconnect();
           scheduleWorldAutoBackup();
           return;
         }
@@ -9421,13 +10251,13 @@
         }
 
         // Spaghetti Wire Dragging:
-        // 1) Using the 'wire' tool in Build Mode on any placed Activater (or target to reverse-wire to an Activater)
-        // 2) Or clicking & dragging directly on a placed Activater in Build Mode when no brush is selected
+        // 1) Using the 'wire' tool in Build Mode on any placed block
+        // 2) Or clicking & dragging directly on a placed wire-source block in Build Mode when no brush is selected
         if (
           state.mode === 'build' &&
           hoveredItem &&
           !state.dynamicEntities.includes(hoveredItem) &&
-          (activeTool === 'wire' || (activeTool === 'stamp' && !brushSp && hoveredItem.type === 'activator' && hoveredItem.subtype === 'Activater'))
+          (activeTool === 'wire' || (activeTool === 'stamp' && !brushSp && isWireSourceCell(hoveredItem)))
         ) {
           clearPendingHoldGrab();
           mouseWorld.wireDragSource = hoveredItem;
@@ -9443,36 +10273,66 @@
           return;
         }
 
-        // Click, Hold & Drag on a placed block in the viewport clones it (with Apple-style shake while held)
+        // If a brush is currently selected on the mouse for mass placement, Left-Click places it immediately (with its current rotation!)
+        if (brushSp) {
+          clearPendingHoldGrab();
+          pushWorldUndo();
+          placeSpriteAtWorld(brushSp, snapX, snapY);
+          return;
+        }
+
+        // Click, Hold & Drag on a placed block in the viewport (when no brush is active) clones it with Apple-style shake
         if (hoveredItem && activeTool === 'stamp') {
           clearPendingHoldGrab();
-          const hasDifferentBrush = Boolean(brushSp && brushSp.id !== hoveredItem.spriteId);
-          const holdDelay = hasDifferentBrush ? 150 : 105;
           mouseWorld.pendingHoldGrab = {
             targetCell: hoveredItem,
             startX: e.clientX,
             startY: e.clientY,
             snapX,
             snapY,
-            hasDifferentBrush,
+            hasDifferentBrush: false,
             timer: setTimeout(() => {
               if (mouseWorld.downButton === 0 && mouseWorld.pendingHoldGrab && !state.heldWorldBlock) {
                 startHoldingWorldBlock(hoveredItem, 'clone');
               }
-            }, holdDelay)
+            }, 105)
           };
           return;
         }
 
-        if (brushSp) {
-          clearPendingHoldGrab();
-          pushWorldUndo();
-          placeSpriteAtWorld(brushSp, snapX, snapY);
-        } else if (state.mode === 'build' && activeTool === 'stamp') {
+        if (state.mode === 'build' && activeTool === 'stamp') {
           // Clicking empty space in Build Mode with no creation selected plays a gentle buzzer
           sfx.buzzer();
         }
       }
+    });
+
+    // Double-clicking a placed item in the viewport equips it onto the mouse for mass placement!
+    worldCanvas.addEventListener('dblclick', (e) => {
+      if (editor.isOpen) return;
+      e.preventDefault();
+      updateMouseWorldCoords(e);
+      clearPendingHoldGrab();
+      if (state.heldWorldBlock) {
+        commitHeldWorldBlock(true);
+      }
+      const hoveredItem = getHoveredWorldCell(mouseWorld.wx, mouseWorld.wy);
+      if (!hoveredItem) return;
+      const sp = getSpriteById(hoveredItem.spriteId);
+      if (!sp || ['body', 'wearable', 'holdable', 'mountable'].includes(sp.type)) {
+        sfx.buzzer();
+        return;
+      }
+      state.activeBrushId = sp.id;
+      state.brushOrient = (hoveredItem.orient ?? hoveredItem.rotation ?? 0) % 8;
+      if (state.mode === 'build' && ['erase', 'spawn', 'wire'].includes(state.worldTool)) {
+        state.worldTool = 'stamp';
+        updateWorldToolButtonsUI();
+      }
+      sfx.ui(640);
+      updateBrushBar();
+      renderSidebarSprites();
+      updateWorldCursor(e);
     });
 
     worldCanvas.addEventListener('mousemove', (e) => {
@@ -9578,29 +10438,29 @@
         const target = getHoveredWorldCell(mouseWorld.wx, mouseWorld.wy);
 
         if (target && target !== src && !state.dynamicEntities.includes(target)) {
-          let activatorCell = null;
+          let sourceCell = null;
           let targetCell = null;
-          if (src.type === 'activator' && src.subtype === 'Activater') {
-            activatorCell = src;
+          if (isWireSourceCell(src)) {
+            sourceCell = src;
             targetCell = target;
-          } else if (target.type === 'activator' && target.subtype === 'Activater') {
-            activatorCell = target;
+          } else if (isWireSourceCell(target)) {
+            sourceCell = target;
             targetCell = src;
           }
-          if (activatorCell && targetCell) {
+          if (sourceCell && targetCell) {
             pushWorldUndo();
-            if (!Array.isArray(activatorCell.wires)) activatorCell.wires = [];
+            if (!Array.isArray(sourceCell.wires)) sourceCell.wires = [];
             const tLayer = targetCell.layer || 'main';
-            const existingIdx = activatorCell.wires.findIndex(
+            const existingIdx = sourceCell.wires.findIndex(
               w => w.x === targetCell.x && w.y === targetCell.y && (w.layer || 'main') === tLayer
             );
             if (existingIdx !== -1) {
               // Dragging onto an already-wired target toggles/removes that wire
-              activatorCell.wires.splice(existingIdx, 1);
-              sfx.erase();
+              sourceCell.wires.splice(existingIdx, 1);
+              sfx.wireDisconnect();
             } else {
-              activatorCell.wires.push({ x: targetCell.x, y: targetCell.y, layer: tLayer });
-              sfx.createSuccess();
+              sourceCell.wires.push({ x: targetCell.x, y: targetCell.y, layer: tLayer });
+              sfx.wireConnect();
             }
             scheduleWorldAutoBackup();
           } else {
@@ -9917,6 +10777,9 @@
         state.keys.space = true;
         handleWorldInteractAction();
       }
+      if (e.key === 'e' || e.key === 'E') {
+        handleWorldInteractAction();
+      }
     });
 
     window.addEventListener('keyup', (e) => {
@@ -9952,44 +10815,12 @@
       }
 
       if (hadHeldBlock || hadBrush || hadDrag) {
-        const fxX = mouseWorld.inside
-          ? Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE
-          : state.player.x;
-        const fxY = mouseWorld.inside
-          ? Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE
-          : state.player.y;
-        const fw = targetSprite ? targetSprite.w : TILE_SIZE;
-        const fh = targetSprite ? targetSprite.h : TILE_SIZE;
-
-        // Shrink-out ghost animation + dust puff at the mouse cursor
-        state.deleteAnimations.push({
-          x: fxX,
-          y: fxY,
-          w: fw,
-          h: fh,
-          sprite: targetSprite,
-          progress: 0,
-          isUndo: true
-        });
-        spawnDustParticles(fxX + fw / 2, fxY + fh / 2, fw, fh, 7);
-
-        state.floatingTexts.push({
-          x: fxX + fw / 2,
-          y: fxY - 4,
-          vy: -0.45,
-          text: 'DESELECTED',
-          color: '#93c5fd',
-          life: 32,
-          maxLife: 32
-        });
-
-        // Subtle flash on the sidebar equipped status bar
+        // Subtle flash on the sidebar equipped status bar + sound only (no floating text in viewport)
         const brushBar = document.getElementById('active-brush-bar');
         if (brushBar) {
           brushBar.classList.add('bg-blue-950/60');
           setTimeout(() => brushBar.classList.remove('bg-blue-950/60'), 180);
         }
-
         sfx.poof(false);
       }
 
@@ -10047,30 +10878,54 @@
         } else if (heldSp.subtype === 'Consumable') {
           p.consumableBites = (p.consumableBites || 0) + 1;
           spawnWorldParticles(p.x + p.w / 2, p.y + p.h / 2, '#fca5a5', 4);
+          sfx.ui(520);
           if (p.consumableBites >= 3) {
             state.activeHoldableId = null;
             p.consumableBites = 0;
-            spawnEquipPoof(false);
             updateBrushBar();
             renderSidebarSprites();
           }
         } else if (heldSp.subtype === 'Swing Line') {
-          if (p.grappleTarget) {
-            p.grappleTarget = null;
-          } else {
-            p.grappleTarget = { x: p.x + p.facing * 65, y: p.y - 65 };
-          }
+          p.grappleTarget = { x: p.x + p.facing * 65, y: p.y - 55 };
         }
       }
 
-      // Check for Transporting portal under player
+      // Check for Activater, Sound Block, or Interacting trigger under/near player when interacting (Space or E)
+      const interactMargin = 10;
+      let triggeredAnyActivator = false;
+      for (const [, cell] of state.worldCells.entries()) {
+        if (
+          ((cell.type === 'activator' && (cell.subtype === 'Activater' || cell.subtype === 'Sound Block')) ||
+           (cell.type === 'interacting' && Array.isArray(cell.wires) && cell.wires.length > 0)) &&
+          p.x + p.w + interactMargin > cell.x &&
+          p.x - interactMargin < cell.x + cell.w &&
+          p.y + p.h + interactMargin > cell.y &&
+          p.y - interactMargin < cell.y + cell.h
+        ) {
+          triggerActivatorCell(cell, 240, true);
+          triggeredAnyActivator = true;
+        }
+      }
+      if (triggeredAnyActivator) return;
+
       for (const [, cell] of state.worldCells.entries()) {
         if (p.x < cell.x + cell.w && p.x + p.w > cell.x && p.y < cell.y + cell.h && p.y + p.h > cell.y) {
           if (cell.type === 'transporting') {
+            // If this Transporting portal is wired to a specific target, teleport directly there!
+            if (Array.isArray(cell.wires) && cell.wires.length > 0) {
+              const wiredDest = getWorldCellAtWireRef(cell.wires[0]);
+              if (wiredDest) {
+                p.x = wiredDest.x;
+                p.y = wiredDest.y - p.h;
+                spawnEquipPoof(true);
+                return;
+              }
+            }
             for (const [, target] of state.worldCells.entries()) {
               if (target !== cell && target.type === 'transporting') {
                 p.x = target.x;
                 p.y = target.y - p.h;
+                spawnEquipPoof(true);
                 return;
               }
             }
@@ -10553,6 +11408,9 @@
     const fxAlphaSlider = document.getElementById('fx-alpha-slider');
     const fxAlphaLabel = document.getElementById('fx-alpha-label');
     const fxAllCelsToggle = document.getElementById('fx-all-cels-toggle');
+    const fxReplaceFrom = document.getElementById('fx-replace-from');
+    const fxReplaceTo = document.getElementById('fx-replace-to');
+    const fxReplaceBtn = document.getElementById('fx-replace-btn');
 
     function resetFxSlidersUI() {
       fxHueSlider.value = 0;
@@ -10566,59 +11424,21 @@
       fxAlphaSlider.value = 100;
       fxAlphaLabel.textContent = '100%';
       fxTintColor.value = editor.color || '#3b82f6';
-    }
-
-    function beginColorFxSession() {
-      editor.fxSession = {
-        origFrames: editor.frames.map(f => new Uint8ClampedArray(f)),
-        origFloating: (editor.marquee && editor.marquee.floatingData)
-          ? new Uint8ClampedArray(editor.marquee.floatingData)
-          : null
-      };
-      resetFxSlidersUI();
-    }
-
-    function transformBufferWithColorFx(srcBuf, dstBuf, hueShift, satDelta, valDelta, tintRgb, tintAmt, alphaScale) {
-      for (let i = 0; i < srcBuf.length; i += 4) {
-        const a = srcBuf[i + 3];
-        if (a === 0) {
-          dstBuf[i] = 0;
-          dstBuf[i + 1] = 0;
-          dstBuf[i + 2] = 0;
-          dstBuf[i + 3] = 0;
-          continue;
+      if (fxReplaceFrom) {
+        const curBuf = editor.frames[editor.activeFrame];
+        let firstHex = editor.color || '#ffffff';
+        if (curBuf) {
+          for (let i = 0; i < curBuf.length; i += 4) {
+            if (curBuf[i + 3] > 20) {
+              firstHex = rgbaToHex(curBuf[i], curBuf[i + 1], curBuf[i + 2]);
+              break;
+            }
+          }
         }
-        let r = srcBuf[i];
-        let g = srcBuf[i + 1];
-        let b = srcBuf[i + 2];
-
-        if (hueShift !== 0 || satDelta !== 0 || valDelta !== 0) {
-          const hsv = rgbToHsv(r, g, b);
-          const nh = ((hsv.h + hueShift) % 360 + 360) % 360;
-          const ns = Math.max(0, Math.min(1, hsv.s + satDelta));
-          const nv = Math.max(0, Math.min(1, hsv.v + valDelta));
-          const rgb = hsvToRgb(nh, ns, nv);
-          r = rgb[0];
-          g = rgb[1];
-          b = rgb[2];
-        }
-
-        if (tintAmt > 0) {
-          // Preserve pixel luminance shading while tinting toward target color
-          const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-          const tr = Math.min(255, tintRgb[0] * (0.35 + 0.65 * lum));
-          const tg = Math.min(255, tintRgb[1] * (0.35 + 0.65 * lum));
-          const tb = Math.min(255, tintRgb[2] * (0.35 + 0.65 * lum));
-          r = Math.round(r + (tr - r) * tintAmt);
-          g = Math.round(g + (tg - g) * tintAmt);
-          b = Math.round(b + (tb - b) * tintAmt);
-        }
-
-        const na = Math.max(0, Math.min(255, Math.round(a * alphaScale)));
-        dstBuf[i] = r;
-        dstBuf[i + 1] = g;
-        dstBuf[i + 2] = b;
-        dstBuf[i + 3] = na;
+        fxReplaceFrom.value = firstHex;
+      }
+      if (fxReplaceTo) {
+        fxReplaceTo.value = editor.color || '#3b82f6';
       }
     }
 
@@ -10768,6 +11588,73 @@
     });
     fxTintColor.addEventListener('input', previewColorFxLive);
     fxAllCelsToggle.addEventListener('change', previewColorFxLive);
+
+    if (fxReplaceBtn && fxReplaceFrom && fxReplaceTo) {
+      fxReplaceBtn.addEventListener('click', () => {
+        const [sr, sg, sb] = hexToRgba(fxReplaceFrom.value);
+        const [tr, tg, tb] = hexToRgba(fxReplaceTo.value);
+        const targetRgba = [tr, tg, tb, editor.alpha || 255];
+        const applyAll = fxAllCelsToggle.checked;
+
+        if (editor.fxSession) {
+          const indices = applyAll ? editor.fxSession.origFrames.map((_, i) => i) : [editor.activeFrame];
+          indices.forEach(idx => {
+            const buf = editor.fxSession.origFrames[idx];
+            if (!buf) return;
+            for (let i = 0; i < buf.length; i += 4) {
+              if (buf[i + 3] > 0 && buf[i] === sr && buf[i + 1] === sg && buf[i + 2] === sb) {
+                buf[i] = targetRgba[0];
+                buf[i + 1] = targetRgba[1];
+                buf[i + 2] = targetRgba[2];
+              }
+            }
+          });
+          recordUsedColor(fxReplaceTo.value);
+          fxReplaceFrom.value = fxReplaceTo.value;
+          sfx.ui(580);
+          previewColorFxLive();
+        }
+      });
+    }
+
+    const fxOutlineBtn = document.getElementById('fx-outline-btn');
+    if (fxOutlineBtn) {
+      fxOutlineBtn.addEventListener('click', () => {
+        if (!editor.fxSession) beginColorFxSession();
+        const [or, og, ob] = hexToRgba(editor.color || '#000000');
+        const oa = editor.alpha || 255;
+        const applyAll = fxAllCelsToggle.checked;
+        const indices = applyAll ? editor.fxSession.origFrames.map((_, i) => i) : [editor.activeFrame];
+
+        indices.forEach(idx => {
+          const buf = editor.fxSession.origFrames[idx];
+          const dim = (editor.frameDims && editor.frameDims[idx]) || { w: editor.w, h: editor.h };
+          if (!buf) return;
+          const copy = new Uint8ClampedArray(buf);
+          const w = dim.w, h = dim.h;
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              const i = (y * w + x) * 4;
+              if (copy[i + 3] > 20) continue;
+              const hasNeighbor =
+                (x > 0 && copy[(y * w + (x - 1)) * 4 + 3] > 20) ||
+                (x < w - 1 && copy[(y * w + (x + 1)) * 4 + 3] > 20) ||
+                (y > 0 && copy[((y - 1) * w + x) * 4 + 3] > 20) ||
+                (y < h - 1 && copy[((y + 1) * w + x) * 4 + 3] > 20);
+              if (hasNeighbor) {
+                buf[i] = or;
+                buf[i + 1] = og;
+                buf[i + 2] = ob;
+                buf[i + 3] = oa;
+              }
+            }
+          }
+        });
+        recordUsedColor(editor.color);
+        sfx.ui(610);
+        previewColorFxLive();
+      });
+    }
 
     /********************************************************************
      * MOVABLE FLOATING DYNAMIC CODE POPUP LOGIC
@@ -11070,6 +11957,23 @@
       });
     }
 
+    document.querySelectorAll('.fmode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        editor.fillMode = btn.dataset.fmode;
+        document.querySelectorAll('.fmode-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.fmode === editor.fillMode);
+        });
+        updateToolReadout();
+      });
+    });
+
+    const fillAllCelsToggle = document.getElementById('fill-all-cels-toggle');
+    if (fillAllCelsToggle) {
+      fillAllCelsToggle.addEventListener('change', (e) => {
+        editor.fillAllCels = e.target.checked;
+      });
+    }
+
     function updateToolReadout() {
       const shapeInfo = getBrushShapeInfo(editor.brushShape);
       const fillModeStr = editor.shapeFilled ? 'Filled' : 'Lined';
@@ -11082,7 +11986,7 @@
         rect: `Square / Rect (${fillModeStr})`,
         ellipse: `Circle / Ellipse (${fillModeStr})`,
         eraser: `Eraser (${editor.brushSize}px ${shapeInfo.char})`,
-        fill: 'Bucket Fill (G)',
+        fill: editor.fillMode === 'replace' ? 'Replace Color (G)' : 'Bucket Fill (G)',
         picker: 'Eyedropper (I)'
       };
       if (activeToolReadout) {
@@ -11096,6 +12000,10 @@
         const isShapeTool = editor.tool === 'rect' || editor.tool === 'ellipse';
         shapeSubbar.classList.toggle('hidden', !isShapeTool);
         shapeSubbar.classList.toggle('flex', isShapeTool);
+      }
+      if (fillSubbar) {
+        fillSubbar.classList.toggle('hidden', editor.tool !== 'fill');
+        fillSubbar.classList.toggle('flex', editor.tool === 'fill');
       }
       if (spraySubbar) {
         spraySubbar.classList.toggle('hidden', editor.tool !== 'spray');
@@ -11430,14 +12338,70 @@
       renderFrameTabs();
     }
 
+    function beginColorFxSession() {
+      editor.fxSession = {
+        origFrames: editor.frames.map(f => new Uint8ClampedArray(f)),
+        origFloating: (editor.marquee && editor.marquee.floatingData)
+          ? new Uint8ClampedArray(editor.marquee.floatingData)
+          : null
+      };
+      resetFxSlidersUI();
+    }
+
+    function transformBufferWithColorFx(srcBuf, dstBuf, hueShift, satDelta, valDelta, tintRgb, tintAmt, alphaScale) {
+      for (let i = 0; i < srcBuf.length; i += 4) {
+        const a = srcBuf[i + 3];
+        if (a === 0) {
+          dstBuf[i] = 0;
+          dstBuf[i + 1] = 0;
+          dstBuf[i + 2] = 0;
+          dstBuf[i + 3] = 0;
+          continue;
+        }
+        let r = srcBuf[i];
+        let g = srcBuf[i + 1];
+        let b = srcBuf[i + 2];
+
+        if (hueShift !== 0 || satDelta !== 0 || valDelta !== 0) {
+          const hsv = rgbToHsv(r, g, b);
+          hsv.h = ((hsv.h + hueShift) % 360 + 360) % 360;
+          hsv.s = Math.max(0, Math.min(1, hsv.s + satDelta));
+          hsv.v = Math.max(0, Math.min(1, hsv.v + valDelta));
+          [r, g, b] = hsvToRgb(hsv.h, hsv.s, hsv.v);
+        }
+
+        if (tintAmt > 0 && tintRgb) {
+          r = Math.round(r * (1 - tintAmt) + tintRgb[0] * tintAmt);
+          g = Math.round(g * (1 - tintAmt) + tintRgb[1] * tintAmt);
+          b = Math.round(b * (1 - tintAmt) + tintRgb[2] * tintAmt);
+        }
+
+        dstBuf[i] = Math.max(0, Math.min(255, r));
+        dstBuf[i + 1] = Math.max(0, Math.min(255, g));
+        dstBuf[i + 2] = Math.max(0, Math.min(255, b));
+        dstBuf[i + 3] = Math.max(0, Math.min(255, Math.round(a * alphaScale)));
+      }
+    }
+
     document.getElementById('copy-cel-btn').addEventListener('click', copyMarqueeOrCel);
     document.getElementById('paste-cel-btn').addEventListener('click', pasteMarqueeOrCel);
-    window.addEventListener('blur', () => {
-      editor.preferInternalClipboard = false;
-      resetAllHeldKeys();
-      clearPendingHoldGrab();
-      if (state.heldWorldBlock) {
-        commitHeldWorldBlock(true);
+
+    // Clicking off the drawing canvas unselects/commits any active marquee selection
+    editorModal.addEventListener('mousedown', (e) => {
+      if (!editor.marquee) return;
+      if (
+        e.target !== paintCanvas &&
+        !e.target.closest('#marquee-subbar') &&
+        !e.target.closest('#shape-subbar') &&
+        !e.target.closest('#fill-subbar') &&
+        !e.target.closest('#spray-subbar') &&
+        !e.target.closest('#color-fx-popover') &&
+        !e.target.closest('#color-fx-btn') &&
+        !e.target.closest('#copy-cel-btn') &&
+        !e.target.closest('#paste-cel-btn') &&
+        !e.target.closest('#clear-canvas-btn')
+      ) {
+        commitMarqueeSelection();
       }
     });
 
@@ -11649,30 +12613,46 @@
         const idx = (y * editor.w + x) * 4;
         if (buf[idx + 3] > 0) {
           const picked = rgbaToHex(buf[idx], buf[idx + 1], buf[idx + 2]);
+          if (editor.tool === 'eraser' || editor.tool === 'picker') {
+            selectTool('pencil');
+          }
           setEditorColor(picked, true);
           recordUsedColor(picked);
+        } else {
+          // Picking on the empty transparent background switches to the "no alpha" / transparent Eraser slot ('R')!
+          selectTool('eraser');
         }
-        if (editor.tool === 'picker') selectTool('pencil');
         renderPaintCanvas();
         return;
       }
 
-      // Continuous Click-and-Drag Bucket Fill (Fill tool or Alt held)
-      // Left-Click flood-fills with active color; Right-Click mass-erases contiguous matching color!
+      // Continuous Click-and-Drag Bucket Fill & Global Color Replacement (Fill tool or Alt held)
+      // Left-Click fills/replaces with active color; Right-Click mass-erases matching color!
       if (editor.tool === 'fill' || e?.altKey || editor.altHeld) {
+        const isGlobalReplace = editor.fillMode === 'replace' || Boolean(e?.ctrlKey || e?.metaKey || editor.ctrlHeld);
         if (button === 2) {
           const targetAlpha = buf[(y * editor.w + x) * 4 + 3];
           if (targetAlpha > 0) {
-            floodFill(buf, editor.w, editor.h, x, y, [0, 0, 0, 0]);
+            if (isGlobalReplace) {
+              replaceColorInEditor(x, y, [0, 0, 0, 0], editor.fillAllCels);
+            } else {
+              floodFill(buf, editor.w, editor.h, x, y, [0, 0, 0, 0]);
+            }
             renderPaintCanvas();
+            renderFrameTabs();
           }
           return;
         }
         if (button === 0) {
           recordUsedColor(editor.color);
           const rgba = hexToRgba(editor.color);
-          floodFill(buf, editor.w, editor.h, x, y, rgba);
+          if (isGlobalReplace) {
+            replaceColorInEditor(x, y, rgba, editor.fillAllCels);
+          } else {
+            floodFill(buf, editor.w, editor.h, x, y, rgba);
+          }
           renderPaintCanvas();
+          renderFrameTabs();
           return;
         }
       }
@@ -11735,6 +12715,40 @@
 
         stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
       }
+    }
+
+    // Replaces all instances of the color at (startX, startY) across the active cel (or all cels if acrossAllCels is true)
+    function replaceColorInEditor(startX, startY, newColor, acrossAllCels = false) {
+      const activeBuf = editor.frames[editor.activeFrame];
+      const startIdx = (startY * editor.w + startX) * 4;
+      const tr = activeBuf[startIdx], tg = activeBuf[startIdx + 1], tb = activeBuf[startIdx + 2], ta = activeBuf[startIdx + 3];
+      if (tr === newColor[0] && tg === newColor[1] && tb === newColor[2] && ta === newColor[3]) return;
+
+      const targetFrames = acrossAllCels
+        ? editor.frames.map((_, idx) => idx)
+        : [editor.activeFrame];
+
+      targetFrames.forEach(fIdx => {
+        const buf = editor.frames[fIdx];
+        const dim = (editor.frameDims && editor.frameDims[fIdx]) || { w: editor.w, h: editor.h };
+        for (let py = 0; py < dim.h; py++) {
+          for (let px = 0; px < dim.w; px++) {
+            if (!acrossAllCels && editor.marquee && !editor.marquee.floatingData) {
+              if (!isPixelInMarqueeMask(editor.marquee, px - editor.marquee.x, py - editor.marquee.y)) continue;
+            }
+            const i = (py * dim.w + px) * 4;
+            const matches = ta === 0
+              ? (buf[i + 3] === 0)
+              : (buf[i] === tr && buf[i + 1] === tg && buf[i + 2] === tb && buf[i + 3] === ta);
+            if (matches) {
+              buf[i] = newColor[0];
+              buf[i + 1] = newColor[1];
+              buf[i + 2] = newColor[2];
+              buf[i + 3] = newColor[3];
+            }
+          }
+        }
+      });
     }
 
     function pushUndo() {
@@ -12056,7 +13070,8 @@
       }
 
       // Hold Ctrl + Drag (or Move Tool) moves the whole cel drawing (or active marquee) interactively!
-      if ((e.ctrlKey || e.metaKey || editor.tool === 'move') && e.button === 0) {
+      // (Except when using Bucket Fill, where Ctrl+Click performs global color replacement)
+      if ((e.ctrlKey || e.metaKey || editor.tool === 'move') && editor.tool !== 'fill' && !e.altKey && e.button === 0) {
         if (editor.marquee) {
           liftMarqueePixels();
           editor.marqueeAction = 'moving';
@@ -13498,6 +14513,44 @@
       previewCanvas.height = ph;
       previewCtx.clearRect(0, 0, pw, ph);
 
+      // Live sliding door preview for ACTIVATOR -> Open on Activate
+      if (t === 'activator' && editor.subtype === 'Open on Activate' && editor.previewPlaying) {
+        const cycle = (editor.previewTick % 120) / 120;
+        // Hold closed (0..0.25), slide open (0.25..0.5), hold open (0.5..0.75), slide closed (0.75..1.0)
+        let openAmt = 0;
+        if (cycle >= 0.25 && cycle < 0.5) openAmt = (cycle - 0.25) / 0.25;
+        else if (cycle >= 0.5 && cycle < 0.75) openAmt = 1;
+        else if (cycle >= 0.75) openAmt = 1 - (cycle - 0.75) / 0.25;
+        const ease = openAmt < 0.5 ? 2 * openAmt * openAmt : 1 - Math.pow(-2 * openAmt + 2, 2) / 2;
+        const c0 = createFrameCanvasFromEditor(0);
+        previewCtx.save();
+        previewCtx.drawImage(c0, 0, -Math.round(ease * ph));
+        previewCtx.restore();
+        return;
+      }
+
+      // Live ping-pong crossfade preview for CHANGING THING -> Sparkling
+      if (t === 'changing_thing' && editor.subtype === 'Sparkling' && editor.frames.length >= 2 && editor.previewPlaying) {
+        const totalCels = editor.frames.length;
+        const cycleSpan = Math.max(1, totalCels - 1);
+        const phase = (editor.previewTick / Math.max(8, ticksPerFrame * 3));
+        const rawMod = ((phase % (cycleSpan * 2)) + (cycleSpan * 2)) % (cycleSpan * 2);
+        const pingPongPos = rawMod <= cycleSpan ? rawMod : (cycleSpan * 2 - rawMod);
+        const idxA = Math.min(totalCels - 1, Math.floor(pingPongPos));
+        const idxB = Math.min(totalCels - 1, idxA + 1);
+        const blend = pingPongPos - idxA;
+
+        const cA = createFrameCanvasFromEditor(idxA);
+        const cB = createFrameCanvasFromEditor(idxB);
+        previewCtx.save();
+        previewCtx.globalAlpha = 1 - blend;
+        previewCtx.drawImage(cA, 0, 0);
+        previewCtx.globalAlpha = blend;
+        previewCtx.drawImage(cB, 0, 0);
+        previewCtx.restore();
+        return;
+      }
+
       if (compositeOverStand) {
         const standIdx = getStateFrameIndices(editor, 'Stand')[0] ?? 0;
         const standCanvas = createFrameCanvasFromEditor(standIdx);
@@ -14191,6 +15244,21 @@
       const cleanCells = [];
       for (const [k, cell] of state.worldCells.entries()) {
         const copy = { ...cell };
+        if (copy.baseX !== undefined) copy.x = copy.baseX;
+        if (copy.baseY !== undefined) copy.y = copy.baseY;
+        delete copy.baseX;
+        delete copy.baseY;
+        delete copy._pistonExt;
+        delete copy._elevPhase;
+        delete copy._stepDx;
+        delete copy._stepDy;
+        delete copy._wasExtended;
+        delete copy._wasDoorOpen;
+        delete copy._wirePowerFade;
+        delete copy._clockTick;
+        delete copy._relayQueueTimer;
+        delete copy._incomingSignalCount;
+        delete copy._totalIncomingWires;
         delete copy._furryStrands;
         delete copy._interactTick;
         delete copy._bounceTick;
@@ -14200,6 +15268,7 @@
         delete copy._touched;
         delete copy.placeAnim;
         delete copy.envVisFade;
+        delete copy.bgLightVisFade;
         delete copy.lightFade;
         cleanCells.push([k, copy]);
       }

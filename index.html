@@ -7506,23 +7506,29 @@
       // Render ambient lights ('Fill Light', 'Top Light', 'Surround Light') without weightSum normalization
       // so placing or erasing a second light never causes existing background lights to dip or blink!
       const layerMaxAmbientCap = (targetLayer === 'front' || targetLayer === 'main') ? 0.65 : 1.0;
-      const ambientsBySubtype = new Map();
+      const ambientsBySubtype = new Map([
+        ['Fill Light', []],
+        ['Top Light', []],
+        ['Surround Light', []]
+      ]);
       const pointLights = [];
 
       for (const item of layerLights) {
-        if (item.sub === 'Fill Light' || item.sub === 'Top Light' || item.sub === 'Surround Light') {
-          if (!ambientsBySubtype.has(item.sub)) {
-            ambientsBySubtype.set(item.sub, []);
-          }
+        if (ambientsBySubtype.has(item.sub)) {
           ambientsBySubtype.get(item.sub).push(item);
         } else if (item.sub === 'Light') {
           pointLights.push(item);
         }
       }
 
+      // Always composite in fixed order: Fill Light (base sky) -> Top Light (gradient) -> Surround Light (vignette)
+      // so placing a new Fill Light or Top Light never flips their relative layer order or blinks!
       for (const [subType, items] of ambientsBySubtype.entries()) {
-        // Deduplicate identical sprite+option entries in the same biome, keeping the strongest/most faded-in instance
-        // so placing a second copy of the same Fill/Top Light doesn't double-darken or blink while fading in.
+        if (items.length === 0) continue;
+
+        // Group identical light blocks (same spriteId + option) using Math.max(fade) instead of multiplicative stacking
+        // so placing a second copy of the same blue Fill Light or Top Light a few blocks away keeps the exact same
+        // intensity (1.0) without ever pulsing darker, dipping, or re-sorting!
         const uniqueMap = new Map();
         for (const it of items) {
           const k = `${it.opt}_${it.sp.id}`;
@@ -7530,9 +7536,13 @@
           if (!prev) {
             uniqueMap.set(k, { ...it });
           } else {
-            // Smoothly combine fade of multiple identical light blocks (1 - (1 - a)*(1 - b)) so there is zero blink
-            prev.fade = 1 - (1 - prev.fade) * (1 - it.fade);
-            if (it.order > prev.order) prev.order = it.order;
+            if (it.fade > prev.fade) {
+              prev.fade = it.fade;
+            }
+            // Keep the earliest placedOrder so extending an existing sky never changes its draw priority against other colors
+            if (it.order < prev.order) {
+              prev.order = it.order;
+            }
           }
         }
         const candidates = Array.from(uniqueMap.values()).sort((a, b) => a.order - b.order);
@@ -10320,6 +10330,18 @@
       const layer = getLayerForSprite(sp);
       const key = `${snapX},${snapY},${layer}`;
 
+      // If placing a duplicate ambient light/environment that is already active nearby, start at full lightFade (1.0)
+      // so extending a sky across the world never causes any fade-in pulse or flicker
+      let initialLightFade = 0.02;
+      if (sp.type === 'light' || sp.type === 'environment') {
+        for (const [, existingCell] of state.worldCells.entries()) {
+          if (existingCell.spriteId === sp.id && (existingCell.lightFade ?? 1) > 0.5 && (existingCell.bgLightVisFade ?? 1) > 0.2) {
+            initialLightFade = 1;
+            break;
+          }
+        }
+      }
+
       state.worldCells.set(key, {
         spriteId: sp.id,
         x: snapX,
@@ -10330,7 +10352,7 @@
         subtype: sp.subtype,
         layer,
         lightLayer: sp.lightLayer || 'sky',
-        lightFade: 0.02,
+        lightFade: initialLightFade,
         placedOrder: state.placementCounter++,
         placeAnim: Math.max(-0.5, 0.15 - animDelay),
         orient,

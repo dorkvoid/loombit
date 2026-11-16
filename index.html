@@ -708,17 +708,26 @@
               <option value="farback">Layer: Far Back</option>
               <option value="back">Layer: Back</option>
               <option value="main">Layer: Main</option>
-              <option value="front">Layer: Front (Over Player)</option>
+              <option value="front">Layer: Front</option>
             </select>
-            <span class="text-[9px] text-zinc-400">Spd</span>
-            <input id="env-speed-slider" type="range" min="10" max="300" value="100" title="Effect Speed / Intensity" class="w-12 accent-sky-400 h-1.5 bg-[#141418] rounded" />
-            <span class="text-[9px] text-zinc-400">Alpha</span>
-            <input id="env-alpha-slider" type="range" min="10" max="100" value="80" title="Environment Opacity" class="w-12 accent-sky-400 h-1.5 bg-[#141418] rounded" />
+            <span class="text-[9px] text-sky-200">Spd</span>
+            <input id="env-speed-slider" type="range" min="10" max="300" value="100" title="Environment Speed / Intensity" class="w-12" />
+            <span class="text-[9px] text-sky-200">Alpha</span>
+            <input id="env-alpha-slider" type="range" min="10" max="100" value="80" title="Environment Opacity" class="w-12" />
             <span id="env-alpha-label" class="text-[10px] text-sky-200 mono w-7 text-right">80%</span>
           </div>
 
-          <!-- Manyland LIQUID Controls (Adjustable Opacity) -->
+          <!-- Manyland LIQUID Controls (Adjustable Opacity & Viscosity Toggle) -->
           <div id="liquid-controls-group" class="hidden items-center gap-1.5 bg-[#14222e] border border-cyan-500/40 rounded-sm px-2 py-0.5">
+            <button
+              id="liquid-viscosity-btn"
+              type="button"
+              title="Toggle between Normal Water (fast, smooth swimming) and Thick Liquid (slow, viscous)"
+              class="ase-btn px-2 py-0.5 text-[10px] text-cyan-200 font-medium"
+            >
+              Water: Normal
+            </button>
+            <div class="h-3 w-[1px] bg-cyan-500/30 mx-0.5"></div>
             <span class="text-[9px] text-cyan-200">Opacity</span>
             <input id="liquid-alpha-slider" type="range" min="10" max="100" value="65" title="Liquid Opacity" class="w-16" />
             <span id="liquid-alpha-label" class="text-[10px] text-cyan-200 mono w-8 text-right">65%</span>
@@ -1507,6 +1516,7 @@
         onLadder: false,
         ladderX: null,
         inLiquid: false,
+        liquidViscosity: 'normal',
         liquidSurfaceY: null,
         onSlidey: false,
         onSticky: false,
@@ -1581,6 +1591,7 @@
       envSpeed: 100,          // 10..300%
       envAlpha: 80,           // 10..100%
       liquidAlpha: 65,        // 10..100%
+      liquidViscosity: 'normal', // 'normal' | 'thick'
       code: '',
       w: 29,
       h: 29,
@@ -1730,6 +1741,7 @@
     const envAlphaSlider = document.getElementById('env-alpha-slider');
     const envAlphaLabel = document.getElementById('env-alpha-label');
     const liquidControlsGroup = document.getElementById('liquid-controls-group');
+    const liquidViscosityBtn = document.getElementById('liquid-viscosity-btn');
     const liquidAlphaSlider = document.getElementById('liquid-alpha-slider');
     const liquidAlphaLabel = document.getElementById('liquid-alpha-label');
     const canvasWInput = document.getElementById('canvas-w-input');
@@ -3083,6 +3095,23 @@
       const val = editor.liquidAlpha ?? 65;
       liquidAlphaSlider.value = val;
       liquidAlphaLabel.textContent = `${val}%`;
+      syncLiquidViscosityUI();
+    }
+
+    function syncLiquidViscosityUI() {
+      if (!liquidViscosityBtn) return;
+      const isThick = editor.liquidViscosity === 'thick';
+      liquidViscosityBtn.textContent = isThick ? 'Water: Thick' : 'Water: Normal';
+      liquidViscosityBtn.className = isThick
+        ? 'ase-btn active px-2 py-0.5 text-[10px] text-amber-300 font-medium'
+        : 'ase-btn px-2 py-0.5 text-[10px] text-cyan-200 font-medium';
+    }
+
+    if (liquidViscosityBtn) {
+      liquidViscosityBtn.addEventListener('click', () => {
+        editor.liquidViscosity = editor.liquidViscosity === 'thick' ? 'normal' : 'thick';
+        syncLiquidViscosityUI();
+      });
     }
 
     function getDefaultEnvLayerForSubtype(subtype) {
@@ -4232,13 +4261,15 @@
         return m && m.subtype === 'Flying Mountable';
       })();
 
-      // Calm, deliberate Manyland movement parameters (with thick viscous resistance when in liquid & momentum when flying)
-      const accel = p.onSticky ? 0.08 : (p.inLiquid ? 0.13 : (isMountedFlying ? 0.16 : (p.onSlidey ? 0.08 : 0.22)));
-      const maxSpeed = p.onSticky ? 0.65 : (p.inLiquid ? 1.25 : (isMountedFlying ? 2.85 : (state.activeMountId ? 2.4 : 1.8)));
-      const friction = p.onSlidey ? 0.965 : (p.inLiquid ? 0.84 : (isMountedFlying ? 0.92 : 0.78));
-      const gravity = p.inLiquid ? 0.045 : 0.23;
-      const jumpImpulse = p.inLiquid ? -2.4 : -4.85;
-      const maxFall = p.inLiquid ? 1.45 : 6.0;
+      const isThickLiquid = p.inLiquid && p.liquidViscosity === 'thick';
+
+      // Calm, deliberate Manyland movement parameters (Normal water is brisk & fluid; Thick liquid has heavy resistance)
+      const accel = p.onSticky ? 0.08 : (p.inLiquid ? (isThickLiquid ? 0.11 : 0.21) : (isMountedFlying ? 0.16 : (p.onSlidey ? 0.08 : 0.22)));
+      const maxSpeed = p.onSticky ? 0.65 : (p.inLiquid ? (isThickLiquid ? 1.05 : 1.72) : (isMountedFlying ? 2.85 : (state.activeMountId ? 2.4 : 1.8)));
+      const friction = p.onSlidey ? 0.965 : (p.inLiquid ? (isThickLiquid ? 0.80 : 0.90) : (isMountedFlying ? 0.92 : 0.78));
+      const gravity = p.inLiquid ? (isThickLiquid ? 0.035 : 0.05) : 0.23;
+      const jumpImpulse = p.inLiquid ? (isThickLiquid ? -2.1 : -3.1) : -4.85;
+      const maxFall = p.inLiquid ? (isThickLiquid ? 1.15 : 1.85) : 6.0;
 
       // Elastic squash & stretch recovery
       p.squashX += (1 - p.squashX) * 0.22;
@@ -4331,25 +4362,44 @@
           const targetBank = (p.vx / maxSpeed) * 0.22 + (p.vy * 0.04 * p.facing);
           p.flyTilt += (targetBank - p.flyTilt) * 0.2;
         } else if (p.inLiquid) {
-          // Thick, viscous liquid physics: dampens plunge velocity gradually and offers resistance in all directions
-          p.vx *= 0.84;
-          p.vy *= 0.84;
-          const isActivelySwimming =
-            state.keys.left || state.keys.right || state.keys.up || state.keys.down ||
-            Math.hypot(p.vx, p.vy) > 0.16;
+          // Smooth swimming physics (Normal vs Thick water)
+          const hDamp = isThickLiquid ? 0.82 : 0.92;
+          const vDamp = isThickLiquid ? 0.82 : 0.90;
+          p.vx *= hDamp;
+          p.vy *= vDamp;
 
-          p.swimShakePhase += isActivelySwimming ? 0.72 : 0.24;
-          const swimLean = (p.vx * 0.16) + (isActivelySwimming ? Math.sin(p.swimShakePhase) * 0.14 : Math.sin(p.swimShakePhase) * 0.04);
-          p.flyTilt += (swimLean - p.flyTilt) * 0.32;
+          const isHorizontalSwim = state.keys.left || state.keys.right || Math.abs(p.vx) > 0.22;
+          const isVerticalSwim = state.keys.up || state.keys.down || Math.abs(p.vy) > 0.25;
+          const isActivelySwimming = isHorizontalSwim || isVerticalSwim;
 
-          // Emit tiny water bubbles while actively swimming
-          if (isActivelySwimming && worldTickCount % 9 === 0) {
+          // Smooth rhythmic swim stroke phase (no rapid jitter)
+          const strokeRate = isThickLiquid ? 0.09 : 0.14;
+          p.swimShakePhase += isActivelySwimming ? strokeRate : 0.045;
+
+          // Forward swimmer lean into the direction of motion + gentle breaststroke pitch wave
+          const forwardLean = (p.vx / maxSpeed) * 0.46;
+          const diveLean = (p.vy / 2.2) * 0.16 * p.facing;
+          const strokeWave = isActivelySwimming
+            ? Math.sin(p.swimShakePhase) * 0.08 * p.facing
+            : Math.sin(p.swimShakePhase) * 0.03;
+          const targetSwimAngle = forwardLean + diveLean + strokeWave;
+          p.flyTilt += (targetSwimAngle - p.flyTilt) * 0.18;
+
+          // Subtle rhythmic stroke stretch on each kick
+          if (isActivelySwimming) {
+            const kickPulse = Math.sin(p.swimShakePhase * 2) * 0.045;
+            p.squashX += ((1 - kickPulse * 0.6) - p.squashX) * 0.25;
+            p.squashY += ((1 + kickPulse) - p.squashY) * 0.25;
+          }
+
+          // Emit occasional water bubbles while actively swimming
+          if (isActivelySwimming && worldTickCount % 14 === 0) {
             state.particles.push({
-              x: p.x + p.w / 2 + (Math.random() - 0.5) * 10,
-              y: p.y + p.h * 0.65,
-              vx: -p.vx * 0.25 + (Math.random() - 0.5) * 0.4,
-              vy: -0.45 - Math.random() * 0.45,
-              ay: -0.015,
+              x: p.x + p.w / 2 - p.facing * 3 + (Math.random() - 0.5) * 6,
+              y: p.y + p.h * 0.55,
+              vx: -p.vx * 0.2 + (Math.random() - 0.5) * 0.25,
+              vy: -0.45 - Math.random() * 0.35,
+              ay: -0.012,
               drag: 0.96,
               size: 1.4,
               color: 'rgba(186, 230, 253, 0.75)',
@@ -4358,36 +4408,40 @@
             });
           }
 
+          const swimDownAccel = isThickLiquid ? 0.15 : 0.26;
+          const maxSwimDown = isThickLiquid ? 1.25 : 2.15;
+          const swimUpAccel = isThickLiquid ? 0.18 : 0.30;
+          const maxSwimUp = isThickLiquid ? -1.45 : -2.35;
+
           if (state.keys.down) {
-            // Swim downward through viscous liquid
-            p.vy += 0.20;
-            if (p.vy > 1.65) p.vy = 1.65;
+            p.vy += swimDownAccel;
+            if (p.vy > maxSwimDown) p.vy = maxSwimDown;
           } else if (state.keys.up) {
             // Swim upward, or hop out when reaching the liquid surface
-            if (p.liquidSurfaceY !== null && p.y <= p.liquidSurfaceY - 2 && p.vy <= 0.15) {
-              p.vy = -4.25;
+            if (p.liquidSurfaceY !== null && p.y <= p.liquidSurfaceY - 2 && p.vy <= 0.2) {
+              p.vy = -4.35;
               p.squashX = 0.84;
               p.squashY = 1.18;
               sfx.jump();
             } else {
-              p.vy -= 0.24;
-              if (p.vy < -1.85) p.vy = -1.85;
+              p.vy -= swimUpAccel;
+              if (p.vy < maxSwimUp) p.vy = maxSwimUp;
             }
           } else {
-            // Slow viscous buoyancy: let plunge momentum carry you down first, then gently drift upward toward the surface
+            // Gentle buoyancy toward the water surface when not holding Up or Down
             if (p.liquidSurfaceY !== null) {
-              const bobOffset = Math.sin(worldTickCount * 0.06) * 1.1;
+              const bobOffset = Math.sin(p.swimShakePhase) * 1.1;
               const targetFloatY = p.liquidSurfaceY - p.h * 0.36 + bobOffset;
               const diff = targetFloatY - p.y;
-              if (p.vy > 0.35) {
-                // Still sinking from jump plunge: viscous drag slows descent smoothly
-                p.vy *= 0.88;
+              if (p.vy > 0.45) {
+                p.vy *= isThickLiquid ? 0.84 : 0.90;
               } else {
-                p.vy += Math.max(-0.09, Math.min(0.08, diff * 0.028));
+                const buoyStrength = isThickLiquid ? 0.022 : 0.036;
+                p.vy += Math.max(-0.11, Math.min(0.09, diff * buoyStrength));
               }
             } else {
-              p.vy -= 0.06;
-              if (p.vy < -0.85) p.vy = -0.85;
+              p.vy -= isThickLiquid ? 0.04 : 0.065;
+              if (p.vy < -0.95) p.vy = -0.95;
             }
           }
         } else if (state.keys.up && !p.onSticky) {
@@ -4632,11 +4686,14 @@
 
         // Check if projectile is inside liquid for buoyancy and splash physics
         let inWater = false;
+        let waterVisc = 'normal';
         let waterTopY = null;
         for (const [, cell] of state.worldCells.entries()) {
           if (cell.type !== 'liquid') continue;
           if (pr.x < cell.x + cell.w && pr.x + pr.w > cell.x && pr.y < cell.y + cell.h && pr.y + pr.h > cell.y) {
             inWater = true;
+            const lSp = getSpriteById(cell.spriteId);
+            if (lSp && lSp.liquidViscosity === 'thick') waterVisc = 'thick';
             if (waterTopY === null || cell.y < waterTopY) waterTopY = cell.y;
           }
         }
@@ -4646,10 +4703,10 @@
             spawnLiquidSplash(pr.x + pr.w / 2, waterTopY ?? pr.y, Math.min(3.5, Math.hypot(pr.vx, pr.vy) * 0.65));
           }
           pr._inWater = true;
-          pr.vx *= 0.88;
-          pr.vy *= 0.86;
-          pr.vy -= 0.055; // Gentle upward buoyancy in water
-          pr.vrot = (pr.vrot || 0) * 0.88;
+          pr.vx *= waterVisc === 'thick' ? 0.80 : 0.90;
+          pr.vy *= waterVisc === 'thick' ? 0.78 : 0.88;
+          pr.vy -= waterVisc === 'thick' ? 0.035 : 0.06; // Gentle upward buoyancy in water
+          pr.vrot = (pr.vrot || 0) * (waterVisc === 'thick' ? 0.80 : 0.90);
         } else {
           pr._inWater = false;
           pr.vy = Math.min(7.5, pr.vy + (pr.gravity ?? 0.18));
@@ -4796,6 +4853,7 @@
       p.onLadder = false;
       p.ladderX = null;
       p.inLiquid = false;
+      p.liquidViscosity = 'normal';
       p.liquidSurfaceY = null;
       let bestLadderDist = Infinity;
 
@@ -4839,6 +4897,9 @@
 
           if (cell.type === 'liquid' || dynAttrs.has('LIQUID')) {
             p.inLiquid = true;
+            if (sp && sp.liquidViscosity === 'thick') {
+              p.liquidViscosity = 'thick';
+            }
             // Find the highest surface of the connected liquid column at this X
             let topY = cell.y;
             while (state.worldCells.has(`${cell.x},${topY - TILE_SIZE},${cell.layer}`)) {
@@ -5172,11 +5233,14 @@
 
           // Check if the gravity entity is in liquid
           let inWater = false;
+          let waterVisc = 'normal';
           let waterTopY = null;
           for (const [, cell] of state.worldCells.entries()) {
             if (cell.type !== 'liquid') continue;
             if (ent.x < cell.x + cell.w && ent.x + ent.w > cell.x && ent.y < cell.y + cell.h && ent.y + ent.h > cell.y) {
               inWater = true;
+              const lSp = getSpriteById(cell.spriteId);
+              if (lSp && lSp.liquidViscosity === 'thick') waterVisc = 'thick';
               if (waterTopY === null || cell.y < waterTopY) waterTopY = cell.y;
             }
           }
@@ -5186,15 +5250,15 @@
               spawnLiquidSplash(ent.x + ent.w / 2, waterTopY ?? ent.y, Math.min(3.8, Math.abs(ent.vy) * 0.75));
             }
             ent._inWater = true;
-            ent.vx *= 0.86;
-            ent.vy *= 0.84;
+            ent.vx *= waterVisc === 'thick' ? 0.78 : 0.88;
+            ent.vy *= waterVisc === 'thick' ? 0.76 : 0.86;
             if (isSphere || ent.type === 'thing') {
               // Lighter things and bouncy spheres float/bob near the water surface
               const targetY = (waterTopY ?? ent.y) - ent.h * 0.35 + Math.sin(worldTickCount * 0.06 + i) * 1.2;
               ent.vy += Math.max(-0.1, Math.min(0.1, (targetY - ent.y) * 0.03));
             } else {
               // Heavy pushing/solid blocks sink slowly in water
-              ent.vy = Math.min(1.15, ent.vy + 0.045);
+              ent.vy = Math.min(waterVisc === 'thick' ? 0.65 : 1.25, ent.vy + (waterVisc === 'thick' ? 0.025 : 0.05));
             }
           } else {
             ent._inWater = false;
@@ -6361,23 +6425,23 @@
         const lw = fc.width * zoom;
         const lh = fc.height * zoom;
 
-        // Calculate swimming shake/wiggle offset when in liquid
-        let swimShakeX = 0;
-        let swimShakeY = 0;
-        let swimShakeAngle = 0;
+        // Calculate smooth rhythmic swimming glide & tilt when in liquid (no rapid shaking)
+        let swimGlideX = 0;
+        let swimGlideY = 0;
+        let swimTiltAngle = 0;
         if (p.inLiquid && p.deadTimer === 0) {
-          const isSwimming = state.keys.left || state.keys.right || state.keys.up || state.keys.down || Math.hypot(p.vx, p.vy) > 0.14;
-          const shakeAmp = isSwimming ? 1.15 : 0.35;
-          swimShakeX = Math.cos(p.swimShakePhase * 1.35) * shakeAmp * zoom;
-          swimShakeY = Math.sin(p.swimShakePhase * 1.7) * shakeAmp * zoom;
-          swimShakeAngle = Math.sin(p.swimShakePhase) * (isSwimming ? 0.14 : 0.04) + (p.flyTilt || 0);
+          const isSwimming = state.keys.left || state.keys.right || state.keys.up || state.keys.down || Math.hypot(p.vx, p.vy) > 0.16;
+          // Gentle breaststroke surge forward and vertical wave over the stroke cycle
+          swimGlideX = isSwimming ? Math.sin(p.swimShakePhase) * 0.65 * p.facing * zoom : 0;
+          swimGlideY = Math.cos(p.swimShakePhase) * (isSwimming ? 1.15 : 0.55) * zoom;
+          swimTiltAngle = p.flyTilt || 0;
         } else if (Math.abs(p.flyTilt || 0) > 0.005 && p.deadTimer === 0) {
-          swimShakeAngle = p.flyTilt;
+          swimTiltAngle = p.flyTilt;
         }
 
         // Center canvas horizontally on player hitbox, align canvas bottom to player feet (preserving all internal pixel offsets!)
-        const lx = Math.round(px + (pw - lw) / 2 + extraOffsetX * zoom + swimShakeX);
-        const ly = Math.round(py + (ph - lh) + extraOffsetY * zoom + swimShakeY);
+        const lx = Math.round(px + (pw - lw) / 2 + extraOffsetX * zoom + swimGlideX);
+        const ly = Math.round(py + (ph - lh) + extraOffsetY * zoom + swimGlideY);
         const shouldFlipX = forceFlipX !== null ? forceFlipX : (p.facing === -1);
 
         worldCtx.save();
@@ -6414,11 +6478,11 @@
           worldCtx.scale(sqX, sqY);
           worldCtx.translate(-footX, -footY);
         }
-        if (Math.abs(swimShakeAngle) > 0.005 && !rotateLying) {
+        if (Math.abs(swimTiltAngle) > 0.005 && !rotateLying) {
           const cx = lx + lw / 2;
-          const cy = ly + lh / 2;
+          const cy = ly + lh * 0.55;
           worldCtx.translate(cx, cy);
-          worldCtx.rotate(swimShakeAngle);
+          worldCtx.rotate(swimTiltAngle);
           worldCtx.translate(-cx, -cy);
         }
         if (rotateLying) {
@@ -6548,11 +6612,10 @@
           worldCtx.translate(-(px + pw / 2), -(py + ph));
         }
         if (p.inLiquid && p.deadTimer === 0) {
-          const isSwimming = state.keys.left || state.keys.right || state.keys.up || state.keys.down || Math.hypot(p.vx, p.vy) > 0.14;
-          const shakeAmp = isSwimming ? 1.15 : 0.35;
-          const sxOff = Math.cos(p.swimShakePhase * 1.35) * shakeAmp * zoom;
-          const syOff = Math.sin(p.swimShakePhase * 1.7) * shakeAmp * zoom;
-          const sRot = Math.sin(p.swimShakePhase) * (isSwimming ? 0.14 : 0.04) + (p.flyTilt || 0);
+          const isSwimming = state.keys.left || state.keys.right || state.keys.up || state.keys.down || Math.hypot(p.vx, p.vy) > 0.16;
+          const sxOff = isSwimming ? Math.sin(p.swimShakePhase) * 0.65 * p.facing * zoom : 0;
+          const syOff = Math.cos(p.swimShakePhase) * (isSwimming ? 1.15 : 0.55) * zoom;
+          const sRot = p.flyTilt || 0;
           worldCtx.translate(px + pw / 2 + sxOff, py + ph / 2 + syOff);
           worldCtx.rotate(sRot);
           worldCtx.translate(-(px + pw / 2), -(py + ph / 2));
@@ -8329,6 +8392,7 @@
         editor.envSpeed = existing.envSpeed ?? 100;
         editor.envAlpha = existing.envAlpha ?? 80;
         editor.liquidAlpha = existing.liquidAlpha ?? 65;
+        editor.liquidViscosity = existing.liquidViscosity || 'normal';
         editor.previewLoopMode = existing.loopMode || 'loop';
         editor.previewFps = existing.animFps || state.walkFps;
         editor.stateFps = {
@@ -8363,6 +8427,7 @@
         editor.envSpeed = 100;
         editor.envAlpha = 80;
         editor.liquidAlpha = 65;
+        editor.liquidViscosity = 'normal';
         editor.previewLoopMode = 'loop';
         editor.previewFps = state.walkFps;
         editor.stateFps = { ...DEFAULT_BODY_STATE_FPS };
@@ -11695,6 +11760,7 @@
             envSpeed: editor.envSpeed ?? 100,
             envAlpha: editor.envAlpha ?? 80,
             liquidAlpha: editor.liquidAlpha ?? 65,
+            liquidViscosity: editor.liquidViscosity || 'normal',
             loopMode: editor.previewLoopMode,
             animFps: editor.previewFps,
             stateFps: { ...(editor.stateFps || DEFAULT_BODY_STATE_FPS) },
@@ -11727,6 +11793,7 @@
           envSpeed: editor.envSpeed ?? 100,
           envAlpha: editor.envAlpha ?? 80,
           liquidAlpha: editor.liquidAlpha ?? 65,
+          liquidViscosity: editor.liquidViscosity || 'normal',
           loopMode: editor.previewLoopMode,
           animFps: editor.previewFps,
           stateFps: { ...(editor.stateFps || DEFAULT_BODY_STATE_FPS) },

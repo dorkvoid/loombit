@@ -4142,6 +4142,34 @@
 
     document.getElementById('respawn-btn').addEventListener('click', () => respawnPlayer(false));
 
+    // Returns the lowest Y coordinate of any placed world block (or spawn point / Y=0 floor), ignoring falling entities or the player
+    function getLowestStaticWorldY() {
+      let lowestY = state.spawnPoint.y + TILE_SIZE;
+      if (state.hardFloorY0 && 0 > lowestY) lowestY = 0;
+      for (const [, cell] of state.worldCells.entries()) {
+        if (!hasSpriteId(cell.spriteId)) continue;
+        const bottom = cell.y + (cell.h || TILE_SIZE);
+        if (bottom > lowestY) lowestY = bottom;
+      }
+      return lowestY;
+    }
+
+    // Checks whether any solid, one-way, slope, or liquid block exists anywhere below (x, y) within the object's horizontal span
+    function hasFloorBelowInColumn(x, y, w) {
+      if (state.hardFloorY0 && y < 0) return true;
+      const left = x - 4;
+      const right = x + w + 4;
+      for (const [, cell] of state.worldCells.entries()) {
+        if (!hasSpriteId(cell.spriteId)) continue;
+        if (cell.y + cell.h < y) continue;
+        if (cell.x + cell.w < left || cell.x > right) continue;
+        if (isCellSolid(cell) || cell.type === 'slope' || cell.type === 'liquid') {
+          return true;
+        }
+      }
+      return false;
+    }
+
     // Checks if a grid tile (gx, gy) has clearance for the 19x19 player and a safe non-harmful floor directly underneath
     function isSafeRespawnTile(gx, gy) {
       const pw = TILE_SIZE;
@@ -4599,19 +4627,38 @@
       }
     });
 
-    function damagePlayer(amount, sourceX, isInstantDeadly = false) {
+    function damagePlayer(amount, sourceX, isInstantDeadly = false, isFallDeath = false) {
       const p = state.player;
       if (p.deadTimer > 0 || p.invulnTimer > 0) return;
 
       p.deathOriginX = p.x;
       p.deathOriginY = p.y;
       p.hp = 0;
-      p.hurtFlash = 14;
       p.motionBarOpen = false;
       p.activeMotionId = null;
       p.grappleTarget = null;
       updateWorldMotionBarUI();
 
+      if (isFallDeath) {
+        // Fall death: no upward hurt bounce or spike blood burst—continue ragdoll tumbling straight down!
+        p.hurtFlash = 0;
+        sfx.death();
+        spawnDustParticles(p.x + p.w / 2, p.y + p.h / 2, p.w, p.h, 10);
+
+        const spinDir = Math.abs(p.vx) > 0.15 ? Math.sign(p.vx) : p.facing;
+        p.deadTimer = 1;
+        p.deathX = p.x;
+        p.deathY = p.y;
+        p.deathVx = p.vx * 0.92 + (Math.abs(p.vx) < 0.25 ? spinDir * 0.45 : 0);
+        p.deathVy = Math.max(3.6, p.vy);
+        p.deathRot = spinDir * 0.08;
+        p.deathVr = spinDir * 0.17;
+        p.vx = 0;
+        p.vy = 0;
+        return;
+      }
+
+      p.hurtFlash = 14;
       // Visceral hurt + ragdoll death sound & red blood-like pixel particles burst
       sfx.hurt();
       sfx.death();
@@ -5022,12 +5069,13 @@
     }
 
     // Computes a smooth biome distance fade (1.0 inside inner radius, smoothly fading to 0.0 at outer radius)
-    const BIOME_INNER_RADIUS = TILE_SIZE * 24; // ~456px (24 blocks full strength around player)
+    const BIOME_INNER_RADIUS = TILE_SIZE * 24; // ~456px (24 blocks full strength around camera/player)
     const BIOME_OUTER_RADIUS = TILE_SIZE * 46; // ~874px (46 blocks outer fade boundary)
 
     function computeBiomeProximityTarget(cell) {
-      const refX = state.mode === 'play' ? (state.player.x + state.player.w * 0.5) : state.camera.x;
-      const refY = state.mode === 'play' ? (state.player.y + state.player.h * 0.5) : state.camera.y;
+      // Always use camera center so switching between Play and Build mode never causes a sudden distance jump or blink
+      const refX = state.camera.x;
+      const refY = state.camera.y;
       const cx = cell.x + (cell.w || TILE_SIZE) * 0.5;
       const cy = cell.y + (cell.h || TILE_SIZE) * 0.5;
       // Weight vertical distance slightly more than horizontal so tall sky/ground transitions feel natural
@@ -5729,17 +5777,14 @@
         p.fallTicks = 0;
       }
 
-      let lowestWorldCellY = state.spawnPoint.y;
-      for (const [, c] of state.worldCells.entries()) {
-        if (c.y + c.h > lowestWorldCellY) lowestWorldCellY = c.y + c.h;
-      }
-      const fellOffWorldVoid = p.y > lowestWorldCellY + 420;
+      const lowestWorldCellY = getLowestStaticWorldY();
+      const fellOffWorldVoid = !state.hardFloorY0 && p.y > lowestWorldCellY + 240 && !hasFloorBelowInColumn(p.x, p.y, p.w);
 
       if ((p.fallTicks >= 180 || fellOffWorldVoid) && p.deadTimer === 0) {
         p.fallTicks = 0;
         const prevInvuln = p.invulnTimer;
         p.invulnTimer = 0;
-        damagePlayer(100, p.x + p.w / 2 - p.facing * 8, true);
+        damagePlayer(100, undefined, true, true);
         if (p.deadTimer === 0) p.invulnTimer = prevInvuln;
         if (p.lastSafePos) {
           p.deathOriginX = p.lastSafePos.x;
@@ -5920,10 +5965,11 @@
     }
 
     function updateProjectiles() {
+      const lowestMapY = getLowestStaticWorldY();
       for (let i = state.projectiles.length - 1; i >= 0; i--) {
         const pr = state.projectiles[i];
         pr.life--;
-        if (pr.life <= 0) {
+        if (pr.life <= 0 || (!state.hardFloorY0 && pr.y > lowestMapY + 320)) {
           state.projectiles.splice(i, 1);
           continue;
         }
@@ -6911,12 +6957,9 @@
     }
 
     function updateDynamicEntities() {
-      // Compute world bottom threshold so Falling / Physics Solids that fall off the world get deleted cleanly
-      let lowestWorldY = Math.max(state.spawnPoint.y, state.player.y);
-      for (const [, c] of state.worldCells.entries()) {
-        if (c.y > lowestWorldY) lowestWorldY = c.y;
-      }
-      const voidDeleteY = lowestWorldY + 680;
+      // Compute static world bottom threshold (ignoring the player or falling objects) so physics objects that fall far off the map are destroyed cleanly
+      const lowestStaticY = getLowestStaticWorldY();
+      const voidDeleteY = lowestStaticY + 260;
 
       for (let i = state.dynamicEntities.length - 1; i >= 0; i--) {
         const ent = state.dynamicEntities[i];
@@ -6943,15 +6986,29 @@
         }
 
         if (isGravityEntity(ent)) {
-          // Delete Falling / Physics Solids if they fall off the bottom of the world
-          if (ent.y > voidDeleteY) {
+          if (ent.vx === undefined) ent.vx = 0;
+          if (ent.vy === undefined) ent.vy = 0;
+          if (ent.rot === undefined) ent.rot = 0;
+          if (ent.fallTicks === undefined) ent.fallTicks = 0;
+
+          // Destroy physics objects that fall far below the lowest map block OR free-fall into an open void with no floor below them
+          const fellBelowMap = !state.hardFloorY0 && ent.y > voidDeleteY;
+          const fellIntoColumnVoid = !state.hardFloorY0 && ent.fallTicks >= 190 && !hasFloorBelowInColumn(ent.x, ent.y, ent.w);
+          if (fellBelowMap || fellIntoColumnVoid) {
+            const sp = getSpriteById(ent.spriteId);
+            state.deleteAnimations.push({
+              x: ent.x,
+              y: ent.y,
+              w: ent.w,
+              h: ent.h,
+              sprite: sp,
+              progress: 0
+            });
+            spawnDustParticles(ent.x + ent.w / 2, ent.y + ent.h / 2, ent.w, ent.h, 6);
             state.dynamicEntities.splice(i, 1);
             scheduleWorldAutoBackup();
             continue;
           }
-          if (ent.vx === undefined) ent.vx = 0;
-          if (ent.vy === undefined) ent.vy = 0;
-          if (ent.rot === undefined) ent.rot = 0;
 
           const isSphere = ent.subtype === 'Bouncy Sphere';
 
@@ -7161,10 +7218,16 @@
           }
 
           if (grounded) {
+            ent.fallTicks = 0;
             ent.vx *= onSlidey ? 0.96 : (isSphere ? 0.91 : 0.76);
             if (Math.abs(ent.vx) < 0.03) ent.vx = 0;
           } else {
             ent.vx *= 0.99;
+            if (!inLiquid && ent.vy > 0.5) {
+              ent.fallTicks = (ent.fallTicks || 0) + 1;
+            } else {
+              ent.fallTicks = 0;
+            }
           }
 
           if (isSphere) {
@@ -7383,7 +7446,11 @@
         const isWiredLight = isTargetWiredByAnyActivator(cell);
         const lightPowerTarget = isWiredLight ? (isCellCurrentlyActivated(cell) ? 1 : 0) : 1;
         if (cell._wirePowerFade === undefined) cell._wirePowerFade = lightPowerTarget;
-        cell._wirePowerFade += (lightPowerTarget - cell._wirePowerFade) * 0.16;
+        if (isWiredLight) {
+          cell._wirePowerFade += (lightPowerTarget - cell._wirePowerFade) * 0.16;
+        } else {
+          cell._wirePowerFade = 1;
+        }
         if (cell._wirePowerFade <= 0.005) continue;
 
         const sp = getSpriteById(cell.spriteId);
@@ -7391,9 +7458,16 @@
         const effectiveLayer = sp.lightLayer || cell.lightLayer || 'sky';
         if (effectiveLayer !== targetLayer) continue;
 
+        const isBgLight =
+          ['Fill Light', 'Top Light', 'Surround Light'].includes(cell.subtype || sp.subtype) ||
+          ['sky', 'farback', 'back'].includes(effectiveLayer);
+        if (cell.bgLightVisFade === undefined) {
+          cell.bgLightVisFade = isBgLight ? computeBiomeProximityTarget(cell) : 1;
+        }
+
         const rawFade = cell.lightFade !== undefined ? Math.max(0, Math.min(1, cell.lightFade)) : 1;
         const smoothPlaceFade = 1 - Math.pow(1 - rawFade, 2.2);
-        const biomeFade = cell.bgLightVisFade !== undefined ? Math.max(0, Math.min(1, cell.bgLightVisFade)) : 1;
+        const biomeFade = Math.max(0, Math.min(1, cell.bgLightVisFade));
         const totalFade = smoothPlaceFade * biomeFade * cell._wirePowerFade;
         if (totalFade <= 0.004) continue;
         layerLights.push({
@@ -7413,8 +7487,8 @@
         const sp = da.sprite;
         const effectiveLayer = sp.lightLayer || da.layer || 'sky';
         if (effectiveLayer !== targetLayer) continue;
-        const fadeOut = Math.max(0, 1 - da.progress) * (da.lightFade ?? 1);
-        if (fadeOut <= 0.01) continue;
+        const fadeOut = Math.max(0, 1 - da.progress) * (da.lightFade ?? 1) * (da.bgLightVisFade ?? 1);
+        if (fadeOut <= 0.005) continue;
         layerLights.push({
           cell: da,
           sp,
@@ -7422,16 +7496,15 @@
           opt: sp.lightOption || 'Standard',
           col: getSpriteLightColorAndAlpha(sp),
           fade: fadeOut,
-          order: -1
+          order: da.placedOrder ?? -1
         });
       }
 
       if (layerLights.length === 0) return;
       layerLights.sort((a, b) => a.order - b.order);
 
-      // Biome-aware ambient light blending without "flashbang" or background takeover:
-      // Group by subtype ('Fill Light', 'Top Light', 'Surround Light') so each ambient slot blends smoothly
-      // between biomes by proximity weight instead of stacking multiple overlays on top of each other.
+      // Render ambient lights ('Fill Light', 'Top Light', 'Surround Light') without weightSum normalization
+      // so placing or erasing a second light never causes existing background lights to dip or blink!
       const layerMaxAmbientCap = (targetLayer === 'front' || targetLayer === 'main') ? 0.65 : 1.0;
       const ambientsBySubtype = new Map();
       const pointLights = [];
@@ -7448,28 +7521,28 @@
       }
 
       for (const [subType, items] of ambientsBySubtype.entries()) {
-        // Deduplicate identical sprite+option entries, keeping the strongest/newest one
+        // Deduplicate identical sprite+option entries in the same biome, keeping the strongest/most faded-in instance
+        // so placing a second copy of the same Fill/Top Light doesn't double-darken or blink while fading in.
         const uniqueMap = new Map();
         for (const it of items) {
           const k = `${it.opt}_${it.sp.id}`;
           const prev = uniqueMap.get(k);
-          if (!prev || it.fade >= prev.fade) {
-            uniqueMap.set(k, it);
+          if (!prev) {
+            uniqueMap.set(k, { ...it });
+          } else {
+            // Smoothly combine fade of multiple identical light blocks (1 - (1 - a)*(1 - b)) so there is zero blink
+            prev.fade = 1 - (1 - prev.fade) * (1 - it.fade);
+            if (it.order > prev.order) prev.order = it.order;
           }
         }
-        const candidates = Array.from(uniqueMap.values());
-        let weightSum = 0;
-        for (const c of candidates) weightSum += c.fade;
-        if (weightSum <= 0.001) continue;
+        const candidates = Array.from(uniqueMap.values()).sort((a, b) => a.order - b.order);
 
         for (const item of candidates) {
           const { r, g, b, alpha } = item.col;
-          const weight = candidates.length > 1 ? (item.fade / weightSum) : 1;
-          const rawAlpha = Math.min(layerMaxAmbientCap, alpha * item.fade) * weight;
-          if (rawAlpha <= 0.004) continue;
+          const effAlpha = Math.min(layerMaxAmbientCap, alpha * item.fade);
+          if (effAlpha <= 0.004) continue;
 
           if (subType === 'Fill Light') {
-            const effAlpha = rawAlpha;
             worldCtx.save();
             if (item.opt === 'Top Half') {
               const bandH = Math.floor(H * 0.5);
@@ -7505,7 +7578,6 @@
             worldCtx.restore();
           } else if (subType === 'Top Light') {
             // Covers the top ~64% of the viewport with a smooth, lush sky gradient
-            const effAlpha = rawAlpha;
             const gradH = Math.max(200, Math.floor(H * 0.64));
             worldCtx.save();
             const grad = worldCtx.createLinearGradient(0, 0, 0, gradH);
@@ -7517,15 +7589,15 @@
             worldCtx.fillRect(0, 0, W, gradH);
             worldCtx.restore();
           } else if (subType === 'Surround Light') {
-            const effAlpha = rawAlpha * 0.95;
+            const surAlpha = effAlpha * 0.95;
             const outerR = Math.hypot(W, H) * 0.55;
             let innerR = outerR * 0.52;
             if (item.opt === 'Thick') innerR = outerR * 0.38;
             if (item.opt === 'Very Thick') innerR = outerR * 0.25;
             const grad = worldCtx.createRadialGradient(W / 2, H / 2, innerR, W / 2, H / 2, outerR);
             grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
-            grad.addColorStop(0.55, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.35).toFixed(3)})`);
-            grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
+            grad.addColorStop(0.55, `rgba(${r}, ${g}, ${b}, ${(surAlpha * 0.35).toFixed(3)})`);
+            grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${surAlpha.toFixed(3)})`);
             worldCtx.save();
             worldCtx.fillStyle = grad;
             worldCtx.fillRect(0, 0, W, H);
@@ -7738,8 +7810,11 @@
         const envLayer = sp.envLayer || getDefaultEnvLayerForSubtype(sub);
         if (envLayer !== targetLayer) continue;
 
+        if (cell.envVisFade === undefined) {
+          cell.envVisFade = computeBiomeProximityTarget(cell);
+        }
         const placeFade = cell.lightFade !== undefined ? Math.max(0, Math.min(1, cell.lightFade)) : 1;
-        const visFade = cell.envVisFade !== undefined ? Math.max(0, Math.min(1, cell.envVisFade)) : 1;
+        const visFade = Math.max(0, Math.min(1, cell.envVisFade));
         const combinedFade = (1 - Math.pow(1 - placeFade, 2)) * (visFade * visFade * (3 - 2 * visFade));
         if (combinedFade <= 0.005) continue;
         envEntries.push({ cell, sp, sub, fade: combinedFade });
@@ -9851,6 +9926,21 @@
         return;
       }
 
+      // Prevent dropping a held or rotated block on top of an already-occupied space on the same layer
+      if (!cancelToOrigin && isWorldSpaceOccupiedForSprite(held.sprite, snapX, snapY)) {
+        sfx.buzzer();
+        if (held.mode === 'move') {
+          placeSpriteAtWorld(held.sprite, held.originX, held.originY, 0, false, held.item.orient || 0);
+          if (!held.isEntity && held.sprite && Array.isArray(held.item.wires)) {
+            const layer = getLayerForSprite(held.sprite);
+            const restoredCell = state.worldCells.get(`${held.originX},${held.originY},${layer}`);
+            if (restoredCell) restoredCell.wires = held.item.wires;
+          }
+        }
+        updateWorldCursor();
+        return;
+      }
+
       if (held.mode === 'clone') {
         pushWorldUndo();
       }
@@ -10122,27 +10212,63 @@
       }
     }
 
+    // Checks if a target grid cell is already occupied on the same logical layer (allowing BACK and MAIN/FRONT to coexist)
+    function isWorldSpaceOccupiedForSprite(sp, snapX, snapY) {
+      if (!sp) {
+        if (state.worldCells.has(`${snapX},${snapY},main`)) return true;
+        return state.dynamicEntities.some(
+          e => snapX < e.x + e.w - 1 && snapX + TILE_SIZE > e.x + 1 && snapY < e.y + e.h - 1 && snapY + TILE_SIZE > e.y + 1
+        );
+      }
+
+      const layer = getLayerForSprite(sp);
+
+      // BACK tiles coexist behind main/front objects, but only one BACK tile can occupy a cell's background
+      if (sp.type === 'back') {
+        const b1 = state.worldCells.get(`${snapX},${snapY},back`);
+        const b2 = state.worldCells.get(`${snapX},${snapY},farback`);
+        return Boolean((b1 && b1.type === 'back') || (b2 && b2.type === 'back'));
+      }
+
+      // Lights on sky/farback/back/front layers check their own layer for existing lights
+      if (sp.type === 'light') {
+        const existingLight = state.worldCells.get(`${snapX},${snapY},${layer}`);
+        return Boolean(existingLight && existingLight.type === 'light');
+      }
+
+      // Front overlay objects ('Thing in Front' or Dynamic 'IN FRONT') coexist in front of main/back, one per cell
+      if (layer === 'front') {
+        return state.worldCells.has(`${snapX},${snapY},front`);
+      }
+
+      if (layer === 'back' || layer === 'farback') {
+        return state.worldCells.has(`${snapX},${snapY},${layer}`);
+      }
+
+      // Standard 'main' layer objects and dynamic/physics entities: only one can occupy a cell
+      if (state.worldCells.has(`${snapX},${snapY},main`)) return true;
+      const checkW = sp.w || TILE_SIZE;
+      const checkH = sp.h || TILE_SIZE;
+      return state.dynamicEntities.some(
+        e => snapX < e.x + e.w - 1 && snapX + checkW > e.x + 1 && snapY < e.y + e.h - 1 && snapY + checkH > e.y + 1
+      );
+    }
+
     function placeSpriteAtWorld(sp, snapX, snapY, animDelay = 0, playSound = true, customOrient = undefined) {
       // Motions (and Body/Wearable/Holdable/Mountable avatar items) cannot be placed in the viewport—only Dynamics and world objects can!
       if (sp && (['body', 'wearable', 'holdable', 'mountable'].includes(sp.type))) {
         sfx.buzzer();
-        return;
+        return false;
       }
+      // Enforce single occupancy per space (unless coexisting like BACK behind MAIN)
+      if (isWorldSpaceOccupiedForSprite(sp, snapX, snapY)) {
+        return false;
+      }
+
       const orient = ((customOrient !== undefined ? customOrient : (state.brushOrient || 0)) % 8 + 8) % 8;
       // Allow placing starter ground blocks in Build Mode when no custom sprite is passed
       if (!sp) {
         const key = `${snapX},${snapY},main`;
-        const existing = state.worldCells.get(key);
-        if (existing && existing.spriteId === '__starter_ground__') return;
-        for (const l of ['farback', 'back', 'main', 'front']) {
-          const otherKey = `${snapX},${snapY},${l}`;
-          if (state.worldCells.has(otherKey)) {
-            const oldC = state.worldCells.get(otherKey);
-            const oldSp = getSpriteById(oldC.spriteId);
-            state.deleteAnimations.push({ x: oldC.x, y: oldC.y, w: oldC.w, h: oldC.h, sprite: oldSp, progress: 0 });
-            state.worldCells.delete(otherKey);
-          }
-        }
         state.worldCells.set(key, {
           spriteId: '__starter_ground__',
           x: snapX,
@@ -10163,98 +10289,36 @@
         if (playSound) sfx.place();
         spawnDustParticles(snapX + TILE_SIZE / 2, snapY + TILE_SIZE / 2, TILE_SIZE, TILE_SIZE, 5);
         scheduleWorldAutoBackup();
-        return;
+        return true;
       }
 
       // Moving (except Mover/Piston/Elevator/Conveyor), Living & Gravity Entities spawn as active dynamic entities
       if ((['moving', 'living'].includes(sp.type) && !(sp.type === 'moving' && ['Mover', 'Piston / Pusher', 'Elevator', 'Conveyor'].includes(sp.subtype))) || isGravityEntity(sp)) {
-        const existingEnt = state.dynamicEntities.find(e => Math.abs(e.x - snapX) < 4 && Math.abs(e.y - snapY) < 4 && e.spriteId === sp.id);
-        if (!existingEnt) {
-          state.dynamicEntities.push({
-            spriteId: sp.id,
-            type: sp.type,
-            subtype: sp.subtype,
-            x: snapX,
-            y: snapY,
-            originX: snapX,
-            originY: snapY,
-            w: sp.w,
-            h: sp.h,
-            vx: isGravityEntity(sp) ? 0 : 0.75,
-            vy: 0,
-            rot: 0,
-            orient,
-            facing: 1,
-            placeAnim: Math.max(-0.5, 0.12 - animDelay)
-          });
-          if (playSound) sfx.place();
-          spawnDustParticles(snapX + sp.w / 2, snapY + sp.h / 2, sp.w, sp.h, 7);
-          scheduleWorldAutoBackup();
-        } else if ((existingEnt.orient || 0) !== orient) {
-          existingEnt.orient = orient;
-          existingEnt.placeAnim = 0.25;
-          if (playSound) sfx.place();
-          scheduleWorldAutoBackup();
-        }
-        return;
+        state.dynamicEntities.push({
+          spriteId: sp.id,
+          type: sp.type,
+          subtype: sp.subtype,
+          x: snapX,
+          y: snapY,
+          originX: snapX,
+          originY: snapY,
+          w: sp.w,
+          h: sp.h,
+          vx: isGravityEntity(sp) ? 0 : 0.75,
+          vy: 0,
+          rot: 0,
+          orient,
+          facing: 1,
+          placeAnim: Math.max(-0.5, 0.12 - animDelay)
+        });
+        if (playSound) sfx.place();
+        spawnDustParticles(snapX + sp.w / 2, snapY + sp.h / 2, sp.w, sp.h, 7);
+        scheduleWorldAutoBackup();
+        return true;
       }
 
       const layer = getLayerForSprite(sp);
       const key = `${snapX},${snapY},${layer}`;
-      const existing = state.worldCells.get(key);
-
-      //Slope toggle when clicking same slope block with the same orientation
-      if (existing && existing.spriteId === sp.id && sp.type === 'slope' && ((existing.orient ?? 0) % 8) === orient) {
-        existing.frameIdx = ((existing.frameIdx || 0) + 1) % 2;
-        if (playSound) sfx.place();
-        scheduleWorldAutoBackup();
-        return;
-      }
-
-      // If this exact sprite is already at this cell with a different orientation, update its orientation in-place!
-      if (existing && existing.spriteId === sp.id && ((existing.orient ?? 0) % 8) !== orient) {
-        existing.orient = orient;
-        existing.rotation = orient;
-        existing.placeAnim = 0.25;
-        if (playSound) sfx.place();
-        scheduleWorldAutoBackup();
-        return;
-      }
-
-      // Otherwise if this exact sprite with the same orientation is already placed at this cell, do not re-place while dragging
-      if (existing && existing.spriteId === sp.id && ((existing.orient ?? 0) % 8) === orient) {
-        return;
-      }
-
-      // Smart Layer Coexistence:
-      // - Placing a BACK ('back' or 'farback') only replaces existing background tiles at (snapX, snapY), so it slips cleanly BEHIND any foreground object!
-      // - Placing a foreground/main/front object only replaces the same foreground layer, preserving any BACK tile behind it!
-      const layersToReplace = (layer === 'back' || layer === 'farback')
-        ? [layer]
-        : [layer];
-
-      for (const l of layersToReplace) {
-        const otherKey = `${snapX},${snapY},${l}`;
-        if (state.worldCells.has(otherKey)) {
-          const oldCell = state.worldCells.get(otherKey);
-          if (oldCell && oldCell.spriteId !== sp.id) {
-            const oldSp = getSpriteById(oldCell.spriteId);
-            state.deleteAnimations.push({
-              x: oldCell.x,
-              y: oldCell.y,
-              w: oldCell.w,
-              h: oldCell.h,
-              type: oldCell.type,
-              subtype: oldCell.subtype,
-              layer: oldCell.layer,
-              lightFade: oldCell.lightFade ?? 1,
-              sprite: oldSp,
-              progress: 0
-            });
-          }
-          state.worldCells.delete(otherKey);
-        }
-      }
 
       state.worldCells.set(key, {
         spriteId: sp.id,
@@ -10280,6 +10344,7 @@
       if (playSound) sfx.place();
       spawnDustParticles(snapX + sp.w / 2, snapY + sp.h / 2, sp.w, sp.h, 6);
       scheduleWorldAutoBackup();
+      return true;
     }
 
     function eraseWorldAt(wx, wy) {
@@ -10310,6 +10375,8 @@
             subtype: cell.subtype,
             layer: cell.layer,
             lightFade: cell.lightFade ?? 1,
+            bgLightVisFade: cell.bgLightVisFade ?? 1,
+            placedOrder: cell.placedOrder ?? 0,
             sprite: sp,
             progress: 0
           });
@@ -10512,9 +10579,13 @@
           return;
         }
 
-        // If a brush is currently selected on the mouse for mass placement, Left-Click places it immediately (with its current rotation!)
+        // If a brush is currently selected on the mouse for mass placement, Left-Click places it only if the space is not already occupied
         if (brushSp) {
           clearPendingHoldGrab();
+          if (isWorldSpaceOccupiedForSprite(brushSp, snapX, snapY)) {
+            sfx.buzzer();
+            return;
+          }
           pushWorldUndo();
           placeSpriteAtWorld(brushSp, snapX, snapY);
           return;
@@ -13057,6 +13128,63 @@
       plotPixelWithSymmetry(buf, x, y, rgba);
       renderPaintCanvas();
     }
+
+    function floodFill(buf, w, h, startX, startY, fillRgba) {
+      if (startX < 0 || startX >= w || startY < 0 || startY >= h) return;
+      const startIdx = (startY * w + startX) * 4;
+      const tr = buf[startIdx], tg = buf[startIdx + 1], tb = buf[startIdx + 2], ta = buf[startIdx + 3];
+      if (tr === fillRgba[0] && tg === fillRgba[1] && tb === fillRgba[2] && ta === fillRgba[3]) return;
+
+      const visited = new Uint8Array(w * h);
+      const stack = [[startX, startY]];
+      while (stack.length > 0) {
+        const [x, y] = stack.pop();
+        if (x < 0 || x >= w || y < 0 || y >= h) continue;
+        const p = y * w + x;
+        if (visited[p]) continue;
+        if (editor.marquee && !editor.marquee.floatingData) {
+          if (!isPixelInMarqueeMask(editor.marquee, x - editor.marquee.x, y - editor.marquee.y)) continue;
+        }
+        const i = p * 4;
+        if (buf[i] !== tr || buf[i + 1] !== tg || buf[i + 2] !== tb || buf[i + 3] !== ta) continue;
+        visited[p] = 1;
+        buf[i] = fillRgba[0];
+        buf[i + 1] = fillRgba[1];
+        buf[i + 2] = fillRgba[2];
+        buf[i + 3] = fillRgba[3];
+        stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+      }
+    }
+
+    function replaceColorInEditor(startX, startY, fillRgba, allCels = false) {
+      const curBuf = editor.frames[editor.activeFrame];
+      if (!curBuf || startX < 0 || startX >= editor.w || startY < 0 || startY >= editor.h) return;
+      const sIdx = (startY * editor.w + startX) * 4;
+      const tr = curBuf[sIdx], tg = curBuf[sIdx + 1], tb = curBuf[sIdx + 2], ta = curBuf[sIdx + 3];
+      if (tr === fillRgba[0] && tg === fillRgba[1] && tb === fillRgba[2] && ta === fillRgba[3]) return;
+
+      const indices = allCels ? editor.frames.map((_, i) => i) : [editor.activeFrame];
+      indices.forEach(fIdx => {
+        const buf = editor.frames[fIdx];
+        const dim = (editor.frameDims && editor.frameDims[fIdx]) || { w: editor.w, h: editor.h };
+        if (!buf) return;
+        for (let py = 0; py < dim.h; py++) {
+          for (let px = 0; px < dim.w; px++) {
+            if (!allCels && editor.marquee && !editor.marquee.floatingData) {
+              if (!isPixelInMarqueeMask(editor.marquee, px - editor.marquee.x, py - editor.marquee.y)) continue;
+            }
+            const i = (py * dim.w + px) * 4;
+            if (ta === 0 ? buf[i + 3] === 0 : (buf[i] === tr && buf[i + 1] === tg && buf[i + 2] === tb && buf[i + 3] === ta)) {
+              buf[i] = fillRgba[0];
+              buf[i + 1] = fillRgba[1];
+              buf[i + 2] = fillRgba[2];
+              buf[i + 3] = fillRgba[3];
+            }
+          }
+        }
+      });
+    }
+
     function createEditorUndoSnapshot() {
       return {
         activeFrame: editor.activeFrame,
@@ -15670,6 +15798,7 @@
         const copy = { ...ent };
         delete copy._interactTick;
         delete copy._inWater;
+        delete copy.fallTicks;
         delete copy.placeAnim;
         return copy;
       });

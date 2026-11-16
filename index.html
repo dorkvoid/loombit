@@ -1576,6 +1576,7 @@
       chatOpen: false,
       activatorTimer: 0,      // Timed activation from Activater blocks
       DrawerCollapsed: false,
+      wireBlueprintFade: 0,   // Smooth fade (0..1) for loose blueprint schematic view when Wire tool is active
 
       // Smoothly interpolated ambient light state for Light objects
       smoothLight: {
@@ -7423,74 +7424,108 @@
       if (layerLights.length === 0) return;
       layerLights.sort((a, b) => a.order - b.order);
 
-      // Biome-aware ambient light blending without "flashbang" overexposure:
-      // Each ambient light (Fill Light, Top Light, Surround Light) has a smooth biome distance fade (`item.fade`).
-      // If multiple lights of the same subtype+option are placed in the exact same spot, keep the strongest/newest one;
-      // if different biome lights are overlapping during a transition (e.g. airy field -> dark swamp), normalize their combined alpha so they crossfade smoothly without exceeding the cap!
-      const layerMaxAmbientCap = (targetLayer === 'front' || targetLayer === 'main') ? 0.55 : 0.85;
-      const ambientGroups = new Map();
+      // Biome-aware ambient light blending without "flashbang" or background takeover:
+      // Group by subtype ('Fill Light', 'Top Light', 'Surround Light') so each ambient slot blends smoothly
+      // between biomes by proximity weight instead of stacking multiple overlays on top of each other.
+      const layerMaxAmbientCap = (targetLayer === 'front' || targetLayer === 'main') ? 0.42 : 0.68;
+      const ambientsBySubtype = new Map();
       const pointLights = [];
 
       for (const item of layerLights) {
         if (item.sub === 'Fill Light' || item.sub === 'Top Light' || item.sub === 'Surround Light') {
-          const groupKey = `${item.sub}_${item.opt}_${item.sp.id}`;
-          const prev = ambientGroups.get(groupKey);
-          if (!prev || item.fade >= prev.fade) {
-            ambientGroups.set(groupKey, item);
+          if (!ambientsBySubtype.has(item.sub)) {
+            ambientsBySubtype.set(item.sub, []);
           }
+          ambientsBySubtype.get(item.sub).push(item);
         } else if (item.sub === 'Light') {
           pointLights.push(item);
         }
       }
 
-      const activeAmbients = Array.from(ambientGroups.values());
-      let totalDesiredAlpha = 0;
-      for (const item of activeAmbients) {
-        totalDesiredAlpha += Math.min(layerMaxAmbientCap, item.col.alpha * item.fade);
-      }
-      const normScale = totalDesiredAlpha > layerMaxAmbientCap
-        ? (layerMaxAmbientCap / totalDesiredAlpha)
-        : 1;
-
-      for (const item of activeAmbients) {
-        const { r, g, b, alpha } = item.col;
-        const effAlpha = Math.min(layerMaxAmbientCap, alpha * item.fade) * normScale;
-        if (effAlpha <= 0.004) continue;
-
-        if (item.sub === 'Fill Light') {
-          worldCtx.save();
-          worldCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`;
-          if (item.opt === 'Top Half') {
-            worldCtx.fillRect(0, 0, W, Math.floor(H * 0.5));
-          } else if (item.opt === 'Bottom Half') {
-            worldCtx.fillRect(0, Math.floor(H * 0.5), W, Math.ceil(H * 0.5));
-          } else if (item.opt === 'Center Band') {
-            worldCtx.fillRect(0, Math.floor(H * 0.25), W, Math.floor(H * 0.5));
-          } else {
-            worldCtx.fillRect(0, 0, W, H);
+      for (const [subType, items] of ambientsBySubtype.entries()) {
+        // Deduplicate identical sprite+option entries, keeping the strongest/newest one
+        const uniqueMap = new Map();
+        for (const it of items) {
+          const k = `${it.opt}_${it.sp.id}`;
+          const prev = uniqueMap.get(k);
+          if (!prev || it.fade >= prev.fade) {
+            uniqueMap.set(k, it);
           }
-          worldCtx.restore();
-        } else if (item.sub === 'Top Light') {
-          worldCtx.save();
-          const gradH = Math.floor(H * 0.65);
-          const grad = worldCtx.createLinearGradient(0, 0, 0, gradH);
-          grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
-          grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
-          worldCtx.fillStyle = grad;
-          worldCtx.fillRect(0, 0, W, gradH);
-          worldCtx.restore();
-        } else if (item.sub === 'Surround Light') {
-          let innerR = Math.min(W, H) * 0.25;
-          if (item.opt === 'Thick') innerR = Math.min(W, H) * 0.16;
-          if (item.opt === 'Very Thick') innerR = Math.min(W, H) * 0.08;
-          const outerR = Math.hypot(W, H) * 0.55;
-          const grad = worldCtx.createRadialGradient(W / 2, H / 2, innerR, W / 2, H / 2, outerR);
-          grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
-          grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
-          worldCtx.save();
-          worldCtx.fillStyle = grad;
-          worldCtx.fillRect(0, 0, W, H);
-          worldCtx.restore();
+        }
+        const candidates = Array.from(uniqueMap.values());
+        let weightSum = 0;
+        for (const c of candidates) weightSum += c.fade;
+        if (weightSum <= 0.001) continue;
+
+        for (const item of candidates) {
+          const { r, g, b, alpha } = item.col;
+          const weight = candidates.length > 1 ? (item.fade / weightSum) : 1;
+          const rawAlpha = Math.min(layerMaxAmbientCap, alpha * item.fade) * weight;
+          if (rawAlpha <= 0.004) continue;
+
+          if (subType === 'Fill Light') {
+            const effAlpha = rawAlpha * 0.78;
+            worldCtx.save();
+            if (item.opt === 'Top Half') {
+              const bandH = Math.floor(H * 0.42);
+              const grad = worldCtx.createLinearGradient(0, 0, 0, bandH);
+              grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
+              grad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.65).toFixed(3)})`);
+              grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+              worldCtx.fillStyle = grad;
+              worldCtx.fillRect(0, 0, W, bandH);
+            } else if (item.opt === 'Bottom Half') {
+              const bandH = Math.floor(H * 0.42);
+              const startY = H - bandH;
+              const grad = worldCtx.createLinearGradient(0, startY, 0, H);
+              grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
+              grad.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.65).toFixed(3)})`);
+              grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
+              worldCtx.fillStyle = grad;
+              worldCtx.fillRect(0, startY, W, bandH);
+            } else if (item.opt === 'Center Band') {
+              const bandY = Math.floor(H * 0.28);
+              const bandH = Math.floor(H * 0.44);
+              const grad = worldCtx.createLinearGradient(0, bandY, 0, bandY + bandH);
+              grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
+              grad.addColorStop(0.35, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
+              grad.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
+              grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+              worldCtx.fillStyle = grad;
+              worldCtx.fillRect(0, bandY, W, bandH);
+            } else {
+              worldCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`;
+              worldCtx.fillRect(0, 0, W, H);
+            }
+            worldCtx.restore();
+          } else if (subType === 'Top Light') {
+            // Hugs the top ~24% of the viewport (capped at 190px) with an eased falloff so it doesn't wash out the background
+            const effAlpha = rawAlpha * 0.85;
+            const gradH = Math.min(190, Math.max(64, Math.floor(H * 0.24)));
+            worldCtx.save();
+            const grad = worldCtx.createLinearGradient(0, 0, 0, gradH);
+            grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
+            grad.addColorStop(0.38, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.42).toFixed(3)})`);
+            grad.addColorStop(0.75, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.10).toFixed(3)})`);
+            grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+            worldCtx.fillStyle = grad;
+            worldCtx.fillRect(0, 0, W, gradH);
+            worldCtx.restore();
+          } else if (subType === 'Surround Light') {
+            const effAlpha = rawAlpha * 0.85;
+            const outerR = Math.hypot(W, H) * 0.55;
+            let innerR = outerR * 0.52;
+            if (item.opt === 'Thick') innerR = outerR * 0.38;
+            if (item.opt === 'Very Thick') innerR = outerR * 0.25;
+            const grad = worldCtx.createRadialGradient(W / 2, H / 2, innerR, W / 2, H / 2, outerR);
+            grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
+            grad.addColorStop(0.55, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.35).toFixed(3)})`);
+            grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
+            worldCtx.save();
+            worldCtx.fillStyle = grad;
+            worldCtx.fillRect(0, 0, W, H);
+            worldCtx.restore();
+          }
         }
       }
 
@@ -9027,8 +9062,19 @@
         mouseWorld.isPanning ||
         (state.mode === 'build' && (mouseWorld.keyPanActive || state.keys.left || state.keys.right || state.keys.up || state.keys.down));
 
+      // Smoothly interpolate the loose Blueprint Schematic overlay when the Wire tool is active
+      const targetBlueprintFade = (state.mode === 'build' && state.worldTool === 'wire' && !editor.isOpen) ? 1 : 0;
+      state.wireBlueprintFade += (targetBlueprintFade - (state.wireBlueprintFade || 0)) * 0.18;
+      if (Math.abs(targetBlueprintFade - state.wireBlueprintFade) < 0.004) {
+        state.wireBlueprintFade = targetBlueprintFade;
+      }
+
+      if (state.wireBlueprintFade > 0.005) {
+        renderWireBlueprintBackdrop(W, H, camScreenX, camScreenY, zoom, state.wireBlueprintFade);
+      }
+
       // 9.5 Nuanced Build-Mode Grid: Localized around the mouse cursor (and hidden while grabbing/scrolling)
-      if (state.mode === 'build' && state.showGrid && mouseWorld.inside && !isActivelyScrollingWorld) {
+      if (state.mode === 'build' && state.showGrid && mouseWorld.inside && !isActivelyScrollingWorld && state.wireBlueprintFade < 0.85) {
         const gridStep = TILE_SIZE * zoom;
         const radius = Math.max(96, Math.round(TILE_SIZE * 4.5 * zoom));
         const mx = mouseWorld.sx;
@@ -9174,7 +9220,14 @@
       }
 
       // 10. Brush / Cursor Cell Highlight (Suppressed while grabbing or arrow-key scrolling so grid boxes don't flash past)
-      if (mouseWorld.inside && !editor.isOpen && !isActivelyScrollingWorld && !state.heldWorldBlock && (state.mode === 'build' || state.activeBrushId)) {
+      if (
+        mouseWorld.inside &&
+        !editor.isOpen &&
+        !isActivelyScrollingWorld &&
+        !state.heldWorldBlock &&
+        !(state.mode === 'build' && state.worldTool === 'wire') &&
+        (state.mode === 'build' || state.activeBrushId)
+      ) {
         renderWorldBrushPreview(camScreenX, camScreenY, zoom);
       }
 
@@ -9254,7 +9307,186 @@
     }
 
     // Renders saggy catenary Spaghetti Wires between Activaters and their connected target blocks in Build Mode
-    function drawSpaghettiCurve(ctx, x1, y1, x2, y2, color, isActiveSignal = false, isDashedPreview = false) {
+    function renderWireBlueprintBackdrop(W, H, camScreenX, camScreenY, zoom, bpFade) {
+      worldCtx.save();
+
+      // 1. Loose, translucent blueprint indigo-cyan tint that preserves block art visibility underneath
+      worldCtx.fillStyle = `rgba(12, 34, 68, ${(0.24 * bpFade).toFixed(3)})`;
+      worldCtx.fillRect(0, 0, W, H);
+
+      // Soft blueprint vignette along the viewport edges
+      const outerR = Math.hypot(W, H) * 0.55;
+      const vig = worldCtx.createRadialGradient(W * 0.5, H * 0.5, outerR * 0.45, W * 0.5, H * 0.5, outerR);
+      vig.addColorStop(0, 'rgba(8, 22, 48, 0)');
+      vig.addColorStop(1, `rgba(6, 18, 42, ${(0.38 * bpFade).toFixed(3)})`);
+      worldCtx.fillStyle = vig;
+      worldCtx.fillRect(0, 0, W, H);
+
+      // 2. Faint blueprint schematic grid (minor 1-tile lines + major 4-tile lines)
+      const step = TILE_SIZE * zoom;
+      if (step >= 10) {
+        const startCol = Math.floor(-camScreenX / step) - 1;
+        const endCol = Math.ceil((W - camScreenX) / step) + 1;
+        const startRow = Math.floor(-camScreenY / step) - 1;
+        const endRow = Math.ceil((H - camScreenY) / step) + 1;
+
+        // Minor 1-tile schematic lines
+        worldCtx.strokeStyle = `rgba(125, 211, 252, ${(0.055 * bpFade).toFixed(3)})`;
+        worldCtx.lineWidth = 1;
+        worldCtx.beginPath();
+        for (let c = startCol; c <= endCol; c++) {
+          if (c % 4 === 0) continue;
+          const x = Math.round(camScreenX + c * step) + 0.5;
+          worldCtx.moveTo(x, 0);
+          worldCtx.lineTo(x, H);
+        }
+        for (let r = startRow; r <= endRow; r++) {
+          if (r % 4 === 0) continue;
+          const y = Math.round(camScreenY + r * step) + 0.5;
+          worldCtx.moveTo(0, y);
+          worldCtx.lineTo(W, y);
+        }
+        worldCtx.stroke();
+
+        // Major 4-tile schematic lines
+        worldCtx.strokeStyle = `rgba(125, 211, 252, ${(0.12 * bpFade).toFixed(3)})`;
+        worldCtx.beginPath();
+        for (let c = startCol; c <= endCol; c++) {
+          if (c % 4 !== 0) continue;
+          const x = Math.round(camScreenX + c * step) + 0.5;
+          worldCtx.moveTo(x, 0);
+          worldCtx.lineTo(x, H);
+        }
+        for (let r = startRow; r <= endRow; r++) {
+          if (r % 4 !== 0) continue;
+          const y = Math.round(camScreenY + r * step) + 0.5;
+          worldCtx.moveTo(0, y);
+          worldCtx.lineTo(W, y);
+        }
+        worldCtx.stroke();
+      }
+
+      // 3. Subtle technical schematic outlines around placed blocks (highlighting wire sources & wired targets)
+      for (const [, cell] of state.worldCells.entries()) {
+        if (cell.spriteId === '__starter_ground__') continue;
+        const sx = Math.round(camScreenX + cell.x * zoom);
+        const sy = Math.round(camScreenY + cell.y * zoom);
+        const sw = Math.max(1, Math.round(cell.w * zoom));
+        const sh = Math.max(1, Math.round(cell.h * zoom));
+        if (sx + sw < 0 || sx > W || sy + sh < 0 || sy > H) continue;
+
+        const isSource = isWireSourceCell(cell) || (Array.isArray(cell.wires) && cell.wires.length > 0);
+        const isWiredTarget = isTargetWiredByAnyActivator(cell);
+        if (isSource) {
+          worldCtx.strokeStyle = `rgba(251, 191, 36, ${(0.52 * bpFade).toFixed(3)})`;
+          worldCtx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
+        } else if (isWiredTarget || cell.type === 'activator' || cell.type === 'moving') {
+          worldCtx.strokeStyle = `rgba(56, 189, 248, ${(0.45 * bpFade).toFixed(3)})`;
+          worldCtx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
+        } else {
+          worldCtx.strokeStyle = `rgba(147, 197, 253, ${(0.11 * bpFade).toFixed(3)})`;
+          worldCtx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
+        }
+      }
+
+      // 4. Subtle top-right blueprint schematic corner label
+      worldCtx.font = '12px "Perfect DOS VGA 437", "VT323", monospace';
+      worldCtx.fillStyle = `rgba(186, 230, 253, ${(0.55 * bpFade).toFixed(3)})`;
+      worldCtx.textAlign = 'right';
+      worldCtx.fillText('WIRE SCHEMATIC [L-DRAG: CONNECT | R-CLICK: SNIP WIRE]', W - 14, 24);
+      worldCtx.restore();
+    }
+
+    function getQuadraticWirePoint(x1, y1, midX, midY, x2, y2, t) {
+      const inv = 1 - t;
+      return {
+        x: inv * inv * x1 + 2 * inv * t * midX + t * t * x2,
+        y: inv * inv * y1 + 2 * inv * t * midY + t * t * y2
+      };
+    }
+
+    function findHoveredSpaghettiWire(screenX, screenY) {
+      const zoom = state.renderZoom;
+      const camScreenX = Math.floor(worldCanvas.width / 2 - state.camera.x * zoom);
+      const camScreenY = Math.floor(worldCanvas.height / 2 - state.camera.y * zoom);
+      let bestMatch = null;
+      let bestDist = 11; // 11px hit tolerance on wire curves
+
+      for (const [, cell] of state.worldCells.entries()) {
+        if (!Array.isArray(cell.wires) || cell.wires.length === 0) continue;
+        const x1 = camScreenX + (cell.x + cell.w / 2) * zoom;
+        const y1 = camScreenY + (cell.y + cell.h / 2) * zoom;
+
+        for (let wIdx = 0; wIdx < cell.wires.length; wIdx++) {
+          const w = cell.wires[wIdx];
+          const tCell = getWorldCellAtWireRef(w);
+          if (!tCell) continue;
+          const x2 = camScreenX + (tCell.x + tCell.w / 2) * zoom;
+          const y2 = camScreenY + (tCell.y + tCell.h / 2) * zoom;
+          const dist = Math.hypot(x2 - x1, y2 - y1);
+          const sag = Math.min(85, Math.max(16, dist * 0.28));
+          const midX = (x1 + x2) * 0.5;
+          const midY = Math.max(y1, y2) + sag * 0.65;
+
+          const samples = 18;
+          for (let s = 0; s <= samples; s++) {
+            const pt = getQuadraticWirePoint(x1, y1, midX, midY, x2, y2, s / samples);
+            const d = Math.hypot(screenX - pt.x, screenY - pt.y);
+            if (d < bestDist) {
+              bestDist = d;
+              bestMatch = { sourceCell: cell, wireIndex: wIdx, targetCell: tCell };
+            }
+          }
+        }
+      }
+      return bestMatch;
+    }
+
+    function deleteWireAtCurrentCursor(playBuzzerOnMiss = false) {
+      // 1. Check if cursor is directly over a spaghetti wire curve
+      const hoveredWire = findHoveredSpaghettiWire(mouseWorld.sx, mouseWorld.sy);
+      if (hoveredWire && Array.isArray(hoveredWire.sourceCell.wires)) {
+        pushWorldUndo();
+        hoveredWire.sourceCell.wires.splice(hoveredWire.wireIndex, 1);
+        sfx.wireDisconnect();
+        scheduleWorldAutoBackup();
+        return true;
+      }
+
+      // 2. Otherwise check if cursor is over a block that has outgoing or incoming wires
+      const hoveredItem = getHoveredWorldCell(mouseWorld.wx, mouseWorld.wy);
+      if (hoveredItem && !state.dynamicEntities.includes(hoveredItem)) {
+        if (Array.isArray(hoveredItem.wires) && hoveredItem.wires.length > 0) {
+          pushWorldUndo();
+          hoveredItem.wires = [];
+          sfx.wireDisconnect();
+          scheduleWorldAutoBackup();
+          return true;
+        }
+        let removedIncoming = false;
+        for (const [, c] of state.worldCells.entries()) {
+          if (Array.isArray(c.wires) && c.wires.some(w => w.x === hoveredItem.x && w.y === hoveredItem.y)) {
+            if (!removedIncoming) {
+              pushWorldUndo();
+              removedIncoming = true;
+            }
+            c.wires = c.wires.filter(w => !(w.x === hoveredItem.x && w.y === hoveredItem.y));
+          }
+        }
+        if (removedIncoming) {
+          sfx.wireDisconnect();
+          scheduleWorldAutoBackup();
+          return true;
+        }
+      }
+
+      if (playBuzzerOnMiss) {
+        sfx.buzzer();
+      }
+      return false;
+    }
+
+    function drawSpaghettiCurve(ctx, x1, y1, x2, y2, color, isActiveSignal = false, isDashedPreview = false, isHoveredForSnip = false) {
       const dist = Math.hypot(x2 - x1, y2 - y1);
       const sag = Math.min(85, Math.max(16, dist * 0.28));
       const midX = (x1 + x2) * 0.5;
@@ -9265,8 +9497,8 @@
       ctx.lineJoin = 'round';
 
       // Dark outer cable casing shadow
-      ctx.strokeStyle = 'rgba(9, 9, 11, 0.85)';
-      ctx.lineWidth = 5;
+      ctx.strokeStyle = isHoveredForSnip ? 'rgba(239, 68, 68, 0.9)' : 'rgba(9, 9, 11, 0.85)';
+      ctx.lineWidth = isHoveredForSnip ? 6.5 : 5;
       if (isDashedPreview) ctx.setLineDash([6, 5]);
       ctx.beginPath();
       ctx.moveTo(x1, y1);
@@ -9274,8 +9506,8 @@
       ctx.stroke();
 
       // Inner colored spaghetti wire
-      ctx.strokeStyle = isActiveSignal ? '#4ade80' : color;
-      ctx.lineWidth = 2.6;
+      ctx.strokeStyle = isHoveredForSnip ? '#fca5a5' : (isActiveSignal ? '#4ade80' : color);
+      ctx.lineWidth = isHoveredForSnip ? 3.2 : 2.6;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.quadraticCurveTo(midX, midY, x2, y2);
@@ -9286,14 +9518,14 @@
       const tPulse = ((worldTickCount * (isActiveSignal ? 0.035 : 0.015)) % 1);
       const bx = (1 - tPulse) * (1 - tPulse) * x1 + 2 * (1 - tPulse) * tPulse * midX + tPulse * tPulse * x2;
       const by = (1 - tPulse) * (1 - tPulse) * y1 + 2 * (1 - tPulse) * tPulse * midY + tPulse * tPulse * y2;
-      ctx.fillStyle = isActiveSignal ? '#bbf7d0' : '#fef08a';
+      ctx.fillStyle = isHoveredForSnip ? '#ef4444' : (isActiveSignal ? '#bbf7d0' : '#fef08a');
       ctx.fillRect(Math.round(bx - 2.5), Math.round(by - 2.5), 5, 5);
 
       // End plug sockets (Square pixel plugs)
       ctx.fillStyle = '#18181b';
       ctx.fillRect(Math.round(x1 - 4), Math.round(y1 - 4), 8, 8);
       ctx.fillRect(Math.round(x2 - 4), Math.round(y2 - 4), 8, 8);
-      ctx.fillStyle = isActiveSignal ? '#4ade80' : color;
+      ctx.fillStyle = isHoveredForSnip ? '#f87171' : (isActiveSignal ? '#4ade80' : color);
       ctx.fillRect(Math.round(x1 - 2.5), Math.round(y1 - 2.5), 5, 5);
       ctx.fillRect(Math.round(x2 - 2.5), Math.round(y2 - 2.5), 5, 5);
       ctx.restore();
@@ -9302,6 +9534,9 @@
     function renderSpaghettiWiresOverlay(camScreenX, camScreenY, zoom) {
       const wirePalette = ['#f59e0b', '#38bdf8', '#f472b6', '#a78bfa', '#34d399'];
       let colorIdx = 0;
+      const hoveredWire = (state.mode === 'build' && state.worldTool === 'wire' && mouseWorld.inside && !mouseWorld.wireDragSource)
+        ? findHoveredSpaghettiWire(mouseWorld.sx, mouseWorld.sy)
+        : null;
 
       for (const [, cell] of state.worldCells.entries()) {
         const isSource = isWireSourceCell(cell);
@@ -9318,12 +9553,14 @@
 
           if (Array.isArray(cell.wires)) {
             cell.wires = cell.wires.filter(w => Boolean(getWorldCellAtWireRef(w)));
-            for (const w of cell.wires) {
+            for (let wIdx = 0; wIdx < cell.wires.length; wIdx++) {
+              const w = cell.wires[wIdx];
               const tCell = getWorldCellAtWireRef(w);
               if (!tCell) continue;
               const tx = Math.round(camScreenX + (tCell.x + tCell.w / 2) * zoom);
               const ty = Math.round(camScreenY + (tCell.y + tCell.h / 2) * zoom);
-              drawSpaghettiCurve(worldCtx, sx, sy, tx, ty, wireColor, isSignalOn, false);
+              const isThisHovered = Boolean(hoveredWire && hoveredWire.sourceCell === cell && hoveredWire.wireIndex === wIdx);
+              drawSpaghettiCurve(worldCtx, sx, sy, tx, ty, wireColor, isSignalOn, false, isThisHovered);
             }
           }
 
@@ -10188,28 +10425,19 @@
       const activeTool = state.mode === 'build' ? state.worldTool : 'stamp';
 
       if (e.button === 2) {
+        // When the Wire tool is active, Right-Click ONLY deletes/snips wires (never deletes blocks or rotates brushes!)
+        if (state.mode === 'build' && activeTool === 'wire') {
+          clearPendingHoldGrab();
+          deleteWireAtCurrentCursor(true);
+          updateWorldCursor(e);
+          return;
+        }
         // When an item is selected in hand for mass placement (brushSp), holding Ctrl + Right-Click activates the eraser!
         if (brushSp && (e.ctrlKey || e.metaKey)) {
           clearPendingHoldGrab();
           pushWorldUndo();
           eraseWorldAt(mouseWorld.wx, mouseWorld.wy);
           updateWorldCursor(e);
-          return;
-        }
-        // Right-clicking in Wire tool mode disconnects wires attached to the clicked source or target block
-        if (state.mode === 'build' && activeTool === 'wire' && hoveredItem) {
-          pushWorldUndo();
-          if (Array.isArray(hoveredItem.wires) && hoveredItem.wires.length > 0) {
-            hoveredItem.wires = [];
-          } else {
-            for (const [, c] of state.worldCells.entries()) {
-              if (Array.isArray(c.wires)) {
-                c.wires = c.wires.filter(w => !(w.x === hoveredItem.x && w.y === hoveredItem.y));
-              }
-            }
-          }
-          sfx.wireDisconnect();
-          scheduleWorldAutoBackup();
           return;
         }
         // 1. If currently holding a block (or pressing on one to hold it), Right-Click cycles its 8-step rotation + flip!
@@ -10263,6 +10491,12 @@
           mouseWorld.wireDragSource = hoveredItem;
           sfx.ui(590);
           updateWorldCursor(e);
+          return;
+        }
+
+        // When the Wire tool is active, Left-Click only starts wire connections and never places blocks
+        if (state.mode === 'build' && activeTool === 'wire') {
+          sfx.buzzer();
           return;
         }
 
@@ -10411,6 +10645,14 @@
       if (mouseWorld.downButton === null && !mouseWorld.dragStart) return;
       updateMouseWorldCoords(e);
       const activeTool = state.mode === 'build' ? state.worldTool : 'stamp';
+
+      // When the Wire tool is active, dragging with Right-Click snips wires along the cursor path and NEVER erases blocks!
+      if (state.mode === 'build' && activeTool === 'wire') {
+        if (mouseWorld.downButton === 2) {
+          deleteWireAtCurrentCursor(false);
+        }
+        return;
+      }
 
       if (mouseWorld.downButton === 2 || (mouseWorld.downButton === 0 && activeTool === 'erase' && !mouseWorld.dragStart)) {
         eraseWorldAt(mouseWorld.wx, mouseWorld.wy);
@@ -14123,29 +14365,35 @@
         const a = Math.max(0.05, Math.min(1, (editor.lightAlpha ?? 45) / 100));
 
         if (editor.subtype === 'Top Light') {
-          const grad = previewCtx.createLinearGradient(0, 0, 0, 38);
-          grad.addColorStop(0, `rgba(${r},${g},${b},${a})`);
+          const grad = previewCtx.createLinearGradient(0, 0, 0, 15);
+          grad.addColorStop(0, `rgba(${r},${g},${b},${a * 0.85})`);
+          grad.addColorStop(0.45, `rgba(${r},${g},${b},${a * 0.35})`);
           grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
           previewCtx.fillStyle = grad;
-          previewCtx.fillRect(0, 0, 76, 38);
+          previewCtx.fillRect(0, 0, 76, 15);
         } else if (editor.subtype === 'Fill Light') {
-          previewCtx.fillStyle = `rgba(${r},${g},${b},${a})`;
-          if (editor.lightOption === 'Top Half') previewCtx.fillRect(0, 0, 76, 20);
-          else if (editor.lightOption === 'Bottom Half') previewCtx.fillRect(0, 20, 76, 20);
-          else if (editor.lightOption === 'Center Band') previewCtx.fillRect(0, 10, 76, 20);
+          previewCtx.fillStyle = `rgba(${r},${g},${b},${a * 0.78})`;
+          if (editor.lightOption === 'Top Half') previewCtx.fillRect(0, 0, 76, 16);
+          else if (editor.lightOption === 'Bottom Half') previewCtx.fillRect(0, 23, 76, 16);
+          else if (editor.lightOption === 'Center Band') previewCtx.fillRect(0, 11, 76, 17);
           else previewCtx.fillRect(0, 0, 76, 39);
         } else if (editor.subtype === 'Surround Light') {
-          const grad = previewCtx.createRadialGradient(38, 24, 8, 38, 24, 42);
+          const grad = previewCtx.createRadialGradient(38, 24, 16, 38, 24, 44);
           grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
-          grad.addColorStop(1, `rgba(${r},${g},${b},${a})`);
+          grad.addColorStop(0.55, `rgba(${r},${g},${b},${a * 0.35})`);
+          grad.addColorStop(1, `rgba(${r},${g},${b},${a * 0.85})`);
           previewCtx.fillStyle = grad;
           previewCtx.fillRect(0, 0, 76, 57);
         } else if (editor.subtype === 'Light') {
-          let pulseA = a;
+          let pulseA = a * 0.85;
           if ((editor.lightOption || '').includes('Pulsating')) {
             pulseA *= (0.65 + 0.35 * Math.sin(editor.previewTick * 0.06));
           }
-          previewCtx.fillStyle = `rgba(${r},${g},${b},${pulseA})`;
+          const grad = previewCtx.createRadialGradient(38, 12, 2, 38, 12, 28);
+          grad.addColorStop(0, `rgba(${r},${g},${b},${pulseA})`);
+          grad.addColorStop(0.5, `rgba(${r},${g},${b},${pulseA * 0.38})`);
+          grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+          previewCtx.fillStyle = grad;
           previewCtx.fillRect(0, 0, 76, 39);
         }
 

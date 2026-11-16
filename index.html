@@ -7499,14 +7499,14 @@
             }
             worldCtx.restore();
           } else if (subType === 'Top Light') {
-            // Hugs the top ~24% of the viewport (capped at 190px) with an eased falloff so it doesn't wash out the background
-            const effAlpha = rawAlpha * 0.85;
-            const gradH = Math.min(190, Math.max(64, Math.floor(H * 0.24)));
+            // Covers the top ~44% of the viewport with a balanced gradient falloff
+            const effAlpha = rawAlpha * 0.88;
+            const gradH = Math.min(400, Math.max(140, Math.floor(H * 0.44)));
             worldCtx.save();
             const grad = worldCtx.createLinearGradient(0, 0, 0, gradH);
             grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
-            grad.addColorStop(0.38, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.42).toFixed(3)})`);
-            grad.addColorStop(0.75, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.10).toFixed(3)})`);
+            grad.addColorStop(0.45, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.55).toFixed(3)})`);
+            grad.addColorStop(0.78, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.18).toFixed(3)})`);
             grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
             worldCtx.fillStyle = grad;
             worldCtx.fillRect(0, 0, W, gradH);
@@ -14365,12 +14365,13 @@
         const a = Math.max(0.05, Math.min(1, (editor.lightAlpha ?? 45) / 100));
 
         if (editor.subtype === 'Top Light') {
-          const grad = previewCtx.createLinearGradient(0, 0, 0, 15);
-          grad.addColorStop(0, `rgba(${r},${g},${b},${a * 0.85})`);
-          grad.addColorStop(0.45, `rgba(${r},${g},${b},${a * 0.35})`);
+          const grad = previewCtx.createLinearGradient(0, 0, 0, 24);
+          grad.addColorStop(0, `rgba(${r},${g},${b},${a * 0.88})`);
+          grad.addColorStop(0.45, `rgba(${r},${g},${b},${a * 0.55})`);
+          grad.addColorStop(0.78, `rgba(${r},${g},${b},${a * 0.18})`);
           grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
           previewCtx.fillStyle = grad;
-          previewCtx.fillRect(0, 0, 76, 15);
+          previewCtx.fillRect(0, 0, 76, 24);
         } else if (editor.subtype === 'Fill Light') {
           previewCtx.fillStyle = `rgba(${r},${g},${b},${a * 0.78})`;
           if (editor.lightOption === 'Top Half') previewCtx.fillRect(0, 0, 76, 16);

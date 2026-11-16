@@ -1256,7 +1256,7 @@
       {
         id: 'solid', name: 'SOLID', category: 'solid', defaultW: 19, defaultH: 19,
         frames: ['Cell 1'],
-        subtypes: ['Solid', 'One-Way', 'Sticky']
+        subtypes: ['Solid', 'One-Way', 'Sticky', 'Falling Solid']
       },
       {
         id: 'body', name: 'BODY', category: 'avatar', defaultW: 29, defaultH: 29,
@@ -1276,7 +1276,7 @@
       {
         id: 'thing', name: 'THING', category: 'back', defaultW: 19, defaultH: 19,
         frames: ['Cell 1'],
-        subtypes: ['Thing', 'Thing in Front']
+        subtypes: ['Thing', 'Thing in Front', 'Falling Thing']
       },
       {
         id: 'light', name: 'LIGHT', category: 'dynamic', defaultW: 19, defaultH: 19,
@@ -1355,7 +1355,7 @@
       {
         id: 'pushing', name: 'PUSHING', category: 'solid', defaultW: 19, defaultH: 19,
         frames: ['Cell 1'],
-        subtypes: ['Pushing']
+        subtypes: ['Pushing', 'Bouncy Sphere']
       },
       {
         id: 'textual', name: 'TEXTUAL', category: 'back', defaultW: 19, defaultH: 19,
@@ -1532,6 +1532,10 @@
         deathVr: 0,
         facing: 1,
         visualScaleX: 1,      // Smoothly flips facing without hard cut if desired
+        squashX: 1,           // Elastic squash-and-stretch X
+        squashY: 1,           // Elastic squash-and-stretch Y
+        swimShakePhase: 0,    // Rapid swimming wiggle phase in water
+        flyTilt: 0,           // Banking tilt angle on Flying Mountables or Swimming
         animTimer: 0,
         walkCycleIdx: 0,
         climbCycleIdx: 0,
@@ -4136,22 +4140,28 @@
             cell.timer = 0;
           }
         } else if (cell.type === 'changing_thing') {
-          if (cell.subtype === 'Sparkling' && worldTickCount % 18 === 0) {
+          if (cell.subtype === 'Sparkling' && worldTickCount % 16 === 0) {
             spawnWorldParticles(cell.x + Math.random() * cell.w, cell.y + Math.random() * cell.h, '#fde047', 1);
           } else if (cell.subtype === 'Item Thrower' && worldTickCount % 95 === 0) {
             const sp = getSpriteById(cell.spriteId);
             if (sp) {
+              const vx = (Math.random() - 0.5) * 3.8;
               state.projectiles.push({
                 spriteId: sp.id,
                 frameIdx: Math.min(1, sp.frames.length - 1),
                 x: cell.x + 2,
-                y: cell.y - 4,
-                vx: (Math.random() - 0.5) * 3.2,
-                vy: -3.2 - Math.random() * 1.5,
+                y: cell.y - 6,
+                vx,
+                vy: -3.6 - Math.random() * 1.6,
+                rot: 0,
+                vrot: vx * 0.09,
+                bounciness: 0.52,
+                friction: 0.84,
                 w: sp.w,
                 h: sp.h,
                 gravity: 0.18,
-                life: 160
+                life: 210,
+                maxLife: 210
               });
             }
           }
@@ -4222,13 +4232,17 @@
         return m && m.subtype === 'Flying Mountable';
       })();
 
-      // Calm, deliberate Manyland movement parameters (with thick viscous resistance when in liquid)
-      const accel = p.onSticky ? 0.08 : (p.inLiquid ? 0.11 : (p.onSlidey ? 0.08 : 0.22));
-      const maxSpeed = p.onSticky ? 0.65 : (p.inLiquid ? 1.05 : (state.activeMountId ? 2.4 : 1.8));
-      const friction = p.onSlidey ? 0.965 : (p.inLiquid ? 0.82 : 0.78);
+      // Calm, deliberate Manyland movement parameters (with thick viscous resistance when in liquid & momentum when flying)
+      const accel = p.onSticky ? 0.08 : (p.inLiquid ? 0.13 : (isMountedFlying ? 0.16 : (p.onSlidey ? 0.08 : 0.22)));
+      const maxSpeed = p.onSticky ? 0.65 : (p.inLiquid ? 1.25 : (isMountedFlying ? 2.85 : (state.activeMountId ? 2.4 : 1.8)));
+      const friction = p.onSlidey ? 0.965 : (p.inLiquid ? 0.84 : (isMountedFlying ? 0.92 : 0.78));
       const gravity = p.inLiquid ? 0.045 : 0.23;
       const jumpImpulse = p.inLiquid ? -2.4 : -4.85;
       const maxFall = p.inLiquid ? 1.45 : 6.0;
+
+      // Elastic squash & stretch recovery
+      p.squashX += (1 - p.squashX) * 0.22;
+      p.squashY += (1 - p.squashY) * 0.22;
 
       if (!state.chatOpen && !editor.isOpen) {
         if (state.keys.left) {
@@ -4303,13 +4317,47 @@
             }
           }
         } else if (isMountedFlying) {
-          p.vy *= 0.85;
-          if (state.keys.up) p.vy = -2.1;
-          if (state.keys.down) p.vy = 2.1;
+          // Smooth momentum-based Flying Mountable physics with hover bobbing and banking
+          if (state.keys.up) {
+            p.vy = Math.max(-2.75, p.vy - 0.24);
+          } else if (state.keys.down) {
+            p.vy = Math.min(2.65, p.vy + 0.22);
+          } else {
+            p.vy *= 0.89;
+            if (!p.onGround) {
+              p.vy += Math.sin(worldTickCount * 0.09) * 0.035;
+            }
+          }
+          const targetBank = (p.vx / maxSpeed) * 0.22 + (p.vy * 0.04 * p.facing);
+          p.flyTilt += (targetBank - p.flyTilt) * 0.2;
         } else if (p.inLiquid) {
           // Thick, viscous liquid physics: dampens plunge velocity gradually and offers resistance in all directions
           p.vx *= 0.84;
           p.vy *= 0.84;
+          const isActivelySwimming =
+            state.keys.left || state.keys.right || state.keys.up || state.keys.down ||
+            Math.hypot(p.vx, p.vy) > 0.16;
+
+          p.swimShakePhase += isActivelySwimming ? 0.72 : 0.24;
+          const swimLean = (p.vx * 0.16) + (isActivelySwimming ? Math.sin(p.swimShakePhase) * 0.14 : Math.sin(p.swimShakePhase) * 0.04);
+          p.flyTilt += (swimLean - p.flyTilt) * 0.32;
+
+          // Emit tiny water bubbles while actively swimming
+          if (isActivelySwimming && worldTickCount % 9 === 0) {
+            state.particles.push({
+              x: p.x + p.w / 2 + (Math.random() - 0.5) * 10,
+              y: p.y + p.h * 0.65,
+              vx: -p.vx * 0.25 + (Math.random() - 0.5) * 0.4,
+              vy: -0.45 - Math.random() * 0.45,
+              ay: -0.015,
+              drag: 0.96,
+              size: 1.4,
+              color: 'rgba(186, 230, 253, 0.75)',
+              life: 24,
+              maxLife: 24
+            });
+          }
+
           if (state.keys.down) {
             // Swim downward through viscous liquid
             p.vy += 0.20;
@@ -4318,6 +4366,8 @@
             // Swim upward, or hop out when reaching the liquid surface
             if (p.liquidSurfaceY !== null && p.y <= p.liquidSurfaceY - 2 && p.vy <= 0.15) {
               p.vy = -4.25;
+              p.squashX = 0.84;
+              p.squashY = 1.18;
               sfx.jump();
             } else {
               p.vy -= 0.24;
@@ -4344,12 +4394,18 @@
           if (p.onGround) {
             p.vy = jumpImpulse;
             p.onGround = false;
+            p.squashX = 0.82;
+            p.squashY = 1.22;
             sfx.jump();
           }
         }
       } else {
         p.vx *= friction;
         if (Math.abs(p.vx) < 0.04) p.vx = 0;
+      }
+
+      if (!isMountedFlying && !p.inLiquid) {
+        p.flyTilt += (0 - p.flyTilt) * 0.25;
       }
 
       if (!p.onLadder && !isMountedFlying && !p.grappleTarget && !p.inLiquid) {
@@ -4379,6 +4435,9 @@
       }
 
       if (!wasOnGround && p.onGround && preLandingVy > 1.35) {
+        const squashAmt = Math.min(0.28, preLandingVy * 0.045);
+        p.squashX = 1 + squashAmt;
+        p.squashY = 1 - squashAmt * 0.85;
         sfx.land(preLandingVy, p.groundSurface || 'normal');
       }
 
@@ -4562,37 +4621,146 @@
     function updateProjectiles() {
       for (let i = state.projectiles.length - 1; i >= 0; i--) {
         const pr = state.projectiles[i];
-        pr.vy += pr.gravity || 0.15;
-        pr.x += pr.vx;
-        pr.y += pr.vy;
         pr.life--;
+        if (pr.life <= 0) {
+          state.projectiles.splice(i, 1);
+          continue;
+        }
 
-        let remove = pr.life <= 0;
+        const bounciness = pr.bounciness !== undefined ? pr.bounciness : 0.48;
+        const baseFriction = pr.friction !== undefined ? pr.friction : 0.84;
 
+        // Check if projectile is inside liquid for buoyancy and splash physics
+        let inWater = false;
+        let waterTopY = null;
         for (const [, cell] of state.worldCells.entries()) {
-          if (
-            pr.x < cell.x + cell.w &&
-            pr.x + pr.w > cell.x &&
-            pr.y < cell.y + cell.h &&
-            pr.y + pr.h > cell.y
-          ) {
-            if (cell.type === 'crumbling' && cell.subtype !== 'Flexible' && cell.crumbleState === 0) {
-              cell.crumbleState = 2;
-              cell.timer = 0;
-              remove = true;
-              break;
-            }
-            if (cell.type === 'liquid' || cell.type === 'harmful') {
-              remove = true;
-              break;
-            }
-            if (cell.type === 'solid' || isCellSolid(cell) === true) {
-              remove = true;
-              break;
-            }
+          if (cell.type !== 'liquid') continue;
+          if (pr.x < cell.x + cell.w && pr.x + pr.w > cell.x && pr.y < cell.y + cell.h && pr.y + pr.h > cell.y) {
+            inWater = true;
+            if (waterTopY === null || cell.y < waterTopY) waterTopY = cell.y;
           }
         }
-        if (remove) state.projectiles.splice(i, 1);
+
+        if (inWater) {
+          if (!pr._inWater && Math.hypot(pr.vx, pr.vy) > 1.1) {
+            spawnLiquidSplash(pr.x + pr.w / 2, waterTopY ?? pr.y, Math.min(3.5, Math.hypot(pr.vx, pr.vy) * 0.65));
+          }
+          pr._inWater = true;
+          pr.vx *= 0.88;
+          pr.vy *= 0.86;
+          pr.vy -= 0.055; // Gentle upward buoyancy in water
+          pr.vrot = (pr.vrot || 0) * 0.88;
+        } else {
+          pr._inWater = false;
+          pr.vy = Math.min(7.5, pr.vy + (pr.gravity ?? 0.18));
+        }
+
+        // 1. Horizontal step & wall collisions
+        pr.x += pr.vx;
+        for (const [, cell] of state.worldCells.entries()) {
+          if (!hasSpriteId(cell.spriteId)) continue;
+          if (pr.x >= cell.x + cell.w || pr.x + pr.w <= cell.x || pr.y >= cell.y + cell.h || pr.y + pr.h <= cell.y) continue;
+
+          if (cell.type === 'crumbling' && cell.subtype !== 'Flexible' && cell.crumbleState === 0) {
+            cell.crumbleState = 1;
+            cell.timer = 0;
+          }
+          if (isCellSolid(cell) === true) {
+            if (pr.vx > 0) pr.x = cell.x - pr.w;
+            else if (pr.vx < 0) pr.x = cell.x + cell.w;
+            pr.vx = -pr.vx * bounciness;
+            pr.vrot = -pr.vx * 0.08;
+            if (Math.abs(pr.vx) > 0.9) sfx.step(resolveCellSurfaceMaterial(cell));
+            break;
+          }
+        }
+
+        // Horizontal collision & momentum transfer with dynamic gravity blocks
+        for (const ent of state.dynamicEntities) {
+          if (pr.x >= ent.x + ent.w || pr.x + pr.w <= ent.x || pr.y >= ent.y + ent.h || pr.y + pr.h <= ent.y) continue;
+          if (isGravityEntity(ent)) {
+            ent.vx = (ent.vx || 0) + pr.vx * 0.42;
+            ent.vy = Math.min(ent.vy || 0, -0.8);
+            ent._interactTick = 14;
+            pr.vx = -pr.vx * 0.45;
+            pr.vrot = pr.vx * 0.1;
+            sfx.step('wood');
+            break;
+          }
+        }
+
+        // 2. Vertical step & floor/ceiling/bouncy collisions
+        pr.y += pr.vy;
+        let onSlideySurface = false;
+        let grounded = false;
+
+        for (const [, cell] of state.worldCells.entries()) {
+          if (!hasSpriteId(cell.spriteId)) continue;
+          if (pr.x >= cell.x + cell.w || pr.x + pr.w <= cell.x || pr.y >= cell.y + cell.h || pr.y + pr.h <= cell.y) continue;
+
+          if (cell.type === 'crumbling' && cell.subtype !== 'Flexible' && cell.crumbleState === 0) {
+            cell.crumbleState = 1;
+            cell.timer = 0;
+          }
+          if (cell.type === 'activator' && cell.subtype === 'Activater') {
+            state.activatorTimer = 240;
+            cell._interactTick = 24;
+          }
+
+          const solidKind = isCellSolid(cell);
+          const hitOneWay = solidKind === 'oneway' && pr.vy >= 0 && (pr.y + pr.h - pr.vy <= cell.y + 6);
+          if (solidKind === true || hitOneWay) {
+            if (pr.vy >= 0) {
+              pr.y = cell.y - pr.h;
+              if (cell.type === 'bouncy') {
+                pr.vy = -Math.max(5.2, Math.abs(pr.vy) * 0.92);
+                if (cell.subtype === 'Tilted Bouncy') pr.vx += (pr.vx >= 0 ? 1 : -1) * 2.2;
+                pr.vrot = pr.vx * 0.14;
+                sfx.bounce();
+                const spBounce = getSpriteById(cell.spriteId);
+                const extraCells = spBounce ? Math.max(1, spBounce.frames.length - 1) : 1;
+                const ticksPerCel = Math.max(5, Math.round(60 / (spBounce?.animFps || state.walkFps || 8)));
+                cell._bounceMax = extraCells * ticksPerCel;
+                cell._bounceTick = cell._bounceMax;
+              } else {
+                if (Math.abs(pr.vy) > 1.35) {
+                  sfx.step(resolveCellSurfaceMaterial(cell));
+                  pr.vy = -pr.vy * bounciness;
+                } else {
+                  pr.vy = 0;
+                  grounded = true;
+                }
+                if (cell.type === 'slidey') onSlideySurface = true;
+              }
+            } else {
+              pr.y = cell.y + cell.h;
+              pr.vy = -pr.vy * 0.35;
+            }
+            break;
+          }
+        }
+
+        // Baseline Y=0 floor check for projectiles
+        if (state.hardFloorY0 && pr.y + pr.h >= 0 && pr.vy >= 0) {
+          pr.y = -pr.h;
+          if (Math.abs(pr.vy) > 1.35) {
+            sfx.step('stone');
+            pr.vy = -pr.vy * bounciness;
+          } else {
+            pr.vy = 0;
+            grounded = true;
+          }
+        }
+
+        // Friction & rolling rotation update
+        if (grounded) {
+          pr.vx *= onSlideySurface ? 0.975 : baseFriction;
+          if (Math.abs(pr.vx) < 0.03) pr.vx = 0;
+          pr.vrot = (pr.vx / Math.max(8, pr.w)) * 1.4;
+        } else {
+          pr.vx *= 0.994;
+        }
+        pr.rot = (pr.rot || 0) + (pr.vrot || 0);
       }
     }
 
@@ -4871,6 +5039,8 @@
             p.y = by - p.h;
             if (cell.type === 'bouncy') {
               p.vy = -7.2;
+              p.squashX = 0.76;
+              p.squashY = 1.28;
               if (cell.subtype === 'Tilted Bouncy') p.vx = p.facing * 3.5;
               sfx.bounce();
               const spBounce = getSpriteById(cell.spriteId);
@@ -4885,13 +5055,15 @@
               if (cell.type === 'slidey') {
                 p.onSlidey = true;
                 cell._interactTick = 14;
-              } else if (cell.type === 'solid' && cell.subtype === 'Sticky') {
+              }
+              if (cell.type === 'solid' && cell.subtype === 'Sticky') {
                 p.onSticky = true;
                 cell._interactTick = 14;
-              } else if (cell.type === 'crumbling') {
+              }
+              if (cell.type === 'crumbling') {
                 if (cell.subtype === 'Flexible') {
                   cell._steppedOn = true;
-                  cell._interactTick = 16;
+                  cell._interactTick = 14;
                 } else if (cell.crumbleState === 0) {
                   cell.crumbleState = 1;
                   cell.timer = 0;
@@ -4899,16 +5071,16 @@
               }
             }
           } else if (p.vy < 0) {
-            // Corner correction when climbing or jumping up through a 1-block-wide gap
-            const overlapRight = (bx + bw) - p.x;
-            const overlapLeft = (p.x + p.w) - bx;
-            const maxNudge = p.onLadder ? 10 : 6;
-            if (overlapRight > 0 && overlapRight <= maxNudge) {
-              p.x = bx + bw;
-              continue;
-            } else if (overlapLeft > 0 && overlapLeft <= maxNudge) {
-              p.x = bx - p.w;
-              continue;
+            if (p.onLadder) {
+              const overlapRight = (bx + bw) - p.x;
+              const overlapLeft = (p.x + p.w) - bx;
+              if (overlapRight > 0 && overlapRight <= 10) {
+                p.x = bx + bw;
+                continue;
+              } else if (overlapLeft > 0 && overlapLeft <= 10) {
+                p.x = bx - p.w;
+                continue;
+              }
             }
             p.y = by + bh;
             p.vy = 0;
@@ -4916,22 +5088,34 @@
         }
       }
 
-      // Dynamic Entities Collisions (Pushing blocks & Moving platforms)
+      // Dynamic Entities Collisions (Pushing blocks, Falling Solids/Things & Moving platforms)
       for (const ent of state.dynamicEntities) {
-        if (ent.type !== 'pushing' && ent.type !== 'moving') continue;
+        const isGravBlock = isGravityEntity(ent);
+        if (!isGravBlock && ent.type !== 'moving') continue;
         if (p.x >= ent.x + ent.w || p.x + p.w <= ent.x || p.y >= ent.y + ent.h || p.y + p.h <= ent.y) continue;
 
-        if (ent.type === 'pushing') {
+        if (isGravBlock) {
           if (horizontal) {
-            ent.x += p.vx * 0.85;
+            const pushImpulse = ent.subtype === 'Bouncy Sphere' ? p.vx * 1.05 : p.vx * 0.78;
+            ent.vx = (ent.vx || 0) + pushImpulse * 0.45;
+            ent.x += p.vx * 0.65;
             ent._interactTick = 14;
             if (p.vx > 0) p.x = ent.x - p.w;
             else if (p.vx < 0) p.x = ent.x + ent.w;
-          } else if (p.vy > 0) {
+          } else if (p.vy > 0 && (p.y + p.h - p.vy <= ent.y + 8)) {
             p.y = ent.y - p.h;
-            p.vy = 0;
-            p.onGround = true;
-            p.groundSurface = resolveCellSurfaceMaterial(ent);
+            if (ent.subtype === 'Bouncy Sphere') {
+              p.vy = -6.2;
+              p.squashX = 0.78;
+              p.squashY = 1.24;
+              ent.vy = 2.0;
+              sfx.bounce();
+            } else {
+              p.vy = 0;
+              p.onGround = true;
+              p.x += (ent.vx || 0);
+              p.groundSurface = resolveCellSurfaceMaterial(ent);
+            }
           }
         } else if (ent.type === 'moving') {
           if (!horizontal && p.vy >= 0 && (p.y + p.h - p.vy <= ent.y + 6)) {
@@ -4946,6 +5130,15 @@
       }
     }
 
+    function isGravityEntity(entOrSp) {
+      if (!entOrSp) return false;
+      return (
+        entOrSp.type === 'pushing' ||
+        (entOrSp.type === 'solid' && entOrSp.subtype === 'Falling Solid') ||
+        (entOrSp.type === 'thing' && entOrSp.subtype === 'Falling Thing')
+      );
+    }
+
     function updateDynamicEntities() {
       for (let i = state.dynamicEntities.length - 1; i >= 0; i--) {
         const ent = state.dynamicEntities[i];
@@ -4956,7 +5149,9 @@
         if (ent.type === 'moving') {
           ent.x += ent.vx;
           if (Math.abs(ent.x - ent.originX) > 57) ent.vx = -ent.vx;
-        } else if (ent.type === 'living') {
+          continue;
+        }
+        if (ent.type === 'living') {
           if (ent.subtype === 'Flipping Living') {
             if (worldTickCount % 75 === 0) ent.facing = -ent.facing;
           } else if (ent.subtype === 'Moving Living') {
@@ -4966,21 +5161,156 @@
               ent.facing = ent.vx > 0 ? 1 : -1;
             }
           }
-        } else if (ent.type === 'pushing') {
-          ent.vy = Math.min(5, (ent.vy || 0) + 0.22);
-          ent.y += ent.vy;
+          continue;
+        }
+
+        if (isGravityEntity(ent)) {
+          const isSphere = ent.subtype === 'Bouncy Sphere';
+          ent.vx = ent.vx || 0;
+          ent.vy = ent.vy || 0;
+          ent.rot = ent.rot || 0;
+
+          // Check if the gravity entity is in liquid
+          let inWater = false;
+          let waterTopY = null;
           for (const [, cell] of state.worldCells.entries()) {
-            if (!isCellSolid(cell)) continue;
+            if (cell.type !== 'liquid') continue;
             if (ent.x < cell.x + cell.w && ent.x + ent.w > cell.x && ent.y < cell.y + cell.h && ent.y + ent.h > cell.y) {
-              if (ent.vy > 0) {
+              inWater = true;
+              if (waterTopY === null || cell.y < waterTopY) waterTopY = cell.y;
+            }
+          }
+
+          if (inWater) {
+            if (!ent._inWater && Math.abs(ent.vy) > 1.3) {
+              spawnLiquidSplash(ent.x + ent.w / 2, waterTopY ?? ent.y, Math.min(3.8, Math.abs(ent.vy) * 0.75));
+            }
+            ent._inWater = true;
+            ent.vx *= 0.86;
+            ent.vy *= 0.84;
+            if (isSphere || ent.type === 'thing') {
+              // Lighter things and bouncy spheres float/bob near the water surface
+              const targetY = (waterTopY ?? ent.y) - ent.h * 0.35 + Math.sin(worldTickCount * 0.06 + i) * 1.2;
+              ent.vy += Math.max(-0.1, Math.min(0.1, (targetY - ent.y) * 0.03));
+            } else {
+              // Heavy pushing/solid blocks sink slowly in water
+              ent.vy = Math.min(1.15, ent.vy + 0.045);
+            }
+          } else {
+            ent._inWater = false;
+            ent.vy = Math.min(6.2, ent.vy + 0.22);
+          }
+
+          // 1. Horizontal movement & collisions
+          ent.x += ent.vx;
+          for (const [, cell] of state.worldCells.entries()) {
+            if (isCellSolid(cell) !== true) continue;
+            if (ent.x < cell.x + cell.w && ent.x + ent.w > cell.x && ent.y < cell.y + cell.h && ent.y + ent.h > cell.y) {
+              if (ent.vx > 0) ent.x = cell.x - ent.w;
+              else if (ent.vx < 0) ent.x = cell.x + cell.w;
+              ent.vx = isSphere ? -ent.vx * 0.7 : 0;
+            }
+          }
+
+          // Entity-to-Entity horizontal pushing
+          for (let j = 0; j < state.dynamicEntities.length; j++) {
+            if (i === j) continue;
+            const other = state.dynamicEntities[j];
+            if (!isGravityEntity(other)) continue;
+            if (ent.x < other.x + other.w && ent.x + ent.w > other.x && ent.y < other.y + other.h && ent.y + ent.h > other.y) {
+              const avgVx = (ent.vx + (other.vx || 0)) * 0.5;
+              if (ent.x < other.x) {
+                ent.x = other.x - ent.w;
+              } else {
+                ent.x = other.x + other.w;
+              }
+              ent.vx = avgVx;
+              other.vx = avgVx;
+            }
+          }
+
+          // 2. Vertical movement & collisions
+          const preVy = ent.vy;
+          ent.y += ent.vy;
+          let grounded = false;
+          let onSlidey = false;
+
+          for (const [, cell] of state.worldCells.entries()) {
+            const solidKind = isCellSolid(cell);
+            if (!solidKind) continue;
+            if (ent.x < cell.x + cell.w && ent.x + ent.w > cell.x && ent.y < cell.y + cell.h && ent.y + ent.h > cell.y) {
+              if (solidKind === 'oneway' && (ent.vy < 0 || ent.y + ent.h - ent.vy > cell.y + 6)) continue;
+              if (ent.vy >= 0) {
                 ent.y = cell.y - ent.h;
+                if (cell.type === 'bouncy') {
+                  ent.vy = -Math.max(5.6, Math.abs(preVy) * 0.9);
+                  if (cell.subtype === 'Tilted Bouncy') ent.vx += 2.4;
+                  sfx.bounce();
+                  const spBounce = getSpriteById(cell.spriteId);
+                  const extraCells = spBounce ? Math.max(1, spBounce.frames.length - 1) : 1;
+                  const ticksPerCel = Math.max(5, Math.round(60 / (spBounce?.animFps || state.walkFps || 8)));
+                  cell._bounceMax = extraCells * ticksPerCel;
+                  cell._bounceTick = cell._bounceMax;
+                } else if (isSphere && Math.abs(preVy) > 1.2) {
+                  ent.vy = -preVy * 0.68;
+                  sfx.step(resolveCellSurfaceMaterial(cell));
+                } else {
+                  if (preVy > 2.2) {
+                    sfx.step(resolveCellSurfaceMaterial(cell));
+                    spawnDustParticles(ent.x + ent.w / 2, ent.y + ent.h, ent.w, 4, 3);
+                  }
+                  ent.vy = 0;
+                  grounded = true;
+                  if (cell.type === 'slidey') onSlidey = true;
+                }
+              } else if (solidKind === true) {
+                ent.y = cell.y + cell.h;
                 ent.vy = 0;
               }
             }
           }
-          if (state.hardFloorY0 && ent.y + ent.h > 0) {
+
+          // Stack on top of other gravity entities
+          for (let j = 0; j < state.dynamicEntities.length; j++) {
+            if (i === j) continue;
+            const other = state.dynamicEntities[j];
+            if (!isGravityEntity(other) && other.type !== 'moving') continue;
+            if (ent.x < other.x + other.w && ent.x + ent.w > other.x && ent.y < other.y + other.h && ent.y + ent.h > other.y) {
+              if (ent.vy >= 0 && (ent.y + ent.h - ent.vy <= other.y + 8)) {
+                ent.y = other.y - ent.h;
+                if (isSphere && Math.abs(preVy) > 1.4) {
+                  ent.vy = -preVy * 0.6;
+                } else {
+                  ent.vy = 0;
+                  grounded = true;
+                  ent.x += (other.vx || 0) * 0.5;
+                }
+              }
+            }
+          }
+
+          if (state.hardFloorY0 && ent.y + ent.h >= 0 && ent.vy >= 0) {
             ent.y = -ent.h;
-            ent.vy = 0;
+            if (isSphere && Math.abs(preVy) > 1.2) {
+              ent.vy = -preVy * 0.68;
+              sfx.step('stone');
+            } else {
+              ent.vy = 0;
+              grounded = true;
+            }
+          }
+
+          if (grounded) {
+            ent.vx *= onSlidey ? 0.96 : (isSphere ? 0.91 : 0.76);
+            if (Math.abs(ent.vx) < 0.03) ent.vx = 0;
+          } else {
+            ent.vx *= 0.99;
+          }
+
+          if (isSphere) {
+            ent.rot += ent.vx * 0.08;
+          } else {
+            ent.rot *= 0.8;
           }
         }
       }
@@ -5237,46 +5567,52 @@
         if (item.sub === 'Fill Light') {
           worldCtx.save();
           worldCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`;
-          const mode = item.opt;
-          if (mode === 'Top Half') {
-            worldCtx.fillRect(0, 0, W, Math.floor(H / 2));
-          } else if (mode === 'Bottom Half') {
-            worldCtx.fillRect(0, Math.floor(H / 2), W, Math.ceil(H / 2));
-          } else if (mode === 'Center Band') {
+          if (item.opt === 'Top Half') {
+            worldCtx.fillRect(0, 0, W, Math.floor(H * 0.5));
+          } else if (item.opt === 'Bottom Half') {
+            worldCtx.fillRect(0, Math.floor(H * 0.5), W, Math.ceil(H * 0.5));
+          } else if (item.opt === 'Center Band') {
             worldCtx.fillRect(0, Math.floor(H * 0.25), W, Math.floor(H * 0.5));
           } else {
             worldCtx.fillRect(0, 0, W, H);
           }
           worldCtx.restore();
-        } else if (item.sub === 'Light') {
-          let baseA = effAlpha * (item.opt.includes('Thick') ? 1.3 : 1.0);
-          if (item.opt.includes('Pulsating')) {
-            baseA *= (0.68 + 0.32 * Math.sin(worldTickCount * 0.045));
-          }
-          baseA = Math.min(0.92, baseA);
-          worldCtx.save();
-          worldCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${baseA.toFixed(3)})`;
-          worldCtx.fillRect(0, 0, W, H);
-          worldCtx.restore();
         } else if (item.sub === 'Top Light') {
           worldCtx.save();
-          const grad = worldCtx.createLinearGradient(0, 0, 0, H * 0.75);
+          const gradH = Math.floor(H * 0.65);
+          const grad = worldCtx.createLinearGradient(0, 0, 0, gradH);
           grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
           grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
           worldCtx.fillStyle = grad;
-          worldCtx.fillRect(0, 0, W, H * 0.75);
+          worldCtx.fillRect(0, 0, W, gradH);
+          worldCtx.restore();
+        } else if (item.sub === 'Light') {
+          if (item.opt.includes('Pulsating')) {
+            effAlpha *= (0.65 + 0.35 * Math.sin(worldTickCount * 0.05));
+          }
+          if (item.opt.includes('Thick')) {
+            effAlpha = Math.min(0.95, effAlpha * 1.45);
+          }
+          const lx = Math.round(camScreenX + (item.cell.x + item.cell.w / 2) * zoom);
+          const ly = Math.round(camScreenY + (item.cell.y + item.cell.h / 2) * zoom);
+          const rad = Math.max(120, Math.round(75 * zoom));
+          worldCtx.save();
+          const grad = worldCtx.createRadialGradient(lx, ly, 4, lx, ly, rad);
+          grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
+          grad.addColorStop(0.55, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.45).toFixed(3)})`);
+          grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+          worldCtx.fillStyle = grad;
+          worldCtx.fillRect(lx - rad, ly - rad, rad * 2, rad * 2);
           worldCtx.restore();
         } else if (item.sub === 'Surround Light') {
-          const opt = item.opt;
-          const innerFactor = opt === 'Very Thick' ? 0.14 : (opt === 'Thick' ? 0.28 : 0.45);
-          const outerAlpha = Math.min(0.95, effAlpha * (opt === 'Very Thick' ? 1.4 : (opt === 'Thick' ? 1.2 : 1.0)));
-          const cx = W / 2;
-          const cy = H / 2;
-          const maxR = Math.hypot(cx, cy);
-          worldCtx.save();
-          const grad = worldCtx.createRadialGradient(cx, cy, maxR * innerFactor, cx, cy, maxR);
+          let innerR = Math.min(W, H) * 0.25;
+          if (item.opt === 'Thick') innerR = Math.min(W, H) * 0.16;
+          if (item.opt === 'Very Thick') innerR = Math.min(W, H) * 0.08;
+          const outerR = Math.hypot(W, H) * 0.55;
+          const grad = worldCtx.createRadialGradient(W / 2, H / 2, innerR, W / 2, H / 2, outerR);
           grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
-          grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${outerAlpha.toFixed(3)})`);
+          grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
+          worldCtx.save();
           worldCtx.fillStyle = grad;
           worldCtx.fillRect(0, 0, W, H);
           worldCtx.restore();
@@ -5284,86 +5620,87 @@
       }
     }
 
-    // Samples primary color from a sprite's pixel buffer for particles/rain/mist
-    function getPrimaryColorFromSprite(sp, fallback = '#93c5fd') {
-      if (!sp || !sp.frames || !sp.frames[0]) return fallback;
+    function getPrimaryColorFromSprite(sp, fallbackHex = '#93c5fd') {
+      if (!sp || !sp.frames || !sp.frames[0]) return fallbackHex;
       const buf = sp.frames[0];
       for (let i = 0; i < buf.length; i += 4) {
-        if (buf[i + 3] > 30) {
+        if (buf[i + 3] > 25) {
           return rgbaToHex(buf[i], buf[i + 1], buf[i + 2]);
         }
       }
-      return fallback;
+      return fallbackHex;
     }
 
     function updateWorldEnvironmentEmitter(cell, sp) {
       const sub = cell.subtype || sp.subtype || 'Environmental Mist';
       const speedMult = (sp.envSpeed ?? 100) / 100;
+      const alphaMult = (sp.envAlpha ?? 80) / 100;
       const envLayer = sp.envLayer || getDefaultEnvLayerForSubtype(sub);
-      const camX = state.camera.x;
-      const camY = state.camera.y;
+      const fade = cell.lightFade !== undefined ? cell.lightFade : 1;
+      const col = getPrimaryColorFromSprite(sp, sub === 'Physics Rain' ? '#60a5fa' : '#e2e8f0');
+
+      const camW = (worldCanvas.width / Math.max(1, state.renderZoom));
+      const camH = (worldCanvas.height / Math.max(1, state.renderZoom));
 
       if (sub === 'Physics Rain') {
         const spawnCount = Math.max(1, Math.round(2 * speedMult));
-        for (let i = 0; i < spawnCount; i++) {
-          if (state.weatherParticles.length > 260) break;
-          state.weatherParticles.push({
-            kind: 'rain',
-            spriteId: sp.id,
-            layer: envLayer,
-            x: camX + (Math.random() - 0.5) * 420,
-            y: camY - 160 - Math.random() * 40,
-            vx: -0.55 * speedMult,
-            vy: (4.8 + Math.random() * 1.8) * Math.max(0.5, speedMult),
-            len: 6 + Math.random() * 5,
-            alpha: ((sp.envAlpha ?? 80) / 100) * (cell.lightFade ?? 1),
-            color: getPrimaryColorFromSprite(sp, '#60a5fa'),
-            life: 110
-          });
+        if (state.weatherParticles.length < 260) {
+          for (let i = 0; i < spawnCount; i++) {
+            state.weatherParticles.push({
+              kind: 'rain',
+              layer: envLayer,
+              spriteId: sp.id,
+              x: state.camera.x + (Math.random() - 0.5) * (camW + 140),
+              y: state.camera.y - camH * 0.58 - Math.random() * 30,
+              vx: -0.75 * speedMult,
+              vy: (4.6 + Math.random() * 1.8) * speedMult,
+              len: 6 + Math.random() * 4,
+              color: col,
+              alpha: 0.65 * alphaMult * fade,
+              life: 160
+            });
+          }
         }
       } else if (sub === 'Physics Snow') {
-        if (worldTickCount % Math.max(2, Math.round(5 / speedMult)) === 0 && state.weatherParticles.length < 240) {
+        if (worldTickCount % 2 === 0 && state.weatherParticles.length < 220) {
           state.weatherParticles.push({
             kind: 'snow',
-            spriteId: sp.id,
             layer: envLayer,
-            x: camX + (Math.random() - 0.5) * 420,
-            y: camY - 160 - Math.random() * 20,
-            vx: (Math.random() - 0.5) * 0.45,
+            spriteId: sp.id,
+            x: state.camera.x + (Math.random() - 0.5) * (camW + 120),
+            y: state.camera.y - camH * 0.58 - Math.random() * 20,
+            vx: (Math.random() - 0.5) * 0.5 * speedMult,
             vy: (0.75 + Math.random() * 0.55) * speedMult,
-            phase: Math.random() * Math.PI * 2,
-            size: Math.random() > 0.4 ? 2 : 1.4,
-            alpha: ((sp.envAlpha ?? 80) / 100) * (cell.lightFade ?? 1),
-            color: getPrimaryColorFromSprite(sp, '#f8fafc'),
-            life: 260
+            seed: Math.random() * 10,
+            size: Math.random() > 0.4 ? 2 : 1.3,
+            color: col,
+            alpha: 0.8 * alphaMult * fade,
+            life: 320
           });
         }
       } else if (sub === 'Ambient Spores' || sub === 'Interactive Environment') {
-        if (worldTickCount % 10 === 0 && state.weatherParticles.length < 200) {
-          const nearPlayer = sub === 'Interactive Environment' && Math.hypot(state.player.x - cell.x, state.player.y - cell.y) < 42;
-          const count = nearPlayer ? 3 : 1;
-          for (let i = 0; i < count; i++) {
-            state.weatherParticles.push({
-              kind: 'spore',
-              spriteId: sp.id,
-              layer: envLayer,
-              x: cell.x + cell.w / 2 + (Math.random() - 0.5) * 140,
-              y: cell.y + cell.h / 2 + (Math.random() - 0.5) * 90,
-              vx: (Math.random() - 0.5) * 0.4 * speedMult,
-              vy: (-0.15 - Math.random() * 0.35) * speedMult,
-              phase: Math.random() * Math.PI * 2,
-              size: Math.random() > 0.5 ? 2 : 1.3,
-              alpha: ((sp.envAlpha ?? 80) / 100) * (cell.lightFade ?? 1),
-              color: getPrimaryColorFromSprite(sp, '#fde047'),
-              life: 120 + Math.floor(Math.random() * 60),
-              maxLife: 160
-            });
-          }
+        if (worldTickCount % 6 === 0 && state.weatherParticles.length < 180) {
+          state.weatherParticles.push({
+            kind: 'spore',
+            layer: envLayer,
+            spriteId: sp.id,
+            x: cell.x + (Math.random() - 0.5) * 180,
+            y: cell.y + (Math.random() - 0.5) * 120,
+            vx: (Math.random() - 0.5) * 0.45 * speedMult,
+            vy: (-0.15 - Math.random() * 0.35) * speedMult,
+            seed: Math.random() * 10,
+            size: Math.random() > 0.5 ? 2 : 1.2,
+            color: col,
+            alpha: 0.75 * alphaMult * fade,
+            life: 180,
+            maxLife: 180
+          });
         }
       }
     }
 
     function updateWeatherParticles() {
+      const p = state.player;
       for (let i = state.weatherParticles.length - 1; i >= 0; i--) {
         const wp = state.weatherParticles[i];
         wp.life--;
@@ -5371,35 +5708,42 @@
           state.weatherParticles.splice(i, 1);
           continue;
         }
-
-        if (wp.kind === 'snow' || wp.kind === 'spore') {
-          wp.phase += 0.05;
-          wp.x += wp.vx + Math.sin(wp.phase) * 0.25;
+        if (wp.kind === 'snow') {
+          wp.x += wp.vx + Math.sin(worldTickCount * 0.04 + wp.seed) * 0.28;
           wp.y += wp.vy;
+        } else if (wp.kind === 'spore') {
+          wp.x += wp.vx + Math.cos(worldTickCount * 0.03 + wp.seed) * 0.18;
+          wp.y += wp.vy + Math.sin(worldTickCount * 0.04 + wp.seed) * 0.12;
+          const dx = (wp.x) - (p.x + p.w / 2);
+          const dy = (wp.y) - (p.y + p.h / 2);
+          const dist = Math.hypot(dx, dy);
+          if (dist < 24 && dist > 0.1) {
+            wp.vx += (dx / dist) * 0.25;
+            wp.vy += (dy / dist) * 0.25;
+          }
         } else {
           wp.x += wp.vx;
           wp.y += wp.vy;
         }
 
-        // Physics collision with world blocks and water for Physics Rain & Physics Snow
+        // Physical collision check for Physics Rain and Physics Snow against world blocks & water
         if (wp.kind === 'rain' || wp.kind === 'snow') {
           const gx = Math.floor(wp.x / TILE_SIZE) * TILE_SIZE;
           const gy = Math.floor(wp.y / TILE_SIZE) * TILE_SIZE;
           const mainCell = state.worldCells.get(`${gx},${gy},main`);
-          if (mainCell && (mainCell.type === 'liquid' || isCellSolid(mainCell))) {
+          if (mainCell && (isCellSolid(mainCell) || mainCell.type === 'liquid' || mainCell.type === 'slope')) {
             if (wp.kind === 'rain') {
-              // Spawn crisp 2-droplet rain splash on block top / liquid surface
               for (let s = 0; s < 2; s++) {
                 state.particles.push({
                   x: wp.x,
                   y: gy,
                   vx: (Math.random() - 0.5) * 1.6,
-                  vy: -0.9 - Math.random() * 1.1,
-                  ay: 0.16,
-                  size: 1.2,
+                  vy: -0.7 - Math.random() * 1.1,
+                  ay: 0.15,
+                  size: 1.1,
                   color: wp.color,
-                  life: 10 + Math.floor(Math.random() * 6),
-                  maxLife: 16
+                  life: 10 + Math.floor(Math.random() * 8),
+                  maxLife: 18
                 });
               }
             }
@@ -5408,132 +5752,117 @@
           }
           if (state.hardFloorY0 && wp.y >= 0) {
             state.weatherParticles.splice(i, 1);
+            continue;
           }
         }
       }
     }
 
-    // Renders continuous environmental effects (Sky Stars, Sun/Celestial, Moving Clouds, Mist, Physics Rain/Snow) for a given layer
     function renderEnvironmentsForLayer(targetLayer, W, H, camScreenX, camScreenY, zoom) {
-      const envEntries = [];
       for (const [, cell] of state.worldCells.entries()) {
         if (cell.type !== 'environment') continue;
         const sp = getSpriteById(cell.spriteId);
         if (!sp) continue;
         const sub = cell.subtype || sp.subtype || 'Environmental Mist';
-        const effectiveLayer = sp.envLayer || getDefaultEnvLayerForSubtype(sub);
-        if (effectiveLayer !== targetLayer) continue;
+        const envLayer = sp.envLayer || getDefaultEnvLayerForSubtype(sub);
+        if (envLayer !== targetLayer) continue;
 
         const rawFade = cell.lightFade !== undefined ? Math.max(0, Math.min(1, cell.lightFade)) : 1;
         const fade = 1 - Math.pow(1 - rawFade, 2);
-        envEntries.push({ cell, sp, sub, fade });
-      }
+        const alpha = ((sp.envAlpha ?? 80) / 100) * fade;
+        const speed = (sp.envSpeed ?? 100) / 100;
+        if (alpha <= 0.01) continue;
 
-      for (const item of envEntries) {
-        const { cell, sp, sub, fade } = item;
-        const baseAlpha = ((sp.envAlpha ?? 80) / 100) * fade;
-        if (baseAlpha <= 0.01) continue;
-        const speedMult = (sp.envSpeed ?? 100) / 100;
         const spFps = sp.animFps || state.walkFps || 8;
-        const spStep = Math.floor(worldTickCount / Math.max(2, Math.round(60 / spFps)));
-        const fc = getCachedFrameCanvas(sp, spStep % sp.frames.length);
-        const primaryColor = getPrimaryColorFromSprite(sp, '#bae6fd');
+        const spAnimStep = Math.floor(worldTickCount / Math.max(2, Math.round(60 / spFps)));
+        const fIdx = sp.frames.length > 1 ? (spAnimStep % sp.frames.length) : 0;
+        const fc = getCachedFrameCanvas(sp, fIdx);
         const hasArt = isBufferNonEmpty(sp.frames[0]);
+        const primaryHex = getPrimaryColorFromSprite(sp, '#93c5fd');
 
-        worldCtx.save();
         if (sub === 'Sky Stars') {
-          // Deterministic parallax twinkling starfield across the sky
-          const seedBase = cell.x * 31 + cell.y * 17;
-          for (let i = 0; i < 42; i++) {
-            const hashX = Math.abs(Math.sin(seedBase + i * 12.9898) * 43758.5453) % 1;
-            const hashY = Math.abs(Math.sin(seedBase + i * 78.233) * 23421.631) % 1;
-            const parallax = 0.08 + (i % 3) * 0.04;
-            const sx = ((hashX * W - state.camera.x * zoom * parallax) % W + W) % W;
-            const sy = ((hashY * H * 0.85 - state.camera.y * zoom * parallax * 0.5) % (H * 0.85) + H * 0.85) % (H * 0.85);
-            const twinkle = 0.35 + 0.65 * Math.abs(Math.sin(worldTickCount * 0.03 * speedMult + i * 1.7));
-            worldCtx.globalAlpha = baseAlpha * twinkle;
+          worldCtx.save();
+          const starCount = 46;
+          for (let i = 0; i < starCount; i++) {
+            const seedX = ((i * 173 + 41) % 997) / 997;
+            const seedY = ((i * 311 + 83) % 991) / 991;
+            const parX = ((seedX * W * 1.4 - state.camera.x * zoom * 0.06) % W + W) % W;
+            const parY = ((seedY * H * 0.85 - state.camera.y * zoom * 0.04) % H + H) % H;
+            const twinkle = 0.35 + 0.65 * Math.sin(worldTickCount * 0.035 * speed + i * 2.1);
+            worldCtx.globalAlpha = alpha * twinkle;
             if (hasArt && i % 5 === 0) {
-              const sw = Math.max(4, Math.round(fc.width * zoom * 0.5));
-              const sh = Math.max(4, Math.round(fc.height * zoom * 0.5));
-              worldCtx.drawImage(fc, Math.round(sx - sw / 2), Math.round(sy - sh / 2), sw, sh);
+              const sw = Math.max(4, Math.round(fc.width * zoom * 0.45));
+              const sh = Math.max(4, Math.round(fc.height * zoom * 0.45));
+              worldCtx.drawImage(fc, Math.round(parX - sw / 2), Math.round(parY - sh / 2), sw, sh);
             } else {
-              worldCtx.fillStyle = i % 3 === 0 ? primaryColor : '#ffffff';
-              const sz = (i % 4 === 0) ? Math.max(2, Math.round(zoom * 0.9)) : Math.max(1, Math.round(zoom * 0.6));
-              worldCtx.fillRect(Math.round(sx), Math.round(sy), sz, sz);
+              worldCtx.fillStyle = i % 3 === 0 ? primaryHex : '#ffffff';
+              const sz = (i % 4 === 0 ? 2 : 1) * Math.max(1, Math.round(zoom * 0.5));
+              worldCtx.fillRect(Math.round(parX), Math.round(parY), sz, sz);
             }
           }
+          worldCtx.restore();
         } else if (sub === 'Sun / Celestial') {
-          // Parallax celestial body + soft glowing atmospheric halo
-          const parallax = 0.14;
-          const sx = Math.round(W / 2 + (cell.x - state.camera.x * parallax) * zoom);
-          const sy = Math.round(H * 0.28 + (cell.y - state.camera.y * parallax) * zoom);
-          const sw = fc.width * zoom;
-          const sh = fc.height * zoom;
-          const pulse = 1 + 0.05 * Math.sin(worldTickCount * 0.025 * speedMult);
-          const haloR = Math.max(sw, sh) * 2.4 * pulse;
-
-          const [cr, cg, cb] = hexToRgba(primaryColor);
-          const grad = worldCtx.createRadialGradient(sx + sw / 2, sy + sh / 2, sw * 0.2, sx + sw / 2, sy + sh / 2, haloR);
-          grad.addColorStop(0, `rgba(${cr}, ${cg}, ${cb}, ${(baseAlpha * 0.55).toFixed(3)})`);
-          grad.addColorStop(0.5, `rgba(${cr}, ${cg}, ${cb}, ${(baseAlpha * 0.18).toFixed(3)})`);
-          grad.addColorStop(1, `rgba(${cr}, ${cg}, ${cb}, 0)`);
+          worldCtx.save();
+          const sx = Math.round(W * 0.5 + (cell.x - state.camera.x * 0.18) * zoom);
+          const sy = Math.round(H * 0.32 + (cell.y - state.camera.y * 0.18) * zoom);
+          const [r, g, b] = hexToRgba(primaryHex);
+          const glowR = Math.max(80, Math.round(64 * zoom));
+          const grad = worldCtx.createRadialGradient(sx, sy, 4, sx, sy, glowR);
+          grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${(alpha * 0.65).toFixed(3)})`);
+          grad.addColorStop(0.45, `rgba(${r}, ${g}, ${b}, ${(alpha * 0.22).toFixed(3)})`);
+          grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
           worldCtx.fillStyle = grad;
-          worldCtx.fillRect(sx + sw / 2 - haloR, sy + sh / 2 - haloR, haloR * 2, haloR * 2);
-
-          worldCtx.globalAlpha = baseAlpha;
+          worldCtx.fillRect(sx - glowR, sy - glowR, glowR * 2, glowR * 2);
           if (hasArt) {
-            worldCtx.drawImage(fc, sx, sy, sw, sh);
-          } else {
-            worldCtx.fillStyle = primaryColor;
-            worldCtx.beginPath();
-            worldCtx.arc(sx + sw / 2, sy + sh / 2, sw * 0.45, 0, Math.PI * 2);
-            worldCtx.fill();
+            const cw = fc.width * zoom * 1.5;
+            const ch = fc.height * zoom * 1.5;
+            worldCtx.globalAlpha = alpha;
+            worldCtx.drawImage(fc, Math.round(sx - cw / 2), Math.round(sy - ch / 2), Math.round(cw), Math.round(ch));
           }
+          worldCtx.restore();
         } else if (sub === 'Moving Clouds') {
-          // Drifting parallax cloud band across the viewport
-          const spanW = Math.max(W + 240, 900);
-          const sw = fc.width * zoom;
-          const sh = fc.height * zoom;
-          const baseScreenY = Math.round(camScreenY + cell.y * zoom);
-          for (let cIdx = 0; cIdx < 5; cIdx++) {
-            const speedLayer = (0.35 + (cIdx % 3) * 0.22) * speedMult;
-            const rawX = (cell.x * zoom + cIdx * 195 + worldTickCount * speedLayer - state.camera.x * zoom * 0.55);
-            const wrappedX = ((rawX % spanW) + spanW) % spanW - 120;
-            const yOff = Math.round(Math.sin(cIdx * 2.1 + worldTickCount * 0.01) * 8 * zoom);
-            worldCtx.globalAlpha = baseAlpha * (0.65 + (cIdx % 2) * 0.35);
+          worldCtx.save();
+          const spanW = W + 320;
+          for (let i = 0; i < 6; i++) {
+            const drift = (worldTickCount * 0.32 * speed * (0.7 + (i % 3) * 0.25)) + i * 210;
+            const cx = ((drift - state.camera.x * zoom * 0.25) % spanW + spanW) % spanW - 160;
+            const cy = Math.round(camScreenY + (cell.y + ((i % 3) - 1) * 26) * zoom);
+            worldCtx.globalAlpha = alpha * (0.65 + (i % 2) * 0.25);
             if (hasArt) {
-              worldCtx.drawImage(fc, Math.round(wrappedX), baseScreenY + yOff, sw, sh);
+              const scaleMult = 1.2 + (i % 3) * 0.35;
+              const cw = Math.round(fc.width * zoom * scaleMult);
+              const ch = Math.round(fc.height * zoom * scaleMult);
+              worldCtx.drawImage(fc, Math.round(cx), cy, cw, ch);
             } else {
-              worldCtx.fillStyle = primaryColor;
-              worldCtx.fillRect(Math.round(wrappedX), baseScreenY + yOff, sw * 1.5, sh * 0.6);
+              worldCtx.fillStyle = primaryHex;
+              worldCtx.fillRect(Math.round(cx), cy, Math.round(46 * zoom), Math.round(14 * zoom));
             }
           }
+          worldCtx.restore();
         } else if (sub === 'Environmental Mist') {
-          // Soft drifting horizontal mist/fog bands + optional sprite stamp
-          const [mr, mg, mb] = hexToRgba(primaryColor);
-          const bandCenterY = Math.round(camScreenY + (cell.y + cell.h / 2) * zoom);
-          const bandH = Math.max(60, Math.round(cell.h * 2.8 * zoom));
-          const grad = worldCtx.createLinearGradient(0, bandCenterY - bandH, 0, bandCenterY + bandH);
-          grad.addColorStop(0, `rgba(${mr}, ${mg}, ${mb}, 0)`);
-          grad.addColorStop(0.5, `rgba(${mr}, ${mg}, ${mb}, ${(baseAlpha * 0.42).toFixed(3)})`);
-          grad.addColorStop(1, `rgba(${mr}, ${mg}, ${mb}, 0)`);
+          worldCtx.save();
+          const [r, g, b] = hexToRgba(primaryHex);
+          const bandY = Math.round(camScreenY + (cell.y - 38) * zoom);
+          const bandH = Math.round(114 * zoom);
+          const grad = worldCtx.createLinearGradient(0, bandY, 0, bandY + bandH);
+          grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
+          grad.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${(alpha * 0.36).toFixed(3)})`);
+          grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
           worldCtx.fillStyle = grad;
-          worldCtx.fillRect(0, bandCenterY - bandH, W, bandH * 2);
+          worldCtx.fillRect(0, bandY, W, bandH);
 
           if (hasArt) {
-            const spanW = Math.max(W + 180, 720);
-            const sw = fc.width * zoom * 1.5;
-            const sh = fc.height * zoom * 1.2;
-            for (let mIdx = 0; mIdx < 6; mIdx++) {
-              const drift = worldTickCount * 0.28 * speedMult * (mIdx % 2 === 0 ? 1 : -0.7);
-              const wx = ((mIdx * 150 + drift - state.camera.x * zoom * 0.8) % spanW + spanW) % spanW - 90;
-              const wy = bandCenterY - sh / 2 + Math.sin(worldTickCount * 0.02 + mIdx) * 6 * zoom;
-              worldCtx.globalAlpha = baseAlpha * 0.5;
-              worldCtx.drawImage(fc, Math.round(wx), Math.round(wy), Math.round(sw), Math.round(sh));
+            const spanW = W + 240;
+            for (let i = 0; i < 5; i++) {
+              const drift = worldTickCount * 0.22 * speed * (i % 2 === 0 ? 1 : -0.8) + i * 190;
+              const mx = ((drift - state.camera.x * zoom * 0.6) % spanW + spanW) % spanW - 120;
+              const my = Math.round(camScreenY + (cell.y + (i - 2) * 12) * zoom);
+              worldCtx.globalAlpha = alpha * 0.45;
+              worldCtx.drawImage(fc, Math.round(mx), my, Math.round(fc.width * zoom * 2.2), Math.round(fc.height * zoom * 1.6));
             }
           }
+          worldCtx.restore();
         }
-        worldCtx.restore();
       }
 
       // Render Weather Particles (Physics Rain, Physics Snow, Ambient Spores) on this layer
@@ -5919,8 +6248,9 @@
         const fc = getCachedFrameCanvas(sp, fIdx);
 
         worldCtx.save();
-        if (entScale !== 1) {
+        if (entScale !== 1 || ent.rot) {
           worldCtx.translate(sx + sw / 2, sy + sh / 2);
+          if (ent.rot) worldCtx.rotate(ent.rot);
           worldCtx.scale(entScale * (ent.facing === -1 ? -1 : 1), entScale);
           worldCtx.drawImage(fc, -sw / 2, -sh / 2, sw, sh);
         } else if (ent.facing === -1) {
@@ -5951,13 +6281,22 @@
         const sp = getSpriteById(pr.spriteId);
         if (!sp) continue;
         const fc = getCachedFrameCanvas(sp, pr.frameIdx || 0);
-        worldCtx.drawImage(
-          fc,
-          Math.round(camScreenX + pr.x * zoom),
-          Math.round(camScreenY + pr.y * zoom),
-          pr.w * zoom,
-          pr.h * zoom
-        );
+        const psx = Math.round(camScreenX + pr.x * zoom);
+        const psy = Math.round(camScreenY + pr.y * zoom);
+        const psw = pr.w * zoom;
+        const psh = pr.h * zoom;
+        worldCtx.save();
+        if (pr.life < 28) {
+          worldCtx.globalAlpha = Math.max(0, pr.life / 28);
+        }
+        if (pr.rot) {
+          worldCtx.translate(psx + psw / 2, psy + psh / 2);
+          worldCtx.rotate(pr.rot);
+          worldCtx.drawImage(fc, -psw / 2, -psh / 2, psw, psh);
+        } else {
+          worldCtx.drawImage(fc, psx, psy, psw, psh);
+        }
+        worldCtx.restore();
       }
 
       for (const pt of state.particles) {
@@ -6021,9 +6360,24 @@
         const fc = getCachedFrameCanvas(sprite, safeIdx);
         const lw = fc.width * zoom;
         const lh = fc.height * zoom;
+
+        // Calculate swimming shake/wiggle offset when in liquid
+        let swimShakeX = 0;
+        let swimShakeY = 0;
+        let swimShakeAngle = 0;
+        if (p.inLiquid && p.deadTimer === 0) {
+          const isSwimming = state.keys.left || state.keys.right || state.keys.up || state.keys.down || Math.hypot(p.vx, p.vy) > 0.14;
+          const shakeAmp = isSwimming ? 1.15 : 0.35;
+          swimShakeX = Math.cos(p.swimShakePhase * 1.35) * shakeAmp * zoom;
+          swimShakeY = Math.sin(p.swimShakePhase * 1.7) * shakeAmp * zoom;
+          swimShakeAngle = Math.sin(p.swimShakePhase) * (isSwimming ? 0.14 : 0.04) + (p.flyTilt || 0);
+        } else if (Math.abs(p.flyTilt || 0) > 0.005 && p.deadTimer === 0) {
+          swimShakeAngle = p.flyTilt;
+        }
+
         // Center canvas horizontally on player hitbox, align canvas bottom to player feet (preserving all internal pixel offsets!)
-        const lx = Math.round(px + (pw - lw) / 2 + extraOffsetX * zoom);
-        const ly = Math.round(py + (ph - lh) + extraOffsetY * zoom);
+        const lx = Math.round(px + (pw - lw) / 2 + extraOffsetX * zoom + swimShakeX);
+        const ly = Math.round(py + (ph - lh) + extraOffsetY * zoom + swimShakeY);
         const shouldFlipX = forceFlipX !== null ? forceFlipX : (p.facing === -1);
 
         worldCtx.save();
@@ -6042,6 +6396,13 @@
           worldCtx.scale(p.respawnAnim, p.respawnAnim);
           worldCtx.translate(-(lx + lw / 2), -(ly + lh / 2));
         }
+        if (Math.abs((p.squashX || 1) - 1) > 0.005 || Math.abs((p.squashY || 1) - 1) > 0.005) {
+          const footX = lx + lw / 2;
+          const footY = ly + lh;
+          worldCtx.translate(footX, footY);
+          worldCtx.scale(p.squashX || 1, p.squashY || 1);
+          worldCtx.translate(-footX, -footY);
+        }
         if (p.poseSettleAnim > 0) {
           const t = 1 - p.poseSettleAnim / 18;
           const hopY = -Math.sin(t * Math.PI) * 4.5 * zoom;
@@ -6052,6 +6413,13 @@
           worldCtx.translate(footX, footY + hopY);
           worldCtx.scale(sqX, sqY);
           worldCtx.translate(-footX, -footY);
+        }
+        if (Math.abs(swimShakeAngle) > 0.005 && !rotateLying) {
+          const cx = lx + lw / 2;
+          const cy = ly + lh / 2;
+          worldCtx.translate(cx, cy);
+          worldCtx.rotate(swimShakeAngle);
+          worldCtx.translate(-cx, -cy);
         }
         if (rotateLying) {
           // Rotate idle sprite 90 degrees so the avatar lies horizontally to sleep
@@ -6174,6 +6542,25 @@
         }
       } else {
         worldCtx.save();
+        if (Math.abs((p.squashX || 1) - 1) > 0.005 || Math.abs((p.squashY || 1) - 1) > 0.005) {
+          worldCtx.translate(px + pw / 2, py + ph);
+          worldCtx.scale(p.squashX || 1, p.squashY || 1);
+          worldCtx.translate(-(px + pw / 2), -(py + ph));
+        }
+        if (p.inLiquid && p.deadTimer === 0) {
+          const isSwimming = state.keys.left || state.keys.right || state.keys.up || state.keys.down || Math.hypot(p.vx, p.vy) > 0.14;
+          const shakeAmp = isSwimming ? 1.15 : 0.35;
+          const sxOff = Math.cos(p.swimShakePhase * 1.35) * shakeAmp * zoom;
+          const syOff = Math.sin(p.swimShakePhase * 1.7) * shakeAmp * zoom;
+          const sRot = Math.sin(p.swimShakePhase) * (isSwimming ? 0.14 : 0.04) + (p.flyTilt || 0);
+          worldCtx.translate(px + pw / 2 + sxOff, py + ph / 2 + syOff);
+          worldCtx.rotate(sRot);
+          worldCtx.translate(-(px + pw / 2), -(py + ph / 2));
+        } else if (Math.abs(p.flyTilt || 0) > 0.005 && p.deadTimer === 0) {
+          worldCtx.translate(px + pw / 2, py + ph / 2);
+          worldCtx.rotate(p.flyTilt);
+          worldCtx.translate(-(px + pw / 2), -(py + ph / 2));
+        }
         if (p.poseSettleAnim > 0 && p.deadTimer === 0) {
           const t = 1 - p.poseSettleAnim / 18;
           const hopY = -Math.sin(t * Math.PI) * 4.5 * zoom;
@@ -6888,9 +7275,8 @@
         scheduleWorldAutoBackup();
         return;
       }
-
-      if (['pushing', 'moving', 'living'].includes(sp.type) && !(sp.type === 'moving' && sp.subtype === 'Mover')) {
-        const exists = state.dynamicEntities.some(e => Math.abs(e.x - snapX) < 4 && Math.abs(e.y - snapY) < 4 && e.type === sp.type);
+      if ((['pushing', 'moving', 'living'].includes(sp.type) && !(sp.type === 'moving' && sp.subtype === 'Mover')) || isGravityEntity(sp)) {
+        const exists = state.dynamicEntities.some(e => Math.abs(e.x - snapX) < 4 && Math.abs(e.y - snapY) < 4 && e.spriteId === sp.id);
         if (!exists) {
           state.dynamicEntities.push({
             spriteId: sp.id,
@@ -6902,8 +7288,9 @@
             originY: snapY,
             w: sp.w,
             h: sp.h,
-            vx: sp.type === 'pushing' ? 0 : 0.75,
+            vx: isGravityEntity(sp) ? 0 : 0.75,
             vy: 0,
+            rot: 0,
             facing: 1,
             placeAnim: Math.max(-0.5, 0.12 - animDelay)
           });
@@ -7058,17 +7445,23 @@
           const dx = mouseWorld.wx - (p.x + p.w / 2);
           const dy = mouseWorld.wy - (p.y + p.h / 2);
           const d = Math.hypot(dx, dy) || 1;
+          const vx = (dx / d) * 5.2;
           state.projectiles.push({
             spriteId: heldSp.id,
             frameIdx: Math.min(1, heldSp.frames.length - 1),
             x: p.x + p.w / 2 - 4,
             y: p.y + p.h / 2 - 4,
-            vx: (dx / d) * 4.8,
-            vy: (dy / d) * 4.8,
+            vx,
+            vy: (dy / d) * 5.2,
+            rot: 0,
+            vrot: vx * 0.08,
+            bounciness: 0.42,
+            friction: 0.85,
             w: heldSp.w,
             h: heldSp.h,
-            gravity: 0.04,
-            life: 110
+            gravity: 0.08,
+            life: 160,
+            maxLife: 160
           });
           return;
         }
@@ -7528,32 +7921,46 @@
       const heldSp = state.sprites.find(s => s.id === state.activeHoldableId);
       if (heldSp) {
         if (heldSp.subtype === 'Item') {
-          // Manyland Wiki: Throw Holdable in movement direction; falls and disappears or breaks Crumbling
+          // Throw Holdable with spinning arc, bounce, rolling friction & water buoyancy
+          const vx = p.facing * 3.6 + p.vx * 0.6;
           state.projectiles.push({
             spriteId: heldSp.id,
             frameIdx: 0,
-            x: p.x + (p.facing === 1 ? p.w : -heldSp.w),
-            y: p.y,
-            vx: p.facing * 3.4 + p.vx * 0.5,
-            vy: -2.6,
+            x: p.x + (p.facing === 1 ? p.w - 2 : -heldSp.w + 2),
+            y: p.y - 2,
+            vx,
+            vy: -3.1 + Math.min(0, p.vy * 0.3),
+            rot: 0,
+            vrot: p.facing * 0.18,
+            bounciness: 0.56,
+            friction: 0.84,
             w: heldSp.w,
             h: heldSp.h,
             gravity: 0.2,
-            life: 140
+            life: 220,
+            maxLife: 220
           });
+          sfx.jump();
         } else if (heldSp.subtype === 'Emitter' || heldSp.subtype === 'Aimable') {
+          const vx = p.facing * 4.8;
           state.projectiles.push({
             spriteId: heldSp.id,
             frameIdx: Math.min(1, heldSp.frames.length - 1),
             x: p.x + (p.facing === 1 ? p.w : -heldSp.w),
             y: p.y + 2,
-            vx: p.facing * 4.8,
-            vy: 0,
+            vx,
+            vy: -0.4,
+            rot: 0,
+            vrot: p.facing * 0.12,
+            bounciness: 0.45,
+            friction: 0.86,
             w: heldSp.w,
             h: heldSp.h,
-            gravity: 0.02,
-            life: 95
+            gravity: 0.06,
+            life: 140,
+            maxLife: 140
           });
+          sfx.ui(560);
         } else if (heldSp.subtype === 'Consumable') {
           p.consumableBites = (p.consumableBites || 0) + 1;
           spawnWorldParticles(p.x + p.w / 2, p.y + p.h / 2, '#fca5a5', 4);

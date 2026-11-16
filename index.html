@@ -610,25 +610,25 @@
   </aside>
 
   <!-- CREATE / EDIT SPRITE MODAL (Manyland + Aseprite Hybrid) -->
-  <div id="editor-modal" class="smooth-modal fixed inset-0 bg-black/80 z-40 flex items-center justify-center p-3">
-    <div class="smooth-modal-box studio-panel rounded-sm w-[95vw] max-w-6xl h-[90vh] flex flex-col overflow-hidden">
+  <div id="editor-modal" class="smooth-modal fixed inset-0 bg-black/80 z-40 flex items-center justify-center p-2 sm:p-3 overflow-y-auto">
+    <div class="smooth-modal-box studio-panel rounded-sm w-[98vw] max-w-6xl max-h-[96vh] flex flex-col overflow-hidden my-auto">
       <!-- Modal Header -->
-      <div class="px-3.5 py-2 bg-[#111217] border-b border-[#262834] flex flex-wrap items-center justify-between gap-2">
-        <div class="flex flex-wrap items-center gap-2">
+      <div class="px-3 py-1.5 bg-[#111217] border-b border-[#262834] flex flex-wrap items-center justify-between gap-1.5 shrink-0">
+        <div class="flex flex-wrap items-center gap-1.5 min-w-0">
           <!-- Name Input -->
           <input
             id="sprite-name-input"
             type="text"
             placeholder="Name..."
             value="Untitled"
-            class="bg-[#121216] border border-[#34343e] rounded-sm px-2.5 py-1 text-xs text-zinc-100 w-44 mono focus:outline-none focus:border-blue-500"
+            class="bg-[#121216] border border-[#34343e] rounded-sm px-2 py-0.5 text-xs text-zinc-100 w-36 mono focus:outline-none focus:border-blue-500"
           />
 
           <!-- Manyland TYPE Selector Button -->
           <button
             id="open-type-picker-btn"
             title="Change Object Type (Ctrl+F)"
-            class="ase-btn px-2.5 py-1 text-xs mono text-zinc-100 flex items-center gap-1.5"
+            class="ase-btn px-2 py-0.5 text-xs mono text-zinc-100 flex items-center gap-1"
           >
             <span id="current-type-label" class="font-semibold text-blue-400">SOLID</span>
             <svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor" class="text-zinc-400">
@@ -640,14 +640,14 @@
           <select
             id="subtype-select"
             title="Object Subtype"
-            class="bg-[#222228] border border-[#34343e] rounded-sm px-2 py-1 text-xs text-zinc-200 focus:outline-none focus:border-blue-500"
+            class="bg-[#222228] border border-[#34343e] rounded-sm px-1.5 py-0.5 text-xs text-zinc-200 focus:outline-none focus:border-blue-500"
           ></select>
 
           <!-- Sittable / Layable Pose Selector for World Creations -->
           <select
             id="pose-type-select"
             title="Player Pose on Object"
-            class="hidden bg-[#222228] border border-[#34343e] rounded-sm px-2 py-1 text-xs text-emerald-300 focus:outline-none focus:border-blue-500"
+            class="hidden bg-[#222228] border border-[#34343e] rounded-sm px-1.5 py-0.5 text-xs text-emerald-300 focus:outline-none focus:border-blue-500"
           >
             <option value="none">Pose: None</option>
             <option value="sit">Sittable</option>
@@ -657,8 +657,8 @@
           <!-- Smart Footstep Surface Sound Selector (Auto-detects from name or explicit override) -->
           <select
             id="surface-type-select"
-            title="Footstep Sound Material (Auto-detects grass, sand, metal, stone, mud, wood, snow from name, or choose manually)"
-            class="hidden bg-[#222228] border border-[#34343e] rounded-sm px-2 py-1 text-xs text-sky-300 focus:outline-none focus:border-blue-500"
+            title="Footstep Sound Material"
+            class="hidden bg-[#222228] border border-[#34343e] rounded-sm px-1.5 py-0.5 text-xs text-sky-300 focus:outline-none focus:border-blue-500"
           >
             <option value="auto">Step: Auto</option>
             <option value="grass">Step: Grass</option>
@@ -674,18 +674,18 @@
           <!-- Solid Layer Order Selector (Defaults to Over Player, can be switched to Under Player) -->
           <select
             id="solid-layer-select"
-            title="Solid Render Order Relative to Player (Over Player by default)"
-            class="hidden bg-[#222228] border border-[#34343e] rounded-sm px-2 py-1 text-xs text-purple-300 focus:outline-none focus:border-blue-500"
+            title="Solid Render Order Relative to Player"
+            class="hidden bg-[#222228] border border-[#34343e] rounded-sm px-1.5 py-0.5 text-xs text-purple-300 focus:outline-none focus:border-blue-500"
           >
-            <option value="over">Layer: Over Player</option>
-            <option value="under">Layer: Under Player</option>
+            <option value="over">Layer: Over</option>
+            <option value="under">Layer: Under</option>
           </select>
 
           <!-- Motion Special Effect Selector (When editing BODY -> Motion) -->
           <select
             id="motion-fx-select"
             title="Motion Particle Effect"
-            class="hidden bg-[#222228] border border-[#34343e] rounded-sm px-2 py-1 text-xs text-amber-300 focus:outline-none focus:border-blue-500"
+            class="hidden bg-[#222228] border border-[#34343e] rounded-sm px-1.5 py-0.5 text-xs text-amber-300 focus:outline-none focus:border-blue-500"
           >
             <option value="none">FX: None</option>
             <option value="sleep">FX: Zzz</option>
@@ -697,85 +697,83 @@
           <button
             id="open-code-popup-btn"
             title="Open Dynamic Layer Script Editor"
-            class="hidden ase-btn px-2 py-1 text-xs mono text-blue-300 items-center gap-1"
+            class="hidden ase-btn px-2 py-0.5 text-xs mono text-blue-300 items-center gap-1"
           >
             <span>[...]</span>
           </button>
 
           <!-- Manyland LIGHT Controls -->
-          <div id="light-controls-group" class="hidden items-center gap-1.5 bg-[#202027] border border-amber-500/40 rounded-sm px-2 py-0.5">
-            <input id="light-color-picker" type="color" value="#ffe896" class="w-5 h-5 bg-transparent border-0 cursor-pointer p-0" title="Light Color" />
-            <button id="use-active-for-light-btn" class="ase-btn px-1.5 py-0.5 text-[9px]" title="Use active brush color as Light color">Pick</button>
-            <input id="light-alpha-slider" type="range" min="5" max="100" value="45" title="Light Intensity" class="w-14 accent-amber-400 h-1.5 bg-[#141418] rounded" />
-            <span id="light-alpha-label" class="text-[10px] text-amber-200 mono w-7 text-right">45%</span>
+          <div id="light-controls-group" class="hidden items-center gap-1 bg-[#202027] border border-amber-500/40 rounded-sm px-2 py-0.5">
+            <input id="light-color-picker" type="color" value="#ffe896" class="w-4 h-4 bg-transparent border-0 cursor-pointer p-0" title="Light Color" />
+            <button id="use-active-for-light-btn" class="ase-btn px-1 py-0.5 text-[9px]" title="Use active brush color">Pick</button>
+            <input id="light-alpha-slider" type="range" min="5" max="100" value="45" title="Light Intensity" class="w-12 accent-amber-400 h-1.5 bg-[#141418] rounded" />
+            <span id="light-alpha-label" class="text-[10px] text-amber-200 mono w-6 text-right">45%</span>
             <select
               id="light-option-select"
               title="Light Mode"
-              class="bg-[#18181e] border border-[#34343e] rounded-sm px-1.5 py-0.5 text-xs text-amber-200 focus:outline-none"
+              class="bg-[#18181e] border border-[#34343e] rounded-sm px-1 py-0.5 text-xs text-amber-200 focus:outline-none"
             ></select>
             <select
               id="light-layer-select"
-              title="Light Render Layer (Overlaps freely across depth layers)"
-              class="bg-[#18181e] border border-[#34343e] rounded-sm px-1.5 py-0.5 text-xs text-sky-300 focus:outline-none"
+              title="Light Render Layer"
+              class="bg-[#18181e] border border-[#34343e] rounded-sm px-1 py-0.5 text-xs text-sky-300 focus:outline-none"
             >
-              <option value="sky">Layer: Sky / Bg</option>
-              <option value="farback">Layer: Far Back</option>
+              <option value="sky">Layer: Sky</option>
+              <option value="farback">Layer: Far</option>
               <option value="back">Layer: Back</option>
               <option value="main">Layer: Main</option>
-              <option value="front">Layer: Front / Over</option>
+              <option value="front">Layer: Front</option>
             </select>
           </div>
 
-          <!-- Manyland ENVIRONMENT Controls (Mist, Sky Stars, Physics Rain, Sun, Moving Clouds) -->
-          <div id="env-controls-group" class="hidden items-center gap-1.5 bg-[#1a222d] border border-sky-500/40 rounded-sm px-2 py-0.5">
+          <!-- Manyland ENVIRONMENT Controls -->
+          <div id="env-controls-group" class="hidden items-center gap-1 bg-[#1a222d] border border-sky-500/40 rounded-sm px-2 py-0.5">
             <select
               id="env-layer-select"
               title="Environment Render Layer"
-              class="bg-[#141820] border border-[#34343e] rounded-sm px-1.5 py-0.5 text-xs text-sky-300 focus:outline-none"
+              class="bg-[#141820] border border-[#34343e] rounded-sm px-1 py-0.5 text-xs text-sky-300 focus:outline-none"
             >
               <option value="sky">Layer: Sky</option>
-              <option value="farback">Layer: Far Back</option>
+              <option value="farback">Layer: Far</option>
               <option value="back">Layer: Back</option>
               <option value="main">Layer: Main</option>
               <option value="front">Layer: Front</option>
             </select>
             <span class="text-[9px] text-sky-200">Spd</span>
-            <input id="env-speed-slider" type="range" min="10" max="300" value="100" title="Environment Speed / Intensity" class="w-12" />
+            <input id="env-speed-slider" type="range" min="10" max="300" value="100" title="Environment Speed" class="w-10" />
             <span class="text-[9px] text-sky-200">Alpha</span>
-            <input id="env-alpha-slider" type="range" min="10" max="100" value="80" title="Environment Opacity" class="w-12" />
-            <span id="env-alpha-label" class="text-[10px] text-sky-200 mono w-7 text-right">80%</span>
+            <input id="env-alpha-slider" type="range" min="10" max="100" value="80" title="Environment Opacity" class="w-10" />
+            <span id="env-alpha-label" class="text-[10px] text-sky-200 mono w-6 text-right">80%</span>
           </div>
 
-          <!-- Manyland LIQUID Controls (Adjustable Opacity & Viscosity Toggle) -->
-          <div id="liquid-controls-group" class="hidden items-center gap-1.5 bg-[#14222e] border border-cyan-500/40 rounded-sm px-2 py-0.5">
+          <!-- Manyland LIQUID Controls -->
+          <div id="liquid-controls-group" class="hidden items-center gap-1 bg-[#14222e] border border-cyan-500/40 rounded-sm px-2 py-0.5">
             <button
               id="liquid-viscosity-btn"
               type="button"
-              title="Toggle between Normal Water (fast, smooth swimming) and Thick Liquid (slow, viscous)"
-              class="ase-btn px-2 py-0.5 text-[10px] text-cyan-200 font-medium"
+              title="Toggle Normal vs Thick Water"
+              class="ase-btn px-1.5 py-0.5 text-[10px] text-cyan-200 font-medium"
             >
-              Water: Normal
+              Water
             </button>
-            <div class="h-3 w-[1px] bg-cyan-500/30 mx-0.5"></div>
             <span class="text-[9px] text-cyan-200">Opacity</span>
-            <input id="liquid-alpha-slider" type="range" min="10" max="100" value="65" title="Liquid Opacity" class="w-16" />
-            <span id="liquid-alpha-label" class="text-[10px] text-cyan-200 mono w-8 text-right">65%</span>
+            <input id="liquid-alpha-slider" type="range" min="10" max="100" value="65" title="Liquid Opacity" class="w-12" />
+            <span id="liquid-alpha-label" class="text-[10px] text-cyan-200 mono w-6 text-right">65%</span>
           </div>
 
-          <!-- Manyland FURRY Controls (Many vs Singular + Flowing Sway) -->
-          <div id="furry-controls-group" class="hidden items-center gap-1.5 bg-[#14261c] border border-emerald-500/40 rounded-sm px-2 py-0.5">
+          <!-- Manyland FURRY Controls -->
+          <div id="furry-controls-group" class="hidden items-center gap-1 bg-[#14261c] border border-emerald-500/40 rounded-sm px-2 py-0.5">
             <button
               id="furry-mode-btn"
               type="button"
-              title="Toggle between Many (dense patch of grass/shag tufts across tile) and Singular (single tuft)"
-              class="ase-btn active px-2 py-0.5 text-[10px] text-emerald-200 font-medium"
+              title="Toggle Many vs Singular"
+              class="ase-btn active px-1.5 py-0.5 text-[10px] text-emerald-200 font-medium"
             >
-              Attr: Many
+              Many
             </button>
-            <div class="h-3 w-[1px] bg-emerald-500/30 mx-0.5"></div>
             <span class="text-[9px] text-emerald-200">Flow</span>
-            <input id="furry-flow-slider" type="range" min="0" max="100" value="55" title="Ambient Flowing Wave Amount" class="w-14" />
-            <span id="furry-flow-label" class="text-[10px] text-emerald-200 mono w-8 text-right">55%</span>
+            <input id="furry-flow-slider" type="range" min="0" max="100" value="55" title="Ambient Flowing Wave Amount" class="w-12" />
+            <span id="furry-flow-label" class="text-[10px] text-emerald-200 mono w-6 text-right">55%</span>
           </div>
 
           <!-- Optional Textual / Interacting Sign Text Input -->
@@ -783,48 +781,50 @@
             id="dynamic-code-input"
             type="text"
             placeholder="Text / Speech..."
-            class="hidden bg-[#121216] border border-[#34343e] rounded-sm px-2 py-1 text-xs text-zinc-100 w-40 mono focus:outline-none focus:border-blue-500"
+            class="hidden bg-[#121216] border border-[#34343e] rounded-sm px-2 py-0.5 text-xs text-zinc-100 w-32 mono focus:outline-none focus:border-blue-500"
           />
 
-          <!-- Grid Dimensions (Auto-applies on change) -->
-          <div class="flex items-center gap-1 text-xs text-zinc-400 pl-1.5 border-l border-[#2a2a32]" title="Canvas Width × Height">
-            <input id="canvas-w-input" type="number" min="4" max="128" value="19" class="w-12 bg-[#121216] border border-[#34343e] rounded-sm px-1 py-0.5 text-center mono text-zinc-100" />
+          <!-- Grid Dimensions -->
+          <div class="flex items-center gap-1 text-xs text-zinc-400 pl-1 border-l border-[#2a2a32]" title="Canvas Width × Height">
+            <input id="canvas-w-input" type="number" min="4" max="128" value="19" class="w-10 bg-[#121216] border border-[#34343e] rounded-sm px-1 py-0.5 text-center mono text-zinc-100 text-xs" />
             <span>×</span>
-            <input id="canvas-h-input" type="number" min="4" max="128" value="19" class="w-12 bg-[#121216] border border-[#34343e] rounded-sm px-1 py-0.5 text-center mono text-zinc-100" />
+            <input id="canvas-h-input" type="number" min="4" max="128" value="19" class="w-10 bg-[#121216] border border-[#34343e] rounded-sm px-1 py-0.5 text-center mono text-zinc-100 text-xs" />
             <button id="resize-canvas-btn" class="hidden">Resize</button>
           </div>
         </div>
 
-        <!-- Compact Icon PNG / Aseprite / Paint.NET I/O Actions -->
+        <!-- Compact Icon PNG / Aseprite I/O Actions -->
         <div class="flex items-center gap-1">
-          <label title="Import PNG or Spritesheet" class="ase-btn p-1.5 cursor-pointer text-zinc-200 flex items-center justify-center">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <label title="Import PNG or Spritesheet" class="ase-btn p-1 cursor-pointer text-zinc-200 flex items-center justify-center">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <input id="import-png-input" type="file" accept="image/png,image/gif,image/webp" class="hidden" />
           </label>
-          <button id="copy-png-clipboard-btn" title="Copy Cel as PNG to Clipboard" class="ase-btn p-1.5 text-emerald-300 flex items-center justify-center">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <button id="copy-png-clipboard-btn" title="Copy Cel as PNG to Clipboard" class="ase-btn p-1 text-emerald-300 flex items-center justify-center">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </button>
-          <button id="export-cel-png-btn" title="Download Current Cel PNG" class="ase-btn p-1.5 text-zinc-200 flex items-center justify-center">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <button id="export-cel-png-btn" title="Download Current Cel PNG" class="ase-btn p-1 text-zinc-200 flex items-center justify-center">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </button>
-          <button id="export-strip-png-btn" title="Download Full Spritesheet Strip PNG" class="ase-btn p-1.5 text-blue-300 flex items-center justify-center">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="1"/><line x1="8" y1="6" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="18"/></svg>
+          <button id="export-strip-png-btn" title="Download Full Spritesheet Strip PNG" class="ase-btn p-1 text-blue-300 flex items-center justify-center">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="1"/><line x1="8" y1="6" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="18"/></svg>
           </button>
         </div>
       </div>
 
-      <!-- Paste Notice / Strip Slicer Bar (Appears when pasting wide strip) -->
-      <div id="strip-notice-bar" class="hidden px-4 py-1.5 bg-blue-950/60 border-b border-blue-800/60 text-xs text-blue-200 flex items-center justify-between">
+      <!-- Paste Notice / Strip Slicer Bar -->
+      <div id="strip-notice-bar" class="hidden px-3 py-1 bg-blue-950/60 border-b border-blue-800/60 text-xs text-blue-200 flex items-center justify-between shrink-0">
         <span id="strip-notice-text">Pasted image detected.</span>
         <div class="flex items-center gap-2">
-          <button id="slice-strip-btn" class="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white rounded">Slice Across Frames</button>
-          <button id="dismiss-strip-btn" class="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded">Dismiss</button>
+          <button id="slice-strip-btn" class="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-[10px]">Slice Across Frames</button>
+          <button id="dismiss-strip-btn" class="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-[10px]">Dismiss</button>
         </div>
       </div>
 
       <!-- Main Editor Workspace -->
       <div class="flex flex-1 min-h-0 overflow-hidden">
 
+        <!-- Left Tool Strip (Aseprite Arsenal: 2-Column Grid) -->
+        <div class="w-16 bg-[#17171b] border-r border-[#2a2a32] p-1 grid grid-cols-2 gap-1 content-start shrink-0 overflow-y-auto">
         <!-- Left Tool Strip (Aseprite Arsenal: 2-Column Grid) -->
         <div class="w-20 bg-[#17171b] border-r border-[#2a2a32] p-1.5 grid grid-cols-2 gap-1 content-start shrink-0 overflow-y-auto">
           <button data-tool="marquee" title="Selection Tool (M) - Rect, Circle, or Magic Wand" class="tool-btn">
@@ -897,7 +897,7 @@
         </div>
 
         <!-- Center Drawing Surface (Grab-and-Drag Panning, No Scrollbars) -->
-        <div id="paint-stage" class="flex-1 bg-[#121215] flex flex-col items-center justify-center relative p-4 overflow-hidden select-none">
+        <div id="paint-stage" class="flex-1 bg-[#121215] flex flex-col items-center justify-center relative p-3 overflow-hidden select-none">
           <!-- Floating Color / Hue / Saturation / Opacity FX Popover -->
           <div id="color-fx-popover" class="hidden studio-panel absolute top-11 left-3 z-30 w-72 p-3 rounded-sm flex-col gap-2.5 text-[10px] overflow-hidden">
             <div class="flex items-center justify-between border-b border-[#282a36] pb-1.5">
@@ -1069,9 +1069,9 @@
         </div>
 
         <!-- Right Panel: Aseprite-Style Color Bar & Context-Aware Preview -->
-        <div class="w-72 bg-[#17171b] border-l border-[#2a2a32] p-3 flex flex-col justify-between gap-2.5 overflow-y-auto">
-          <!-- Aseprite-Style Dynamic Used Color Bar + Spectrum (Expands to utilize vertical space) -->
-          <div class="flex-1 flex flex-col gap-2 min-h-0">
+        <div class="w-64 sm:w-72 bg-[#17171b] border-l border-[#2a2a32] p-2.5 flex flex-col justify-between gap-2 overflow-y-auto shrink-0">
+          <!-- Aseprite-Style Dynamic Used Color Bar + Spectrum -->
+          <div class="flex flex-col gap-2 min-h-0">
             <div class="flex items-center justify-between shrink-0">
               <div class="flex items-center gap-1">
                 <button id="add-swatch-btn" title="Pin current color to palette" class="ase-btn px-2 py-0.5 text-[10px]">+</button>
@@ -1084,19 +1084,19 @@
               </button>
             </div>
 
-            <!-- Used Color History Swatches (Expanded to 6x8 = 48 slots to utilize space underneath colors) -->
-            <div id="palette-grid" class="flex-1 grid grid-cols-8 gap-1 p-1.5 bg-[#101014] border border-[#2a2a32] rounded-sm min-h-[124px] overflow-y-auto content-start"></div>
+            <!-- Used Color History Swatches (Expanded to 6x8 = 48 slots) -->
+            <div id="palette-grid" class="grid grid-cols-8 gap-1 p-1 bg-[#101014] border border-[#2a2a32] rounded-sm max-h-24 overflow-y-auto content-start"></div>
 
             <!-- Aseprite Saturation / Value 2D Box + Hue Strip + Alpha Slider -->
-            <div class="flex flex-col gap-2 bg-[#121216] p-2 border border-[#2a2a32] rounded-sm shrink-0">
-              <div class="relative w-full h-32 rounded-xs overflow-hidden cursor-crosshair border border-[#2e2e36]">
-                <canvas id="sv-spectrum-canvas" width="210" height="128" class="w-full h-full block"></canvas>
+            <div class="flex flex-col gap-1.5 bg-[#121216] p-2 border border-[#2a2a32] rounded-sm shrink-0">
+              <div class="relative w-full h-24 sm:h-28 rounded-xs overflow-hidden cursor-crosshair border border-[#2e2e36]">
+                <canvas id="sv-spectrum-canvas" width="210" height="112" class="w-full h-full block"></canvas>
                 <div id="sv-cursor" class="pointer-events-none absolute w-3 h-3 rounded-none border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.9)] -translate-x-1/2 -translate-y-1/2" style="left: 100%; top: 0%;"></div>
               </div>
 
               <!-- Hue Bar -->
-              <div class="relative w-full h-3.5 rounded-xs overflow-hidden cursor-pointer border border-[#2e2e36]">
-                <canvas id="hue-strip-canvas" width="210" height="14" class="w-full h-full block"></canvas>
+              <div class="relative w-full h-3 rounded-xs overflow-hidden cursor-pointer border border-[#2e2e36]">
+                <canvas id="hue-strip-canvas" width="210" height="12" class="w-full h-full block"></canvas>
                 <div id="hue-cursor" class="pointer-events-none absolute top-0 bottom-0 w-2 bg-white border border-black -translate-x-1/2" style="left: 0%;"></div>
               </div>
 
@@ -1107,40 +1107,40 @@
               </div>
 
               <!-- Hex Input & Native Color Picker -->
-              <div class="flex items-center gap-1.5 pt-0.5 w-full overflow-hidden">
-                <div class="relative w-7 h-6 rounded-xs border border-[#3f3f4a] overflow-hidden shrink-0 checkerboard">
+              <div class="flex items-center gap-1.5 w-full overflow-hidden">
+                <div class="relative w-6 h-5 rounded-xs border border-[#3f3f4a] overflow-hidden shrink-0 checkerboard">
                   <div id="active-color-swatch" class="w-full h-full" style="background: #ffffff;"></div>
                   <input id="color-picker" type="color" value="#ffffff" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
                 </div>
-                <input id="color-hex" type="text" value="#FFFFFF" maxlength="7" class="flex-1 min-w-0 w-full bg-[#222228] border border-[#34343e] rounded-xs px-2 py-1 text-xs mono text-zinc-100 uppercase text-center focus:outline-none focus:border-blue-500" />
+                <input id="color-hex" type="text" value="#FFFFFF" maxlength="7" class="flex-1 min-w-0 w-full bg-[#222228] border border-[#34343e] rounded-xs px-2 py-0.5 text-xs mono text-zinc-100 uppercase text-center focus:outline-none focus:border-blue-500" />
               </div>
             </div>
           </div>
 
           <!-- Live Animation / Context-Aware Preview -->
-          <div class="border-t border-[#2a2a32] pt-2.5">
-            <div class="flex items-center justify-between text-[11px] text-zinc-400 mb-1.5">
-              <button id="preview-play-toggle-btn" title="Play / Pause Preview" class="ase-btn p-1.5 text-zinc-200 flex items-center justify-center">
-                <svg id="preview-pause-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                <svg id="preview-play-icon" class="hidden" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <div class="border-t border-[#2a2a32] pt-2 shrink-0">
+            <div class="flex items-center justify-between text-[11px] text-zinc-400 mb-1">
+              <button id="preview-play-toggle-btn" title="Play / Pause Preview" class="ase-btn p-1 text-zinc-200 flex items-center justify-center">
+                <svg id="preview-pause-icon" width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                <svg id="preview-play-icon" class="hidden" width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               </button>
-              <div class="flex items-center gap-1.5">
+              <div class="flex items-center gap-1">
                 <span id="preview-state-label" class="mono text-zinc-300 text-[10px]">Walk</span>
-                <input id="preview-fps-input" type="number" min="1" max="60" value="8" title="Animation Speed (FPS)" class="w-12 bg-[#121216] border border-[#34343e] rounded-sm px-1 py-0.5 text-center mono text-[10px] text-zinc-100 focus:outline-none focus:border-blue-500" />
+                <input id="preview-fps-input" type="number" min="1" max="60" value="8" title="Animation Speed (FPS)" class="w-10 bg-[#121216] border border-[#34343e] rounded-sm px-1 py-0.5 text-center mono text-[10px] text-zinc-100 focus:outline-none focus:border-blue-500" />
               </div>
             </div>
-            <div id="preview-box-bg" class="h-28 checkerboard border border-[#2e2e36] rounded flex items-center justify-center relative overflow-hidden">
-              <canvas id="preview-canvas" width="96" height="96" class="w-24 h-24"></canvas>
-              <span id="preview-box-type-badge" class="pointer-events-none absolute top-1 right-1 px-1.5 py-0.5 bg-[#121216]/90 border border-[#2e2e38] rounded-xs text-[8px] mono text-blue-300 uppercase tracking-wider">SOLID</span>
+            <div id="preview-box-bg" class="h-20 sm:h-24 checkerboard border border-[#2e2e36] rounded flex items-center justify-center relative overflow-hidden">
+              <canvas id="preview-canvas" width="80" height="80" class="w-20 h-20 object-contain"></canvas>
+              <span id="preview-box-type-badge" class="pointer-events-none absolute top-1 right-1 px-1.5 py-0.5 bg-[#121216]/90 border border-[#2a2a38] rounded-xs text-[8px] mono text-blue-300 uppercase tracking-wider">SOLID</span>
             </div>
             <!-- Dynamically populated per creation type -->
-            <div id="preview-controls-bar" class="flex flex-wrap items-center justify-center gap-1 mt-1.5 text-[10px]"></div>
+            <div id="preview-controls-bar" class="flex flex-wrap items-center justify-center gap-1 mt-1 text-[10px]"></div>
           </div>
         </div>
       </div>
 
       <!-- Bottom Aseprite-Style Compact Animation Cels Strip -->
-      <div class="px-3.5 py-2 bg-[#151519] border-t border-[#2a2a32] flex flex-wrap items-center justify-between gap-2">
+      <div class="px-3 py-1.5 bg-[#151519] border-t border-[#2a2a32] flex flex-wrap items-center justify-between gap-2 shrink-0">
         <div class="flex items-center gap-2 overflow-x-auto max-w-full py-0.5">
           <div class="flex items-center border border-[#2a2a32] rounded-sm overflow-hidden shrink-0" id="frames-container">
             <!-- Dynamically populated state-badged cel columns -->
@@ -1176,11 +1176,11 @@
       </div>
 
       <!-- Modal Footer -->
-      <div class="px-4 py-2.5 bg-[#121215] border-t border-[#2a2a32] flex items-center justify-end gap-2">
-        <button id="cancel-editor-btn" class="ase-btn px-3.5 py-1.5 text-xs">
+      <div class="px-3 py-2 bg-[#121215] border-t border-[#2a2a32] flex items-center justify-end gap-2 shrink-0">
+        <button id="cancel-editor-btn" class="ase-btn px-3 py-1 text-xs">
           Cancel
         </button>
-        <button id="save-sprite-btn" class="ase-btn-primary px-5 py-1.5 text-xs font-semibold flex items-center gap-1.5">
+        <button id="save-sprite-btn" class="ase-btn-primary px-4 py-1 text-xs font-semibold flex items-center gap-1.5">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
           <span>Save</span>
         </button>
@@ -1333,8 +1333,891 @@
 
   <script>
     /********************************************************************
+     * TACTILE WEB AUDIO SYNTHESIZER & YOUTUBE SANDBOX AMBIANCE
+     ********************************************************************/
+    const sfx = {
+      ctx: null,
+      out: null,
+      noiseBuf: null,
+      lastPlaceTime: 0,
+      lastEraseTime: 0,
+      lastStepTime: 0,
+      stepFoot: 0,
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            this.ctx = new AudioCtx();
+            // Master boost + soft limiter so all sounds are louder and clearer without clipping
+            const masterGain = this.ctx.createGain();
+            masterGain.gain.value = 1.75;
+            if (this.ctx.createDynamicsCompressor) {
+              const comp = this.ctx.createDynamicsCompressor();
+              comp.threshold.value = -10;
+              comp.knee.value = 12;
+              comp.ratio.value = 4;
+              comp.attack.value = 0.003;
+              comp.release.value = 0.15;
+              masterGain.connect(comp);
+              comp.connect(this.ctx.destination);
+            } else {
+              masterGain.connect(this.ctx.destination);
+            }
+            this.out = masterGain;
+          }
+        }
+        if (this.ctx && !this.out) {
+          this.out = this.ctx.destination;
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+        if (this.ctx && !this.noiseBuf) {
+          const len = this.ctx.sampleRate * 1.0;
+          this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+          const out = this.noiseBuf.getChannelData(0);
+          for (let i = 0; i < len; i++) {
+            out[i] = Math.random() * 2 - 1;
+          }
+        }
+      },
+      ui(pitch = 480) {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(pitch, now);
+        osc.frequency.exponentialRampToValueAtTime(pitch * 0.45, now + 0.022);
+        gain.gain.setValueAtTime(0.045, now);
+        gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.024);
+        osc.connect(gain);
+        gain.connect(this.out);
+        osc.start(now);
+        osc.stop(now + 0.026);
+      },
+      place() {
+        if (!state.soundEnabled) return;
+        const perfNow = performance.now();
+        if (perfNow - this.lastPlaceTime < 42) return;
+        this.lastPlaceTime = perfNow;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        const baseFreq = 135 + Math.random() * 25;
+        osc.frequency.setValueAtTime(baseFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.45, now + 0.048);
+        gain.gain.setValueAtTime(0.11, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.052);
+        osc.connect(gain);
+        gain.connect(this.out);
+        osc.start(now);
+        osc.stop(now + 0.055);
+      },
+      erase() {
+        if (!state.soundEnabled) return;
+        const perfNow = performance.now();
+        if (perfNow - this.lastEraseTime < 55) return;
+        this.lastEraseTime = perfNow;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+        const grains = [
+          { delay: 0.000, dur: 0.032, freq: 1350 + Math.random() * 220, q: 2.4, amp: 0.16 },
+          { delay: 0.019, dur: 0.038, freq: 1920 + Math.random() * 280, q: 2.8, amp: 0.14 },
+          { delay: 0.044, dur: 0.042, freq: 1050 + Math.random() * 190, q: 2.1, amp: 0.12 },
+          { delay: 0.072, dur: 0.030, freq: 2250 + Math.random() * 300, q: 3.0, amp: 0.08 }
+        ];
+        grains.forEach((g) => {
+          const t0 = now + g.delay;
+          const src = this.ctx.createBufferSource();
+          src.buffer = this.noiseBuf;
+          const bp = this.ctx.createBiquadFilter();
+          bp.type = 'bandpass';
+          bp.frequency.setValueAtTime(g.freq, t0);
+          bp.frequency.exponentialRampToValueAtTime(g.freq * 0.68, t0 + g.dur);
+          bp.Q.setValueAtTime(g.q, t0);
+          const env = this.ctx.createGain();
+          env.gain.setValueAtTime(0.001, t0);
+          env.gain.linearRampToValueAtTime(g.amp, t0 + 0.003);
+          env.gain.exponentialRampToValueAtTime(0.0008, t0 + g.dur);
+          src.connect(bp);
+          bp.connect(env);
+          env.connect(this.out);
+          src.start(t0, Math.random() * 0.4, g.dur + 0.01);
+          src.stop(t0 + g.dur + 0.01);
+        });
+        [0, 0.024].forEach((offset, idx) => {
+          const t0 = now + offset;
+          const osc = this.ctx.createOscillator();
+          const oGain = this.ctx.createGain();
+          osc.type = 'triangle';
+          const startF = idx === 0 ? 195 + Math.random() * 25 : 145 + Math.random() * 20;
+          osc.frequency.setValueAtTime(startF, t0);
+          osc.frequency.exponentialRampToValueAtTime(48, t0 + 0.042);
+          oGain.gain.setValueAtTime(idx === 0 ? 0.10 : 0.075, t0);
+          oGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.045);
+          osc.connect(oGain);
+          oGain.connect(this.out);
+          osc.start(t0);
+          osc.stop(t0 + 0.048);
+        });
+      },
+      crumble(isCollapse = false) {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+        const pebbles = isCollapse
+          ? [
+              { delay: 0.00, dur: 0.055, freq: 880, q: 2.2, amp: 0.15 },
+              { delay: 0.04, dur: 0.065, freq: 640, q: 2.0, amp: 0.14 },
+              { delay: 0.09, dur: 0.070, freq: 1180, q: 2.6, amp: 0.11 },
+              { delay: 0.15, dur: 0.060, freq: 520, q: 1.9, amp: 0.10 },
+              { delay: 0.22, dur: 0.050, freq: 1420, q: 2.8, amp: 0.07 }
+            ]
+          : [
+              { delay: 0.00, dur: 0.038, freq: 1120, q: 2.5, amp: 0.09 },
+              { delay: 0.03, dur: 0.042, freq: 820, q: 2.2, amp: 0.08 }
+            ];
+        pebbles.forEach((p) => {
+          const t0 = now + p.delay + Math.random() * 0.01;
+          const src = this.ctx.createBufferSource();
+          src.buffer = this.noiseBuf;
+          const bp = this.ctx.createBiquadFilter();
+          bp.type = 'bandpass';
+          const f = p.freq + (Math.random() - 0.5) * 140;
+          bp.frequency.setValueAtTime(f, t0);
+          bp.frequency.exponentialRampToValueAtTime(f * 0.55, t0 + p.dur);
+          bp.Q.setValueAtTime(p.q, t0);
+          const g = this.ctx.createGain();
+          g.gain.setValueAtTime(0.001, t0);
+          g.gain.linearRampToValueAtTime(p.amp, t0 + 0.005);
+          g.gain.exponentialRampToValueAtTime(0.0008, t0 + p.dur);
+          src.connect(bp);
+          bp.connect(g);
+          g.connect(this.out);
+          src.start(t0, Math.random() * 0.4, p.dur + 0.01);
+          src.stop(t0 + p.dur + 0.01);
+        });
+        const osc = this.ctx.createOscillator();
+        const oGain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(isCollapse ? 135 : 165, now);
+        osc.frequency.exponentialRampToValueAtTime(isCollapse ? 36 : 58, now + (isCollapse ? 0.16 : 0.07));
+        oGain.gain.setValueAtTime(isCollapse ? 0.13 : 0.07, now);
+        oGain.gain.exponentialRampToValueAtTime(0.0008, now + (isCollapse ? 0.17 : 0.075));
+        osc.connect(oGain);
+        oGain.connect(this.out);
+        osc.start(now);
+        osc.stop(now + (isCollapse ? 0.18 : 0.08));
+      },
+      step(surface = 'normal') {
+        if (!state.soundEnabled) return;
+        const perfNow = performance.now();
+        if (perfNow - this.lastStepTime < 95) return;
+        this.lastStepTime = perfNow;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+        this.stepFoot = 1 - this.stepFoot;
+        const footShift = this.stepFoot === 0 ? 0.94 : 1.07;
+        if (surface === 'grass') {
+          const swish = this.ctx.createBufferSource();
+          swish.buffer = this.noiseBuf;
+          const bp = this.ctx.createBiquadFilter();
+          bp.type = 'bandpass';
+          bp.frequency.setValueAtTime(1950 * footShift, now);
+          bp.frequency.exponentialRampToValueAtTime(1250 * footShift, now + 0.065);
+          bp.Q.setValueAtTime(1.9, now);
+          const sGain = this.ctx.createGain();
+          sGain.gain.setValueAtTime(0.001, now);
+          sGain.gain.linearRampToValueAtTime(0.052, now + 0.012);
+          sGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.07);
+          swish.connect(bp);
+          bp.connect(sGain);
+          sGain.connect(this.out);
+          swish.start(now, Math.random() * 0.4, 0.075);
+          swish.stop(now + 0.075);
+          const thud = this.ctx.createOscillator();
+          const tGain = this.ctx.createGain();
+          thud.type = 'sine';
+          thud.frequency.setValueAtTime(82 * footShift, now);
+          thud.frequency.exponentialRampToValueAtTime(34, now + 0.038);
+          tGain.gain.setValueAtTime(0.035, now);
+          tGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.042);
+          thud.connect(tGain);
+          tGain.connect(this.out);
+          thud.start(now);
+          thud.stop(now + 0.045);
+          return;
+        }
+        if (surface === 'sand') {
+          [0, 0.016].forEach((delay, idx) => {
+            const t0 = now + delay;
+            const gr = this.ctx.createBufferSource();
+            gr.buffer = this.noiseBuf;
+            const bp = this.ctx.createBiquadFilter();
+            bp.type = 'bandpass';
+            const f = (idx === 0 ? 1550 : 2650) * footShift;
+            bp.frequency.setValueAtTime(f, t0);
+            bp.frequency.exponentialRampToValueAtTime(f * 0.72, t0 + 0.048);
+            bp.Q.setValueAtTime(2.4, t0);
+            const g = this.ctx.createGain();
+            g.gain.setValueAtTime(0.001, t0);
+            g.gain.linearRampToValueAtTime(idx === 0 ? 0.055 : 0.042, t0 + 0.006);
+            g.gain.exponentialRampToValueAtTime(0.0008, t0 + 0.052);
+            gr.connect(bp);
+            bp.connect(g);
+            g.connect(this.out);
+            gr.start(t0, Math.random() * 0.5, 0.055);
+            gr.stop(t0 + 0.056);
+          });
+          return;
+        }
+        if (surface === 'metal') {
+          const freqs = [295 * footShift, 640 * footShift, 1180 * footShift];
+          const amps = [0.045, 0.028, 0.018];
+          const durs = [0.065, 0.085, 0.055];
+          freqs.forEach((f, i) => {
+            const osc = this.ctx.createOscillator();
+            const g = this.ctx.createGain();
+            osc.type = i === 0 ? 'triangle' : 'sine';
+            osc.frequency.setValueAtTime(f, now);
+            osc.frequency.exponentialRampToValueAtTime(f * 0.92, now + durs[i]);
+            g.gain.setValueAtTime(amps[i], now);
+            g.gain.exponentialRampToValueAtTime(0.0006, now + durs[i]);
+            osc.connect(g);
+            g.connect(this.out);
+            osc.start(now);
+            osc.stop(now + durs[i] + 0.005);
+          });
+          return;
+        }
+        if (surface === 'stone') {
+          const tap = this.ctx.createOscillator();
+          const tGain = this.ctx.createGain();
+          tap.type = 'triangle';
+          tap.frequency.setValueAtTime(235 * footShift, now);
+          tap.frequency.exponentialRampToValueAtTime(68, now + 0.028);
+          tGain.gain.setValueAtTime(0.06, now);
+          tGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.032);
+          tap.connect(tGain);
+          tGain.connect(this.out);
+          tap.start(now);
+          tap.stop(now + 0.035);
+          const click = this.ctx.createBufferSource();
+          click.buffer = this.noiseBuf;
+          const bp = this.ctx.createBiquadFilter();
+          bp.type = 'bandpass';
+          bp.frequency.setValueAtTime(1850 * footShift, now);
+          bp.Q.setValueAtTime(3.2, now);
+          const cGain = this.ctx.createGain();
+          cGain.gain.setValueAtTime(0.045, now);
+          cGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.022);
+          click.connect(bp);
+          bp.connect(cGain);
+          cGain.connect(this.out);
+          click.start(now, Math.random() * 0.4, 0.025);
+          click.stop(now + 0.026);
+          return;
+        }
+        if (surface === 'mud' || surface === 'sticky') {
+          const sq = this.ctx.createBufferSource();
+          sq.buffer = this.noiseBuf;
+          const bp = this.ctx.createBiquadFilter();
+          bp.type = 'bandpass';
+          bp.frequency.setValueAtTime(280 * footShift, now);
+          bp.frequency.exponentialRampToValueAtTime(960 * footShift, now + 0.065);
+          bp.Q.setValueAtTime(4.8, now);
+          const sGain = this.ctx.createGain();
+          sGain.gain.setValueAtTime(0.001, now);
+          sGain.gain.linearRampToValueAtTime(0.07, now + 0.014);
+          sGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.072);
+          sq.connect(bp);
+          bp.connect(sGain);
+          sGain.connect(this.out);
+          sq.start(now, Math.random() * 0.4, 0.075);
+          sq.stop(now + 0.078);
+          const bloop = this.ctx.createOscillator();
+          const bGain = this.ctx.createGain();
+          bloop.type = 'sine';
+          bloop.frequency.setValueAtTime(115 * footShift, now);
+          bloop.frequency.exponentialRampToValueAtTime(245 * footShift, now + 0.055);
+          bGain.gain.setValueAtTime(0.045, now);
+          bGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.06);
+          bloop.connect(bGain);
+          bGain.connect(this.out);
+          bloop.start(now);
+          bloop.stop(now + 0.065);
+          return;
+        }
+        if (surface === 'wood' || surface === 'ladder') {
+          const knock = this.ctx.createOscillator();
+          const kGain = this.ctx.createGain();
+          knock.type = 'triangle';
+          knock.frequency.setValueAtTime(168 * footShift, now);
+          knock.frequency.exponentialRampToValueAtTime(62, now + 0.042);
+          kGain.gain.setValueAtTime(0.06, now);
+          kGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.046);
+          knock.connect(kGain);
+          kGain.connect(this.out);
+          knock.start(now);
+          knock.stop(now + 0.048);
+          return;
+        }
+        if (surface === 'snow' || surface === 'slidey') {
+          const cr = this.ctx.createBufferSource();
+          cr.buffer = this.noiseBuf;
+          const bp = this.ctx.createBiquadFilter();
+          bp.type = 'bandpass';
+          bp.frequency.setValueAtTime(2750 * footShift, now);
+          bp.frequency.exponentialRampToValueAtTime(1900 * footShift, now + 0.05);
+          bp.Q.setValueAtTime(2.5, now);
+          const cGain = this.ctx.createGain();
+          cGain.gain.setValueAtTime(0.001, now);
+          cGain.gain.linearRampToValueAtTime(0.046, now + 0.008);
+          cGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.055);
+          cr.connect(bp);
+          bp.connect(cGain);
+          cGain.connect(this.out);
+          cr.start(now, Math.random() * 0.4, 0.058);
+          cr.stop(now + 0.06);
+          return;
+        }
+        if (surface === 'carpet') {
+          const pad = this.ctx.createOscillator();
+          const pGain = this.ctx.createGain();
+          pad.type = 'sine';
+          pad.frequency.setValueAtTime(75 * footShift, now);
+          pad.frequency.exponentialRampToValueAtTime(28, now + 0.045);
+          pGain.gain.setValueAtTime(0.04, now);
+          pGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.048);
+          pad.connect(pGain);
+          pGain.connect(this.out);
+          pad.start(now);
+          pad.stop(now + 0.05);
+          return;
+        }
+        const lowThud = this.ctx.createOscillator();
+        const thudGain = this.ctx.createGain();
+        lowThud.type = 'sine';
+        const baseFreq = 98 * footShift + (Math.random() * 10 - 5);
+        lowThud.frequency.setValueAtTime(baseFreq, now);
+        lowThud.frequency.exponentialRampToValueAtTime(36, now + 0.042);
+        thudGain.gain.setValueAtTime(0.055, now);
+        thudGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.045);
+        lowThud.connect(thudGain);
+        thudGain.connect(this.out);
+        lowThud.start(now);
+        lowThud.stop(now + 0.048);
+        const scuff = this.ctx.createBufferSource();
+        scuff.buffer = this.noiseBuf;
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(1150 * footShift, now);
+        bp.Q.setValueAtTime(2.6, now);
+        const sGain = this.ctx.createGain();
+        sGain.gain.setValueAtTime(0.001, now);
+        sGain.gain.linearRampToValueAtTime(0.032, now + 0.004);
+        sGain.gain.exponentialRampToValueAtTime(0.0006, now + 0.034);
+        scuff.connect(bp);
+        bp.connect(sGain);
+        sGain.connect(this.out);
+        scuff.start(now, Math.random() * 0.5, 0.038);
+        scuff.stop(now + 0.038);
+      },
+      land(impactVy = 2.5, surface = 'normal') {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+        const intensity = Math.min(1.5, Math.max(0.45, impactVy / 4.2));
+        this.lastStepTime = 0;
+        this.step(surface);
+        [0, 0.024].forEach((delay, idx) => {
+          const t0 = now + delay;
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = surface === 'metal' ? 'sine' : 'triangle';
+          const fStart = surface === 'metal' ? (idx === 0 ? 180 : 240) : (idx === 0 ? 92 : 114);
+          osc.frequency.setValueAtTime(fStart, t0);
+          osc.frequency.exponentialRampToValueAtTime(32, t0 + 0.06);
+          g.gain.setValueAtTime(0.055 * intensity * (idx === 0 ? 1 : 0.75), t0);
+          g.gain.exponentialRampToValueAtTime(0.0008, t0 + 0.065);
+          osc.connect(g);
+          g.connect(this.out);
+          osc.start(t0);
+          osc.stop(t0 + 0.068);
+        });
+      },
+      jump() {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(145, now);
+        osc.frequency.exponentialRampToValueAtTime(335, now + 0.085);
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.065, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.095);
+        osc.connect(gain);
+        gain.connect(this.out);
+        osc.start(now);
+        osc.stop(now + 0.1);
+        const air = this.ctx.createBufferSource();
+        air.buffer = this.noiseBuf;
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(680, now);
+        bp.frequency.exponentialRampToValueAtTime(1450, now + 0.08);
+        bp.Q.setValueAtTime(2.0, now);
+        const aGain = this.ctx.createGain();
+        aGain.gain.setValueAtTime(0.001, now);
+        aGain.gain.linearRampToValueAtTime(0.03, now + 0.015);
+        aGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.085);
+        air.connect(bp);
+        bp.connect(aGain);
+        aGain.connect(this.out);
+        air.start(now, Math.random() * 0.4, 0.09);
+        air.stop(now + 0.09);
+      },
+      bounce() {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const thump = this.ctx.createOscillator();
+        const tGain = this.ctx.createGain();
+        thump.type = 'triangle';
+        thump.frequency.setValueAtTime(115, now);
+        thump.frequency.exponentialRampToValueAtTime(42, now + 0.075);
+        tGain.gain.setValueAtTime(0.11, now);
+        tGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        thump.connect(tGain);
+        tGain.connect(this.out);
+        thump.start(now);
+        thump.stop(now + 0.085);
+        const carrier = this.ctx.createOscillator();
+        const mod = this.ctx.createOscillator();
+        const modGain = this.ctx.createGain();
+        const cGain = this.ctx.createGain();
+        carrier.type = 'sine';
+        carrier.frequency.setValueAtTime(165, now);
+        carrier.frequency.exponentialRampToValueAtTime(520, now + 0.14);
+        carrier.frequency.exponentialRampToValueAtTime(340, now + 0.24);
+        mod.type = 'sine';
+        mod.frequency.setValueAtTime(28, now);
+        modGain.gain.setValueAtTime(45, now);
+        modGain.gain.exponentialRampToValueAtTime(4, now + 0.24);
+        cGain.gain.setValueAtTime(0.001, now);
+        cGain.gain.linearRampToValueAtTime(0.095, now + 0.012);
+        cGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.25);
+        mod.connect(modGain);
+        modGain.connect(carrier.frequency);
+        carrier.connect(cGain);
+        cGain.connect(this.out);
+        mod.start(now);
+        carrier.start(now);
+        mod.stop(now + 0.26);
+        carrier.stop(now + 0.26);
+      },
+      hurt() {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+        const punch = this.ctx.createOscillator();
+        const pGain = this.ctx.createGain();
+        punch.type = 'sawtooth';
+        const lp = this.ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.setValueAtTime(520, now);
+        lp.frequency.exponentialRampToValueAtTime(95, now + 0.16);
+        punch.frequency.setValueAtTime(155, now);
+        punch.frequency.exponentialRampToValueAtTime(38, now + 0.16);
+        pGain.gain.setValueAtTime(0.14, now);
+        pGain.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
+        punch.connect(lp);
+        lp.connect(pGain);
+        pGain.connect(this.out);
+        punch.start(now);
+        punch.stop(now + 0.18);
+        const burst = this.ctx.createBufferSource();
+        burst.buffer = this.noiseBuf;
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(1450, now);
+        bp.Q.setValueAtTime(1.8, now);
+        const bGain = this.ctx.createGain();
+        bGain.gain.setValueAtTime(0.12, now);
+        bGain.gain.exponentialRampToValueAtTime(0.001, now + 0.075);
+        burst.connect(bp);
+        bp.connect(bGain);
+        bGain.connect(this.out);
+        burst.start(now, Math.random() * 0.3, 0.08);
+        burst.stop(now + 0.08);
+      },
+      death() {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+        const fallOsc = this.ctx.createOscillator();
+        const fGain = this.ctx.createGain();
+        fallOsc.type = 'triangle';
+        fallOsc.frequency.setValueAtTime(240, now + 0.04);
+        fallOsc.frequency.exponentialRampToValueAtTime(52, now + 0.42);
+        fGain.gain.setValueAtTime(0.001, now + 0.04);
+        fGain.gain.linearRampToValueAtTime(0.085, now + 0.07);
+        fGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.44);
+        fallOsc.connect(fGain);
+        fGain.connect(this.out);
+        fallOsc.start(now + 0.04);
+        fallOsc.stop(now + 0.45);
+        const whoosh = this.ctx.createBufferSource();
+        whoosh.buffer = this.noiseBuf;
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(980, now + 0.05);
+        bp.frequency.exponentialRampToValueAtTime(260, now + 0.42);
+        bp.Q.setValueAtTime(2.2, now + 0.05);
+        const wGain = this.ctx.createGain();
+        wGain.gain.setValueAtTime(0.001, now + 0.05);
+        wGain.gain.linearRampToValueAtTime(0.065, now + 0.11);
+        wGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.43);
+        whoosh.connect(bp);
+        bp.connect(wGain);
+        wGain.connect(this.out);
+        whoosh.start(now + 0.05, 0, 0.4);
+        whoosh.stop(now + 0.45);
+      },
+      splash(speed = 2.5) {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+        const intensity = Math.min(1.15, Math.max(0.45, speed / 3.4));
+        const plunge = this.ctx.createOscillator();
+        const pGain = this.ctx.createGain();
+        plunge.type = 'sine';
+        plunge.frequency.setValueAtTime(112, now);
+        plunge.frequency.exponentialRampToValueAtTime(38, now + 0.28);
+        pGain.gain.setValueAtTime(0.001, now);
+        pGain.gain.linearRampToValueAtTime(0.062 * intensity, now + 0.022);
+        pGain.gain.exponentialRampToValueAtTime(0.0006, now + 0.30);
+        plunge.connect(pGain);
+        pGain.connect(this.out);
+        plunge.start(now);
+        plunge.stop(now + 0.32);
+        const cavity = this.ctx.createOscillator();
+        const cGain = this.ctx.createGain();
+        cavity.type = 'sine';
+        cavity.frequency.setValueAtTime(95, now + 0.08);
+        cavity.frequency.exponentialRampToValueAtTime(185, now + 0.38);
+        cGain.gain.setValueAtTime(0.001, now + 0.08);
+        cGain.gain.linearRampToValueAtTime(0.036 * intensity, now + 0.14);
+        cGain.gain.exponentialRampToValueAtTime(0.0006, now + 0.40);
+        cavity.connect(cGain);
+        cGain.connect(this.out);
+        cavity.start(now + 0.08);
+        cavity.stop(now + 0.42);
+        const wash = this.ctx.createBufferSource();
+        wash.buffer = this.noiseBuf;
+        const washFilter = this.ctx.createBiquadFilter();
+        washFilter.type = 'bandpass';
+        washFilter.frequency.setValueAtTime(520, now);
+        washFilter.frequency.exponentialRampToValueAtTime(920, now + 0.14);
+        washFilter.frequency.exponentialRampToValueAtTime(240, now + 0.78);
+        washFilter.Q.setValueAtTime(1.3, now);
+        const wGain = this.ctx.createGain();
+        wGain.gain.setValueAtTime(0.001, now);
+        wGain.gain.linearRampToValueAtTime(0.052 * intensity, now + 0.05);
+        wGain.gain.linearRampToValueAtTime(0.064 * intensity, now + 0.16);
+        wGain.gain.exponentialRampToValueAtTime(0.0006, now + 0.80);
+        wash.connect(washFilter);
+        washFilter.connect(wGain);
+        wGain.connect(this.out);
+        wash.start(now, Math.random() * 0.2, 0.82);
+        wash.stop(now + 0.82);
+        const bubbles = [
+          { delay: 0.09, f0: 155, f1: 320, dur: 0.11, amp: 0.028 },
+          { delay: 0.22, f0: 210, f1: 420, dur: 0.10, amp: 0.024 },
+          { delay: 0.37, f0: 185, f1: 380, dur: 0.11, amp: 0.020 },
+          { delay: 0.53, f0: 260, f1: 510, dur: 0.09, amp: 0.016 },
+          { delay: 0.69, f0: 310, f1: 590, dur: 0.08, amp: 0.012 }
+        ];
+        bubbles.forEach(b => {
+          const t0 = now + b.delay + Math.random() * 0.02;
+          const bOsc = this.ctx.createOscillator();
+          const bGain = this.ctx.createGain();
+          bOsc.type = 'sine';
+          bOsc.frequency.setValueAtTime(b.f0 + Math.random() * 18, t0);
+          bOsc.frequency.exponentialRampToValueAtTime(b.f1 + Math.random() * 25, t0 + b.dur);
+          bGain.gain.setValueAtTime(0.001, t0);
+          bGain.gain.linearRampToValueAtTime(b.amp * intensity, t0 + 0.015);
+          bGain.gain.exponentialRampToValueAtTime(0.0005, t0 + b.dur);
+          bOsc.connect(bGain);
+          bGain.connect(this.out);
+          bOsc.start(t0);
+          bOsc.stop(t0 + b.dur + 0.01);
+        });
+      },
+      poof(isEquip = true) {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+        const puff = this.ctx.createBufferSource();
+        puff.buffer = this.noiseBuf;
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        const startF = isEquip ? 920 : 680;
+        const endF = isEquip ? 260 : 190;
+        bp.frequency.setValueAtTime(startF, now);
+        bp.frequency.exponentialRampToValueAtTime(endF, now + 0.17);
+        bp.Q.setValueAtTime(1.35, now);
+        const pGain = this.ctx.createGain();
+        pGain.gain.setValueAtTime(0.001, now);
+        pGain.gain.linearRampToValueAtTime(0.095, now + 0.018);
+        pGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.18);
+        puff.connect(bp);
+        bp.connect(pGain);
+        pGain.connect(this.out);
+        puff.start(now, Math.random() * 0.4, 0.19);
+        puff.stop(now + 0.19);
+        const pop = this.ctx.createOscillator();
+        const oGain = this.ctx.createGain();
+        pop.type = 'sine';
+        pop.frequency.setValueAtTime(isEquip ? 165 : 210, now);
+        pop.frequency.exponentialRampToValueAtTime(isEquip ? 245 : 78, now + 0.045);
+        pop.frequency.exponentialRampToValueAtTime(58, now + 0.14);
+        oGain.gain.setValueAtTime(0.001, now);
+        oGain.gain.linearRampToValueAtTime(0.085, now + 0.012);
+        oGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.145);
+        pop.connect(oGain);
+        oGain.connect(this.out);
+        pop.start(now);
+        pop.stop(now + 0.15);
+      },
+      wireConnect() {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const snap = this.ctx.createOscillator();
+        const sGain = this.ctx.createGain();
+        snap.type = 'triangle';
+        snap.frequency.setValueAtTime(190, now);
+        snap.frequency.exponentialRampToValueAtTime(620, now + 0.032);
+        sGain.gain.setValueAtTime(0.09, now);
+        sGain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+        snap.connect(sGain);
+        sGain.connect(this.out);
+        snap.start(now);
+        snap.stop(now + 0.038);
+        const notes = [
+          { delay: 0.028, dur: 0.09, freq: 523.25 },
+          { delay: 0.085, dur: 0.16, freq: 783.99 }
+        ];
+        notes.forEach((n) => {
+          const t0 = now + n.delay;
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(n.freq, t0);
+          osc.frequency.exponentialRampToValueAtTime(n.freq * 1.015, t0 + n.dur);
+          g.gain.setValueAtTime(0.001, t0);
+          g.gain.linearRampToValueAtTime(0.085, t0 + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0008, t0 + n.dur);
+          osc.connect(g);
+          g.connect(this.out);
+          osc.start(t0);
+          osc.stop(t0 + n.dur + 0.01);
+        });
+      },
+      wireDisconnect() {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(420, now);
+        osc.frequency.exponentialRampToValueAtTime(160, now + 0.08);
+        g.gain.setValueAtTime(0.08, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.085);
+        osc.connect(g);
+        g.connect(this.out);
+        osc.start(now);
+        osc.stop(now + 0.09);
+      },
+      doorSlide(opening = true) {
+        if (!state.soundEnabled) return;
+        const perfNow = performance.now();
+        if (this.lastDoorTime && perfNow - this.lastDoorTime < 80) return;
+        this.lastDoorTime = perfNow;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+        const src = this.ctx.createBufferSource();
+        src.buffer = this.noiseBuf;
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(opening ? 380 : 680, now);
+        bp.frequency.exponentialRampToValueAtTime(opening ? 760 : 320, now + 0.16);
+        bp.Q.setValueAtTime(2.6, now);
+        const nGain = this.ctx.createGain();
+        nGain.gain.setValueAtTime(0.001, now);
+        nGain.gain.linearRampToValueAtTime(0.065, now + 0.025);
+        nGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.17);
+        src.connect(bp);
+        bp.connect(nGain);
+        nGain.connect(this.out);
+        src.start(now, Math.random() * 0.3, 0.18);
+        src.stop(now + 0.18);
+        const latch = this.ctx.createOscillator();
+        const lGain = this.ctx.createGain();
+        latch.type = 'triangle';
+        const tLatch = now + 0.11;
+        latch.frequency.setValueAtTime(opening ? 195 : 135, tLatch);
+        latch.frequency.exponentialRampToValueAtTime(opening ? 260 : 72, tLatch + 0.045);
+        lGain.gain.setValueAtTime(0.075, tLatch);
+        lGain.gain.exponentialRampToValueAtTime(0.0008, tLatch + 0.05);
+        latch.connect(lGain);
+        lGain.connect(this.out);
+        latch.start(tLatch);
+        latch.stop(tLatch + 0.055);
+      },
+      piston(extending = true) {
+        if (!state.soundEnabled) return;
+        const perfNow = performance.now();
+        if (this.lastPistonTime && perfNow - this.lastPistonTime < 75) return;
+        this.lastPistonTime = perfNow;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+        const src = this.ctx.createBufferSource();
+        src.buffer = this.noiseBuf;
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(extending ? 620 : 940, now);
+        bp.frequency.exponentialRampToValueAtTime(extending ? 1280 : 420, now + 0.09);
+        bp.Q.setValueAtTime(2.4, now);
+        const nGain = this.ctx.createGain();
+        nGain.gain.setValueAtTime(0.001, now);
+        nGain.gain.linearRampToValueAtTime(0.075, now + 0.01);
+        nGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.10);
+        src.connect(bp);
+        bp.connect(nGain);
+        nGain.connect(this.out);
+        src.start(now, Math.random() * 0.3, 0.11);
+        src.stop(now + 0.11);
+        const clunk = this.ctx.createOscillator();
+        const cGain = this.ctx.createGain();
+        clunk.type = 'triangle';
+        clunk.frequency.setValueAtTime(extending ? 140 : 180, now);
+        clunk.frequency.exponentialRampToValueAtTime(extending ? 245 : 85, now + 0.055);
+        cGain.gain.setValueAtTime(0.09, now);
+        cGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.06);
+        clunk.connect(cGain);
+        cGain.connect(this.out);
+        clunk.start(now);
+        clunk.stop(now + 0.065);
+      },
+      note(freq = 440, waveType = 'triangle') {
+        if (!state.soundEnabled) return;
+        const perfNow = performance.now();
+        if (this.lastNoteTime && perfNow - this.lastNoteTime < 45) return;
+        this.lastNoteTime = perfNow;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const sub = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = waveType;
+        sub.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        sub.frequency.setValueAtTime(freq * 0.5, now);
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.11, now + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.32);
+        osc.connect(gain);
+        sub.connect(gain);
+        gain.connect(this.out);
+        osc.start(now);
+        sub.start(now);
+        osc.stop(now + 0.34);
+        sub.stop(now + 0.34);
+      },
+      buzzer() {
+        if (!state.soundEnabled) return;
+        const perfNow = performance.now();
+        if (this.lastBuzzerTime && perfNow - this.lastBuzzerTime < 140) return;
+        this.lastBuzzerTime = perfNow;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const notes = [
+          { delay: 0.00, dur: 0.065, freq: 162 },
+          { delay: 0.075, dur: 0.085, freq: 128 }
+        ];
+        notes.forEach((n) => {
+          const t0 = now + n.delay;
+          const osc = this.ctx.createOscillator();
+          const lp = this.ctx.createBiquadFilter();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(n.freq, t0);
+          osc.frequency.exponentialRampToValueAtTime(n.freq * 0.92, t0 + n.dur);
+          lp.type = 'lowpass';
+          lp.frequency.setValueAtTime(360, t0);
+          gain.gain.setValueAtTime(0.001, t0);
+          gain.gain.linearRampToValueAtTime(0.065, t0 + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0008, t0 + n.dur);
+          osc.connect(lp);
+          lp.connect(gain);
+          gain.connect(this.out);
+          osc.start(t0);
+          osc.stop(t0 + n.dur + 0.01);
+        });
+      },
+      windGust() {
+        if (!state.soundEnabled) return;
+        this.init();
+        if (!this.ctx || !this.noiseBuf) return;
+        const now = this.ctx.currentTime;
+        const src = this.ctx.createBufferSource();
+        src.buffer = this.noiseBuf;
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(320, now);
+        bp.frequency.exponentialRampToValueAtTime(740, now + 0.65);
+        bp.Q.setValueAtTime(1.8, now);
+        const g = this.ctx.createGain();
+        g.gain.setValueAtTime(0.001, now);
+        g.gain.linearRampToValueAtTime(0.048, now + 0.15);
+        g.gain.exponentialRampToValueAtTime(0.0008, now + 0.95);
+        src.connect(bp);
+        bp.connect(g);
+        g.connect(this.out);
+        src.start(now, Math.random() * 0.4, 1.0);
+        src.stop(now + 1.0);
+      }
+    };
+
+    /********************************************************************
      * AUTHENTIC MANYLAND CREATION TYPES SPECIFICATION
-     * (Excluded MUSIC, MIFT, INSTRUMENT, AUTOMATION per user request)
      ********************************************************************/
     const MANYLAND_TYPES = [
       {
@@ -1359,13 +2242,8 @@
       },
       {
         id: 'thing', name: 'THING', category: 'back', defaultW: 19, defaultH: 19,
-        frames: ['Cell 1'],
-        subtypes: ['Thing', 'Thing in Front', 'Falling Thing']
-      },
-      {
-        id: 'furry', name: 'FURRY', category: 'back', defaultW: 19, defaultH: 19,
         frames: ['Cell 1', 'Cell 2'],
-        subtypes: ['Many (Patch)', 'Singular', 'Flowing Many', 'Tall Shag']
+        subtypes: ['Thing', 'Thing in Front', 'Falling Thing', 'Furry', 'Drifty', 'Tall Shag', 'Flowing Many']
       },
       {
         id: 'light', name: 'LIGHT', category: 'dynamic', defaultW: 19, defaultH: 19,
@@ -1388,6 +2266,7 @@
           'Sun / Celestial',
           'Moving Clouds',
           'Ambient Spores',
+          'Environmental Wind',
           'Interactive Environment'
         ]
       },
@@ -1490,37 +2369,40 @@
         id: 'transporting', name: 'TRANSPORTING', category: 'dynamic', defaultW: 19, defaultH: 19,
         frames: ['Cell 1', 'Cell 2'],
         subtypes: ['Transporting', 'Directional Transporting']
-      },
-      {
-        id: 'liquid', name: 'LIQUID', category: 'dynamic', defaultW: 19, defaultH: 19,
-        frames: ['Cell 1', 'Cell 2'],
-        subtypes: ['Liquid']
-      },
-      {
-        id: 'activator', name: 'ACTIVATOR', category: 'dynamic', defaultW: 19, defaultH: 19,
-        frames: ['Cell 1', 'Cell 2'],
-        subtypes: [
-          'Activater',
-          'Pressure Plate',
-          'Proximity Sensor',
-          'Timer / Clock',
-          'Relay / Delay',
-          'NOT / Inverter',
-          'AND Gate',
-          'Sound Block',
-          'Open on Activate',
-          'Change on Activate'
-        ]
       }
     ];
 
-    // Options per Light Subtype based on Manyland Wiki
-    const LIGHT_SUBTYPE_OPTIONS = {
-      'Light': ['Standard', 'Pulsating', 'Thick', 'Pulsating + Thick'],
-      'Top Light': ['Top Gradient'],
-      'Fill Light': ['Full Background', 'Top Half', 'Bottom Half', 'Center Band'],
-      'Surround Light': ['Normal', 'Thick', 'Very Thick'],
-      'Light Glow': ['Steady Translucent', 'Pulsating Glow', 'Flickering Glow']
+    // Global world wind simulation state
+    let worldWindState = {
+      dir: 1,       // 1 = Left-to-Right, -1 = Right-to-Left
+      speed: 1.4,
+      timer: 0,
+      nextChangeTick: 300,
+      noiseTimer: 0
+    };
+
+    // Sound effect for wind gusts
+    sfx.windGust = function() {
+      if (!state.soundEnabled) return;
+      this.init();
+      if (!this.ctx || !this.noiseBuf) return;
+      const now = this.ctx.currentTime;
+      const src = this.ctx.createBufferSource();
+      src.buffer = this.noiseBuf;
+      const bp = this.ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(320, now);
+      bp.frequency.exponentialRampToValueAtTime(740, now + 0.65);
+      bp.Q.setValueAtTime(1.8, now);
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.001, now);
+      g.gain.linearRampToValueAtTime(0.048, now + 0.15);
+      g.gain.exponentialRampToValueAtTime(0.0008, now + 0.95);
+      src.connect(bp);
+      bp.connect(g);
+      g.connect(this.out);
+      src.start(now, Math.random() * 0.4, 1.0);
+      src.stop(now + 1.0);
     };
 
     function getTypeSpec(typeId) {
@@ -2000,968 +2882,6 @@
       editor.spaceHeld = false;
       editor.isPanningCanvas = false;
     }
-
-    /********************************************************************
-     * TACTILE WEB AUDIO SYNTHESIZER & YOUTUBE SANDBOX AMBIANCE
-     ********************************************************************/
-    const sfx = {
-      ctx: null,
-      out: null,
-      noiseBuf: null,
-      lastPlaceTime: 0,
-      lastEraseTime: 0,
-      lastStepTime: 0,
-      stepFoot: 0,
-      init() {
-        if (!this.ctx) {
-          const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          if (AudioCtx) {
-            this.ctx = new AudioCtx();
-            // Master boost + soft limiter so all sounds are louder and clearer without clipping
-            const masterGain = this.ctx.createGain();
-            masterGain.gain.value = 1.75;
-            if (this.ctx.createDynamicsCompressor) {
-              const comp = this.ctx.createDynamicsCompressor();
-              comp.threshold.value = -10;
-              comp.knee.value = 12;
-              comp.ratio.value = 4;
-              comp.attack.value = 0.003;
-              comp.release.value = 0.15;
-              masterGain.connect(comp);
-              comp.connect(this.ctx.destination);
-            } else {
-              masterGain.connect(this.ctx.destination);
-            }
-            this.out = masterGain;
-          }
-        }
-        if (this.ctx && !this.out) {
-          this.out = this.ctx.destination;
-        }
-        if (this.ctx && this.ctx.state === 'suspended') {
-          this.ctx.resume();
-        }
-        if (this.ctx && !this.noiseBuf) {
-          const len = this.ctx.sampleRate * 1.0;
-          this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-          const out = this.noiseBuf.getChannelData(0);
-          for (let i = 0; i < len; i++) {
-            out[i] = Math.random() * 2 - 1;
-          }
-        }
-      },
-      ui(pitch = 480) {
-        if (!state.soundEnabled) return;
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        // Soft woody mechanical tap
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(pitch, now);
-        osc.frequency.exponentialRampToValueAtTime(pitch * 0.45, now + 0.022);
-        gain.gain.setValueAtTime(0.045, now);
-        gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.024);
-        osc.connect(gain);
-        gain.connect(this.out);
-        osc.start(now);
-        osc.stop(now + 0.026);
-      },
-      place() {
-        if (!state.soundEnabled) return;
-        const perfNow = performance.now();
-        if (perfNow - this.lastPlaceTime < 42) return;
-        this.lastPlaceTime = perfNow;
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-
-        // Warm tactile block thud + subtle crisp snap
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        const baseFreq = 135 + Math.random() * 25;
-        osc.frequency.setValueAtTime(baseFreq, now);
-        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.45, now + 0.048);
-        gain.gain.setValueAtTime(0.11, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.052);
-        osc.connect(gain);
-        gain.connect(this.out);
-        osc.start(now);
-        osc.stop(now + 0.055);
-      },
-      erase() {
-        if (!state.soundEnabled) return;
-        const perfNow = performance.now();
-        if (perfNow - this.lastEraseTime < 55) return;
-        this.lastEraseTime = perfNow;
-        this.init();
-        if (!this.ctx || !this.noiseBuf) return;
-        const now = this.ctx.currentTime;
-
-        // Cookie-crunch / brittle crushing sound: staggered multi-grain fracture bursts + low-mid snap
-        const grains = [
-          { delay: 0.000, dur: 0.032, freq: 1350 + Math.random() * 220, q: 2.4, amp: 0.16 },
-          { delay: 0.019, dur: 0.038, freq: 1920 + Math.random() * 280, q: 2.8, amp: 0.14 },
-          { delay: 0.044, dur: 0.042, freq: 1050 + Math.random() * 190, q: 2.1, amp: 0.12 },
-          { delay: 0.072, dur: 0.030, freq: 2250 + Math.random() * 300, q: 3.0, amp: 0.08 }
-        ];
-
-        grains.forEach((g) => {
-          const t0 = now + g.delay;
-          const src = this.ctx.createBufferSource();
-          src.buffer = this.noiseBuf;
-
-          const bp = this.ctx.createBiquadFilter();
-          bp.type = 'bandpass';
-          bp.frequency.setValueAtTime(g.freq, t0);
-          bp.frequency.exponentialRampToValueAtTime(g.freq * 0.68, t0 + g.dur);
-          bp.Q.setValueAtTime(g.q, t0);
-
-          const env = this.ctx.createGain();
-          env.gain.setValueAtTime(0.001, t0);
-          env.gain.linearRampToValueAtTime(g.amp, t0 + 0.003);
-          env.gain.exponentialRampToValueAtTime(0.0008, t0 + g.dur);
-
-          src.connect(bp);
-          bp.connect(env);
-          env.connect(this.out);
-          src.start(t0, Math.random() * 0.4, g.dur + 0.01);
-          src.stop(t0 + g.dur + 0.01);
-        });
-
-        // Low-mid brittle cookie snap body
-        [0, 0.024].forEach((offset, idx) => {
-          const t0 = now + offset;
-          const osc = this.ctx.createOscillator();
-          const oGain = this.ctx.createGain();
-          osc.type = 'triangle';
-          const startF = idx === 0 ? 195 + Math.random() * 25 : 145 + Math.random() * 20;
-          osc.frequency.setValueAtTime(startF, t0);
-          osc.frequency.exponentialRampToValueAtTime(48, t0 + 0.042);
-          oGain.gain.setValueAtTime(idx === 0 ? 0.10 : 0.075, t0);
-          oGain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.045);
-          osc.connect(oGain);
-          oGain.connect(this.out);
-          osc.start(t0);
-          osc.stop(t0 + 0.048);
-        });
-      },
-      crumble(isCollapse = false) {
-        if (!state.soundEnabled) return;
-        this.init();
-        if (!this.ctx || !this.noiseBuf) return;
-        const now = this.ctx.currentTime;
-
-        const pebbles = isCollapse
-          ? [
-              { delay: 0.00, dur: 0.055, freq: 880, q: 2.2, amp: 0.15 },
-              { delay: 0.04, dur: 0.065, freq: 640, q: 2.0, amp: 0.14 },
-              { delay: 0.09, dur: 0.070, freq: 1180, q: 2.6, amp: 0.11 },
-              { delay: 0.15, dur: 0.060, freq: 520, q: 1.9, amp: 0.10 },
-              { delay: 0.22, dur: 0.050, freq: 1420, q: 2.8, amp: 0.07 }
-            ]
-          : [
-              { delay: 0.00, dur: 0.038, freq: 1120, q: 2.5, amp: 0.09 },
-              { delay: 0.03, dur: 0.042, freq: 820, q: 2.2, amp: 0.08 }
-            ];
-
-        pebbles.forEach((p) => {
-          const t0 = now + p.delay + Math.random() * 0.01;
-          const src = this.ctx.createBufferSource();
-          src.buffer = this.noiseBuf;
-          const bp = this.ctx.createBiquadFilter();
-          bp.type = 'bandpass';
-          const f = p.freq + (Math.random() - 0.5) * 140;
-          bp.frequency.setValueAtTime(f, t0);
-          bp.frequency.exponentialRampToValueAtTime(f * 0.55, t0 + p.dur);
-          bp.Q.setValueAtTime(p.q, t0);
-
-          const g = this.ctx.createGain();
-          g.gain.setValueAtTime(0.001, t0);
-          g.gain.linearRampToValueAtTime(p.amp, t0 + 0.005);
-          g.gain.exponentialRampToValueAtTime(0.0008, t0 + p.dur);
-
-          src.connect(bp);
-          bp.connect(g);
-          g.connect(this.out);
-          src.start(t0, Math.random() * 0.4, p.dur + 0.01);
-          src.stop(t0 + p.dur + 0.01);
-        });
-
-        // Low rocky fracture thud
-        const osc = this.ctx.createOscillator();
-        const oGain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(isCollapse ? 135 : 165, now);
-        osc.frequency.exponentialRampToValueAtTime(isCollapse ? 36 : 58, now + (isCollapse ? 0.16 : 0.07));
-        oGain.gain.setValueAtTime(isCollapse ? 0.13 : 0.07, now);
-        oGain.gain.exponentialRampToValueAtTime(0.0008, now + (isCollapse ? 0.17 : 0.075));
-        osc.connect(oGain);
-        oGain.connect(this.out);
-        osc.start(now);
-        osc.stop(now + (isCollapse ? 0.18 : 0.08));
-      },
-      createSuccess() {
-        if (!state.soundEnabled) return;
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        // Soft warm Rhodes-style chord arpeggio
-        const notes = [329.63, 440, 554.37, 659.25];
-        notes.forEach((freq, idx) => {
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'sine';
-          const t0 = now + idx * 0.05;
-          osc.frequency.setValueAtTime(freq, t0);
-          gain.gain.setValueAtTime(0.001, t0);
-          gain.gain.linearRampToValueAtTime(0.075, t0 + 0.012);
-          gain.gain.exponentialRampToValueAtTime(0.0008, t0 + 0.24);
-          osc.connect(gain);
-          gain.connect(this.out);
-          osc.start(t0);
-          osc.stop(t0 + 0.25);
-        });
-      },
-      step(surface = 'normal') {
-        if (!state.soundEnabled) return;
-        const perfNow = performance.now();
-        if (perfNow - this.lastStepTime < 95) return;
-        this.lastStepTime = perfNow;
-        this.init();
-        if (!this.ctx || !this.noiseBuf) return;
-        const now = this.ctx.currentTime;
-        this.stepFoot = 1 - this.stepFoot;
-        const footShift = this.stepFoot === 0 ? 0.94 : 1.07;
-
-        if (surface === 'grass') {
-          // Soft fibrous foliage/grass rustle + light muted earth pad
-          const swish = this.ctx.createBufferSource();
-          swish.buffer = this.noiseBuf;
-          const bp = this.ctx.createBiquadFilter();
-          bp.type = 'bandpass';
-          bp.frequency.setValueAtTime(1950 * footShift, now);
-          bp.frequency.exponentialRampToValueAtTime(1250 * footShift, now + 0.065);
-          bp.Q.setValueAtTime(1.9, now);
-          const sGain = this.ctx.createGain();
-          sGain.gain.setValueAtTime(0.001, now);
-          sGain.gain.linearRampToValueAtTime(0.052, now + 0.012);
-          sGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.07);
-          swish.connect(bp);
-          bp.connect(sGain);
-          sGain.connect(this.out);
-          swish.start(now, Math.random() * 0.4, 0.075);
-          swish.stop(now + 0.075);
-
-          const thud = this.ctx.createOscillator();
-          const tGain = this.ctx.createGain();
-          thud.type = 'sine';
-          thud.frequency.setValueAtTime(82 * footShift, now);
-          thud.frequency.exponentialRampToValueAtTime(34, now + 0.038);
-          tGain.gain.setValueAtTime(0.035, now);
-          tGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.042);
-          thud.connect(tGain);
-          tGain.connect(this.out);
-          thud.start(now);
-          thud.stop(now + 0.045);
-          return;
-        }
-
-        if (surface === 'sand') {
-          // Shifting dry granular sand crunch (staggered dual-grain burst)
-          [0, 0.016].forEach((delay, idx) => {
-            const t0 = now + delay;
-            const gr = this.ctx.createBufferSource();
-            gr.buffer = this.noiseBuf;
-            const bp = this.ctx.createBiquadFilter();
-            bp.type = 'bandpass';
-            const f = (idx === 0 ? 1550 : 2650) * footShift;
-            bp.frequency.setValueAtTime(f, t0);
-            bp.frequency.exponentialRampToValueAtTime(f * 0.72, t0 + 0.048);
-            bp.Q.setValueAtTime(2.4, t0);
-            const g = this.ctx.createGain();
-            g.gain.setValueAtTime(0.001, t0);
-            g.gain.linearRampToValueAtTime(idx === 0 ? 0.055 : 0.042, t0 + 0.006);
-            g.gain.exponentialRampToValueAtTime(0.0008, t0 + 0.052);
-            gr.connect(bp);
-            bp.connect(g);
-            g.connect(this.out);
-            gr.start(t0, Math.random() * 0.5, 0.055);
-            gr.stop(t0 + 0.056);
-          });
-          return;
-        }
-
-        if (surface === 'metal') {
-          // Resonant metallic plate clink with overtone partials
-          const freqs = [295 * footShift, 640 * footShift, 1180 * footShift];
-          const amps = [0.045, 0.028, 0.018];
-          const durs = [0.065, 0.085, 0.055];
-          freqs.forEach((f, i) => {
-            const osc = this.ctx.createOscillator();
-            const g = this.ctx.createGain();
-            osc.type = i === 0 ? 'triangle' : 'sine';
-            osc.frequency.setValueAtTime(f, now);
-            osc.frequency.exponentialRampToValueAtTime(f * 0.92, now + durs[i]);
-            g.gain.setValueAtTime(amps[i], now);
-            g.gain.exponentialRampToValueAtTime(0.0006, now + durs[i]);
-            osc.connect(g);
-            g.connect(this.out);
-            osc.start(now);
-            osc.stop(now + durs[i] + 0.005);
-          });
-          return;
-        }
-
-        if (surface === 'stone') {
-          // Crisp hard mineral cobble/brick tap
-          const tap = this.ctx.createOscillator();
-          const tGain = this.ctx.createGain();
-          tap.type = 'triangle';
-          tap.frequency.setValueAtTime(235 * footShift, now);
-          tap.frequency.exponentialRampToValueAtTime(68, now + 0.028);
-          tGain.gain.setValueAtTime(0.06, now);
-          tGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.032);
-          tap.connect(tGain);
-          tGain.connect(this.out);
-          tap.start(now);
-          tap.stop(now + 0.035);
-
-          const click = this.ctx.createBufferSource();
-          click.buffer = this.noiseBuf;
-          const bp = this.ctx.createBiquadFilter();
-          bp.type = 'bandpass';
-          bp.frequency.setValueAtTime(1850 * footShift, now);
-          bp.Q.setValueAtTime(3.2, now);
-          const cGain = this.ctx.createGain();
-          cGain.gain.setValueAtTime(0.045, now);
-          cGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.022);
-          click.connect(bp);
-          bp.connect(cGain);
-          cGain.connect(this.out);
-          click.start(now, Math.random() * 0.4, 0.025);
-          click.stop(now + 0.026);
-          return;
-        }
-
-        if (surface === 'mud' || surface === 'sticky') {
-          // Wet squishy mud/slime squelch (upward resonant filter sweep + suction bloop)
-          const sq = this.ctx.createBufferSource();
-          sq.buffer = this.noiseBuf;
-          const bp = this.ctx.createBiquadFilter();
-          bp.type = 'bandpass';
-          bp.frequency.setValueAtTime(280 * footShift, now);
-          bp.frequency.exponentialRampToValueAtTime(960 * footShift, now + 0.065);
-          bp.Q.setValueAtTime(4.8, now);
-          const sGain = this.ctx.createGain();
-          sGain.gain.setValueAtTime(0.001, now);
-          sGain.gain.linearRampToValueAtTime(0.07, now + 0.014);
-          sGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.072);
-          sq.connect(bp);
-          bp.connect(sGain);
-          sGain.connect(this.out);
-          sq.start(now, Math.random() * 0.4, 0.075);
-          sq.stop(now + 0.078);
-
-          const bloop = this.ctx.createOscillator();
-          const bGain = this.ctx.createGain();
-          bloop.type = 'sine';
-          bloop.frequency.setValueAtTime(115 * footShift, now);
-          bloop.frequency.exponentialRampToValueAtTime(245 * footShift, now + 0.055);
-          bGain.gain.setValueAtTime(0.045, now);
-          bGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.06);
-          bloop.connect(bGain);
-          bGain.connect(this.out);
-          bloop.start(now);
-          bloop.stop(now + 0.065);
-          return;
-        }
-
-        if (surface === 'wood' || surface === 'ladder') {
-          // Hollow wooden plank knock
-          const knock = this.ctx.createOscillator();
-          const kGain = this.ctx.createGain();
-          knock.type = 'triangle';
-          knock.frequency.setValueAtTime(168 * footShift, now);
-          knock.frequency.exponentialRampToValueAtTime(62, now + 0.042);
-          kGain.gain.setValueAtTime(0.06, now);
-          kGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.046);
-          knock.connect(kGain);
-          kGain.connect(this.out);
-          knock.start(now);
-          knock.stop(now + 0.048);
-          return;
-        }
-
-        if (surface === 'snow' || surface === 'slidey') {
-          // Crisp powdery snow/ice compression crunch
-          const cr = this.ctx.createBufferSource();
-          cr.buffer = this.noiseBuf;
-          const bp = this.ctx.createBiquadFilter();
-          bp.type = 'bandpass';
-          bp.frequency.setValueAtTime(2750 * footShift, now);
-          bp.frequency.exponentialRampToValueAtTime(1900 * footShift, now + 0.05);
-          bp.Q.setValueAtTime(2.5, now);
-          const cGain = this.ctx.createGain();
-          cGain.gain.setValueAtTime(0.001, now);
-          cGain.gain.linearRampToValueAtTime(0.046, now + 0.008);
-          cGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.055);
-          cr.connect(bp);
-          bp.connect(cGain);
-          cGain.connect(this.out);
-          cr.start(now, Math.random() * 0.4, 0.058);
-          cr.stop(now + 0.06);
-          return;
-        }
-
-        if (surface === 'carpet') {
-          // Soft muffled fabric step
-          const pad = this.ctx.createOscillator();
-          const pGain = this.ctx.createGain();
-          pad.type = 'sine';
-          pad.frequency.setValueAtTime(75 * footShift, now);
-          pad.frequency.exponentialRampToValueAtTime(28, now + 0.045);
-          pGain.gain.setValueAtTime(0.04, now);
-          pGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.048);
-          pad.connect(pGain);
-          pGain.connect(this.out);
-          pad.start(now);
-          pad.stop(now + 0.05);
-          return;
-        }
-
-        // Default 'normal' ground step
-        const lowThud = this.ctx.createOscillator();
-        const thudGain = this.ctx.createGain();
-        lowThud.type = 'sine';
-        const baseFreq = 98 * footShift + (Math.random() * 10 - 5);
-        lowThud.frequency.setValueAtTime(baseFreq, now);
-        lowThud.frequency.exponentialRampToValueAtTime(36, now + 0.042);
-        thudGain.gain.setValueAtTime(0.055, now);
-        thudGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.045);
-        lowThud.connect(thudGain);
-        thudGain.connect(this.out);
-        lowThud.start(now);
-        lowThud.stop(now + 0.048);
-
-        // Soft surface scuff grain
-        const scuff = this.ctx.createBufferSource();
-        scuff.buffer = this.noiseBuf;
-        const bp = this.ctx.createBiquadFilter();
-        bp.type = 'bandpass';
-        bp.frequency.setValueAtTime(1150 * footShift, now);
-        bp.Q.setValueAtTime(2.6, now);
-        const sGain = this.ctx.createGain();
-        sGain.gain.setValueAtTime(0.001, now);
-        sGain.gain.linearRampToValueAtTime(0.032, now + 0.004);
-        sGain.gain.exponentialRampToValueAtTime(0.0006, now + 0.034);
-        scuff.connect(bp);
-        bp.connect(sGain);
-        sGain.connect(this.out);
-        scuff.start(now, Math.random() * 0.5, 0.038);
-        scuff.stop(now + 0.038);
-      },
-      land(impactVy = 2.5, surface = 'normal') {
-        if (!state.soundEnabled) return;
-        this.init();
-        if (!this.ctx || !this.noiseBuf) return;
-        const now = this.ctx.currentTime;
-        const intensity = Math.min(1.5, Math.max(0.45, impactVy / 4.2));
-
-        // Trigger the material-specific step texture + weighted landing thump
-        this.lastStepTime = 0;
-        this.step(surface);
-
-        // Double-foot landing thump (heel + toe)
-        [0, 0.024].forEach((delay, idx) => {
-          const t0 = now + delay;
-          const osc = this.ctx.createOscillator();
-          const g = this.ctx.createGain();
-          osc.type = surface === 'metal' ? 'sine' : 'triangle';
-          const fStart = surface === 'metal' ? (idx === 0 ? 180 : 240) : (idx === 0 ? 92 : 114);
-          osc.frequency.setValueAtTime(fStart, t0);
-          osc.frequency.exponentialRampToValueAtTime(32, t0 + 0.06);
-          g.gain.setValueAtTime(0.055 * intensity * (idx === 0 ? 1 : 0.75), t0);
-          g.gain.exponentialRampToValueAtTime(0.0008, t0 + 0.065);
-          osc.connect(g);
-          g.connect(this.out);
-          osc.start(t0);
-          osc.stop(t0 + 0.068);
-        });
-      },
-      jump() {
-        if (!state.soundEnabled) return;
-        this.init();
-        if (!this.ctx || !this.noiseBuf) return;
-        const now = this.ctx.currentTime;
-
-        // Warm organic upward lift + soft air whoosh
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(145, now);
-        osc.frequency.exponentialRampToValueAtTime(335, now + 0.085);
-        gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(0.065, now + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.095);
-        osc.connect(gain);
-        gain.connect(this.out);
-        osc.start(now);
-        osc.stop(now + 0.1);
-
-        const air = this.ctx.createBufferSource();
-        air.buffer = this.noiseBuf;
-        const bp = this.ctx.createBiquadFilter();
-        bp.type = 'bandpass';
-        bp.frequency.setValueAtTime(680, now);
-        bp.frequency.exponentialRampToValueAtTime(1450, now + 0.08);
-        bp.Q.setValueAtTime(2.0, now);
-        const aGain = this.ctx.createGain();
-        aGain.gain.setValueAtTime(0.001, now);
-        aGain.gain.linearRampToValueAtTime(0.03, now + 0.015);
-        aGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.085);
-        air.connect(bp);
-        bp.connect(aGain);
-        aGain.connect(this.out);
-        air.start(now, Math.random() * 0.4, 0.09);
-        air.stop(now + 0.09);
-      },
-      bounce() {
-        if (!state.soundEnabled) return;
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-
-        // Deep trampoline pad compression thump
-        const thump = this.ctx.createOscillator();
-        const tGain = this.ctx.createGain();
-        thump.type = 'triangle';
-        thump.frequency.setValueAtTime(115, now);
-        thump.frequency.exponentialRampToValueAtTime(42, now + 0.075);
-        tGain.gain.setValueAtTime(0.11, now);
-        tGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-        thump.connect(tGain);
-        tGain.connect(this.out);
-        thump.start(now);
-        thump.stop(now + 0.085);
-
-        // Elastic FM-modulated spring resonance
-        const carrier = this.ctx.createOscillator();
-        const mod = this.ctx.createOscillator();
-        const modGain = this.ctx.createGain();
-        const cGain = this.ctx.createGain();
-
-        carrier.type = 'sine';
-        carrier.frequency.setValueAtTime(165, now);
-        carrier.frequency.exponentialRampToValueAtTime(520, now + 0.14);
-        carrier.frequency.exponentialRampToValueAtTime(340, now + 0.24);
-
-        mod.type = 'sine';
-        mod.frequency.setValueAtTime(28, now);
-        modGain.gain.setValueAtTime(45, now);
-        modGain.gain.exponentialRampToValueAtTime(4, now + 0.24);
-
-        cGain.gain.setValueAtTime(0.001, now);
-        cGain.gain.linearRampToValueAtTime(0.095, now + 0.012);
-        cGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.25);
-
-        mod.connect(modGain);
-        modGain.connect(carrier.frequency);
-        carrier.connect(cGain);
-        cGain.connect(this.out);
-
-        mod.start(now);
-        carrier.start(now);
-        mod.stop(now + 0.26);
-        carrier.stop(now + 0.26);
-      },
-      hurt() {
-        if (!state.soundEnabled) return;
-        this.init();
-        if (!this.ctx || !this.noiseBuf) return;
-        const now = this.ctx.currentTime;
-
-        // Heavy body impact punch + fracture crunch
-        const punch = this.ctx.createOscillator();
-        const pGain = this.ctx.createGain();
-        punch.type = 'sawtooth';
-        const lp = this.ctx.createBiquadFilter();
-        lp.type = 'lowpass';
-        lp.frequency.setValueAtTime(520, now);
-        lp.frequency.exponentialRampToValueAtTime(95, now + 0.16);
-        punch.frequency.setValueAtTime(155, now);
-        punch.frequency.exponentialRampToValueAtTime(38, now + 0.16);
-        pGain.gain.setValueAtTime(0.14, now);
-        pGain.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
-        punch.connect(lp);
-        lp.connect(pGain);
-        pGain.connect(this.out);
-        punch.start(now);
-        punch.stop(now + 0.18);
-
-        // Crisp impact burst
-        const burst = this.ctx.createBufferSource();
-        burst.buffer = this.noiseBuf;
-        const bp = this.ctx.createBiquadFilter();
-        bp.type = 'bandpass';
-        bp.frequency.setValueAtTime(1450, now);
-        bp.Q.setValueAtTime(1.8, now);
-        const bGain = this.ctx.createGain();
-        bGain.gain.setValueAtTime(0.12, now);
-        bGain.gain.exponentialRampToValueAtTime(0.001, now + 0.075);
-        burst.connect(bp);
-        bp.connect(bGain);
-        bGain.connect(this.out);
-        burst.start(now, Math.random() * 0.3, 0.08);
-        burst.stop(now + 0.08);
-      },
-      death() {
-        if (!state.soundEnabled) return;
-        this.init();
-        if (!this.ctx || !this.noiseBuf) return;
-        const now = this.ctx.currentTime;
-
-        // Ragdoll tumble pitch drop + air rush as the character falls off screen
-        const fallOsc = this.ctx.createOscillator();
-        const fGain = this.ctx.createGain();
-        fallOsc.type = 'triangle';
-        fallOsc.frequency.setValueAtTime(240, now + 0.04);
-        fallOsc.frequency.exponentialRampToValueAtTime(52, now + 0.42);
-        fGain.gain.setValueAtTime(0.001, now + 0.04);
-        fGain.gain.linearRampToValueAtTime(0.085, now + 0.07);
-        fGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.44);
-        fallOsc.connect(fGain);
-        fGain.connect(this.out);
-        fallOsc.start(now + 0.04);
-        fallOsc.stop(now + 0.45);
-
-        const whoosh = this.ctx.createBufferSource();
-        whoosh.buffer = this.noiseBuf;
-        const bp = this.ctx.createBiquadFilter();
-        bp.type = 'bandpass';
-        bp.frequency.setValueAtTime(980, now + 0.05);
-        bp.frequency.exponentialRampToValueAtTime(260, now + 0.42);
-        bp.Q.setValueAtTime(2.2, now + 0.05);
-        const wGain = this.ctx.createGain();
-        wGain.gain.setValueAtTime(0.001, now + 0.05);
-        wGain.gain.linearRampToValueAtTime(0.065, now + 0.11);
-        wGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.43);
-        whoosh.connect(bp);
-        bp.connect(wGain);
-        wGain.connect(this.out);
-        whoosh.start(now + 0.05, 0, 0.4);
-        whoosh.stop(now + 0.45);
-      },
-      splash(speed = 2.5) {
-        if (!state.soundEnabled) return;
-        this.init();
-        if (!this.ctx || !this.noiseBuf) return;
-        const now = this.ctx.currentTime;
-        const intensity = Math.min(1.15, Math.max(0.45, speed / 3.4));
-
-        // 1. Gentle, slower low water displacement swell ("Bloop-woosh")
-        const plunge = this.ctx.createOscillator();
-        const pGain = this.ctx.createGain();
-        plunge.type = 'sine';
-        plunge.frequency.setValueAtTime(112, now);
-        plunge.frequency.exponentialRampToValueAtTime(38, now + 0.28);
-        pGain.gain.setValueAtTime(0.001, now);
-        pGain.gain.linearRampToValueAtTime(0.062 * intensity, now + 0.022);
-        pGain.gain.exponentialRampToValueAtTime(0.0006, now + 0.30);
-        plunge.connect(pGain);
-        pGain.connect(this.out);
-        plunge.start(now);
-        plunge.stop(now + 0.32);
-
-        // Secondary slow underwater air-pocket rise
-        const cavity = this.ctx.createOscillator();
-        const cGain = this.ctx.createGain();
-        cavity.type = 'sine';
-        cavity.frequency.setValueAtTime(95, now + 0.08);
-        cavity.frequency.exponentialRampToValueAtTime(185, now + 0.38);
-        cGain.gain.setValueAtTime(0.001, now + 0.08);
-        cGain.gain.linearRampToValueAtTime(0.036 * intensity, now + 0.14);
-        cGain.gain.exponentialRampToValueAtTime(0.0006, now + 0.40);
-        cavity.connect(cGain);
-        cGain.connect(this.out);
-        cavity.start(now + 0.08);
-        cavity.stop(now + 0.42);
-
-        // 2. Soft, unhurried pool water wash (slower swell and long gentle decay)
-        const wash = this.ctx.createBufferSource();
-        wash.buffer = this.noiseBuf;
-        const washFilter = this.ctx.createBiquadFilter();
-        washFilter.type = 'bandpass';
-        washFilter.frequency.setValueAtTime(520, now);
-        washFilter.frequency.exponentialRampToValueAtTime(920, now + 0.14);
-        washFilter.frequency.exponentialRampToValueAtTime(240, now + 0.78);
-        washFilter.Q.setValueAtTime(1.3, now);
-        const wGain = this.ctx.createGain();
-        wGain.gain.setValueAtTime(0.001, now);
-        wGain.gain.linearRampToValueAtTime(0.052 * intensity, now + 0.05);
-        wGain.gain.linearRampToValueAtTime(0.064 * intensity, now + 0.16);
-        wGain.gain.exponentialRampToValueAtTime(0.0006, now + 0.80);
-        wash.connect(washFilter);
-        washFilter.connect(wGain);
-        wGain.connect(this.out);
-        wash.start(now, Math.random() * 0.2, 0.82);
-        wash.stop(now + 0.82);
-
-        // 3. Spaced-out, quiet underwater bubbles & settling ripples
-        const bubbles = [
-          { delay: 0.09, f0: 155, f1: 320, dur: 0.11, amp: 0.028 },
-          { delay: 0.22, f0: 210, f1: 420, dur: 0.10, amp: 0.024 },
-          { delay: 0.37, f0: 185, f1: 380, dur: 0.11, amp: 0.020 },
-          { delay: 0.53, f0: 260, f1: 510, dur: 0.09, amp: 0.016 },
-          { delay: 0.69, f0: 310, f1: 590, dur: 0.08, amp: 0.012 }
-        ];
-        bubbles.forEach(b => {
-          const t0 = now + b.delay + Math.random() * 0.02;
-          const bOsc = this.ctx.createOscillator();
-          const bGain = this.ctx.createGain();
-          bOsc.type = 'sine';
-          bOsc.frequency.setValueAtTime(b.f0 + Math.random() * 18, t0);
-          bOsc.frequency.exponentialRampToValueAtTime(b.f1 + Math.random() * 25, t0 + b.dur);
-          bGain.gain.setValueAtTime(0.001, t0);
-          bGain.gain.linearRampToValueAtTime(b.amp * intensity, t0 + 0.015);
-          bGain.gain.exponentialRampToValueAtTime(0.0005, t0 + b.dur);
-          bOsc.connect(bGain);
-          bGain.connect(this.out);
-          bOsc.start(t0);
-          bOsc.stop(t0 + b.dur + 0.01);
-        });
-      },
-      poof(isEquip = true) {
-        if (!state.soundEnabled) return;
-        this.init();
-        if (!this.ctx || !this.noiseBuf) return;
-        const now = this.ctx.currentTime;
-
-        // 1. Soft, airy cloud poof ("fwoomp" bandpass-swept noise puff)
-        const puff = this.ctx.createBufferSource();
-        puff.buffer = this.noiseBuf;
-        const bp = this.ctx.createBiquadFilter();
-        bp.type = 'bandpass';
-        const startF = isEquip ? 920 : 680;
-        const endF = isEquip ? 260 : 190;
-        bp.frequency.setValueAtTime(startF, now);
-        bp.frequency.exponentialRampToValueAtTime(endF, now + 0.17);
-        bp.Q.setValueAtTime(1.35, now);
-
-        const pGain = this.ctx.createGain();
-        pGain.gain.setValueAtTime(0.001, now);
-        pGain.gain.linearRampToValueAtTime(0.095, now + 0.018);
-        pGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.18);
-        puff.connect(bp);
-        bp.connect(pGain);
-        pGain.connect(this.out);
-        puff.start(now, Math.random() * 0.4, 0.19);
-        puff.stop(now + 0.19);
-
-        // 2. Warm pillowy low-mid pop body
-        const pop = this.ctx.createOscillator();
-        const oGain = this.ctx.createGain();
-        pop.type = 'sine';
-        pop.frequency.setValueAtTime(isEquip ? 165 : 210, now);
-        pop.frequency.exponentialRampToValueAtTime(isEquip ? 245 : 78, now + 0.045);
-        pop.frequency.exponentialRampToValueAtTime(58, now + 0.14);
-        oGain.gain.setValueAtTime(0.001, now);
-        oGain.gain.linearRampToValueAtTime(0.085, now + 0.012);
-        oGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.145);
-        pop.connect(oGain);
-        oGain.connect(this.out);
-        pop.start(now);
-        pop.stop(now + 0.15);
-      },
-      wireConnect() {
-        if (!state.soundEnabled) return;
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-
-        // 1. Crisp mechanical jack-plug snap
-        const snap = this.ctx.createOscillator();
-        const sGain = this.ctx.createGain();
-        snap.type = 'triangle';
-        snap.frequency.setValueAtTime(190, now);
-        snap.frequency.exponentialRampToValueAtTime(620, now + 0.032);
-        sGain.gain.setValueAtTime(0.09, now);
-        sGain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
-        snap.connect(sGain);
-        sGain.connect(this.out);
-        snap.start(now);
-        snap.stop(now + 0.038);
-
-        // 2. Two-tone harmonic connection link chime
-        const notes = [
-          { delay: 0.028, dur: 0.09, freq: 523.25 },
-          { delay: 0.085, dur: 0.16, freq: 783.99 }
-        ];
-        notes.forEach((n) => {
-          const t0 = now + n.delay;
-          const osc = this.ctx.createOscillator();
-          const g = this.ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(n.freq, t0);
-          osc.frequency.exponentialRampToValueAtTime(n.freq * 1.015, t0 + n.dur);
-          g.gain.setValueAtTime(0.001, t0);
-          g.gain.linearRampToValueAtTime(0.085, t0 + 0.01);
-          g.gain.exponentialRampToValueAtTime(0.0008, t0 + n.dur);
-          osc.connect(g);
-          g.connect(this.out);
-          osc.start(t0);
-          osc.stop(t0 + n.dur + 0.01);
-        });
-      },
-      doorSlide(opening = true) {
-        if (!state.soundEnabled) return;
-        const perfNow = performance.now();
-        if (this.lastDoorTime && perfNow - this.lastDoorTime < 80) return;
-        this.lastDoorTime = perfNow;
-        this.init();
-        if (!this.ctx || !this.noiseBuf) return;
-        const now = this.ctx.currentTime;
-
-        const src = this.ctx.createBufferSource();
-        src.buffer = this.noiseBuf;
-        const bp = this.ctx.createBiquadFilter();
-        bp.type = 'bandpass';
-        bp.frequency.setValueAtTime(opening ? 380 : 680, now);
-        bp.frequency.exponentialRampToValueAtTime(opening ? 760 : 320, now + 0.16);
-        bp.Q.setValueAtTime(2.6, now);
-
-        const nGain = this.ctx.createGain();
-        nGain.gain.setValueAtTime(0.001, now);
-        nGain.gain.linearRampToValueAtTime(0.065, now + 0.025);
-        nGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.17);
-        src.connect(bp);
-        bp.connect(nGain);
-        nGain.connect(this.out);
-        src.start(now, Math.random() * 0.3, 0.18);
-        src.stop(now + 0.18);
-
-        const latch = this.ctx.createOscillator();
-        const lGain = this.ctx.createGain();
-        latch.type = 'triangle';
-        const tLatch = now + 0.11;
-        latch.frequency.setValueAtTime(opening ? 195 : 135, tLatch);
-        latch.frequency.exponentialRampToValueAtTime(opening ? 260 : 72, tLatch + 0.045);
-        lGain.gain.setValueAtTime(0.075, tLatch);
-        lGain.gain.exponentialRampToValueAtTime(0.0008, tLatch + 0.05);
-        latch.connect(lGain);
-        lGain.connect(this.out);
-        latch.start(tLatch);
-        latch.stop(tLatch + 0.055);
-      },
-      piston(extending = true) {
-        if (!state.soundEnabled) return;
-        const perfNow = performance.now();
-        if (this.lastPistonTime && perfNow - this.lastPistonTime < 75) return;
-        this.lastPistonTime = perfNow;
-        this.init();
-        if (!this.ctx || !this.noiseBuf) return;
-        const now = this.ctx.currentTime;
-
-        // Pneumatic air burst + mechanical clunk
-        const src = this.ctx.createBufferSource();
-        src.buffer = this.noiseBuf;
-        const bp = this.ctx.createBiquadFilter();
-        bp.type = 'bandpass';
-        bp.frequency.setValueAtTime(extending ? 620 : 940, now);
-        bp.frequency.exponentialRampToValueAtTime(extending ? 1280 : 420, now + 0.09);
-        bp.Q.setValueAtTime(2.4, now);
-        const nGain = this.ctx.createGain();
-        nGain.gain.setValueAtTime(0.001, now);
-        nGain.gain.linearRampToValueAtTime(0.075, now + 0.01);
-        nGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.10);
-        src.connect(bp);
-        bp.connect(nGain);
-        nGain.connect(this.out);
-        src.start(now, Math.random() * 0.3, 0.11);
-        src.stop(now + 0.11);
-
-        const clunk = this.ctx.createOscillator();
-        const cGain = this.ctx.createGain();
-        clunk.type = 'triangle';
-        clunk.frequency.setValueAtTime(extending ? 140 : 180, now);
-        clunk.frequency.exponentialRampToValueAtTime(extending ? 245 : 85, now + 0.055);
-        cGain.gain.setValueAtTime(0.09, now);
-        cGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.06);
-        clunk.connect(cGain);
-        cGain.connect(this.out);
-        clunk.start(now);
-        clunk.stop(now + 0.065);
-      },
-      note(freq = 440, waveType = 'triangle') {
-        if (!state.soundEnabled) return;
-        const perfNow = performance.now();
-        if (this.lastNoteTime && perfNow - this.lastNoteTime < 45) return;
-        this.lastNoteTime = perfNow;
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-
-        const osc = this.ctx.createOscillator();
-        const sub = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = waveType;
-        sub.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now);
-        sub.frequency.setValueAtTime(freq * 0.5, now);
-
-        gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(0.11, now + 0.012);
-        gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.32);
-
-        osc.connect(gain);
-        sub.connect(gain);
-        gain.connect(this.out);
-        osc.start(now);
-        sub.start(now);
-        osc.stop(now + 0.34);
-        sub.stop(now + 0.34);
-      },
-      buzzer() {
-        if (!state.soundEnabled) return;
-        const perfNow = performance.now();
-        if (this.lastBuzzerTime && perfNow - this.lastBuzzerTime < 140) return;
-        this.lastBuzzerTime = perfNow;
-        this.init();
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-
-        // Tame, soft two-note muffled low buzzer ("uh-uh") that isn't harsh or shocking
-        const notes = [
-          { delay: 0.00, dur: 0.065, freq: 162 },
-          { delay: 0.075, dur: 0.085, freq: 128 }
-        ];
-        notes.forEach((n) => {
-          const t0 = now + n.delay;
-          const osc = this.ctx.createOscillator();
-          const lp = this.ctx.createBiquadFilter();
-          const gain = this.ctx.createGain();
-
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(n.freq, t0);
-          osc.frequency.exponentialRampToValueAtTime(n.freq * 0.92, t0 + n.dur);
-
-          lp.type = 'lowpass';
-          lp.frequency.setValueAtTime(360, t0);
-
-          gain.gain.setValueAtTime(0.001, t0);
-          gain.gain.linearRampToValueAtTime(0.065, t0 + 0.01);
-          gain.gain.exponentialRampToValueAtTime(0.0008, t0 + n.dur);
-
-          osc.connect(lp);
-          lp.connect(gain);
-          gain.connect(this.out);
-          osc.start(t0);
-          osc.stop(t0 + n.dur + 0.01);
-        });
-      }
-    };
 
     /********************************************************************
      * YOUTUBE IFRAME BACKGROUND AMBIANCE INTEGRATION
@@ -5104,24 +5024,41 @@
       const p = state.player;
       rebuildWiredTargetsSet();
 
-      // Smoothly interpolate zoom level so zooming never hard-cuts
-      state.renderZoom += (state.zoom - state.renderZoom) * 0.22;
-      if (Math.abs(state.zoom - state.renderZoom) < 0.005) state.renderZoom = state.zoom;
-
-      if (state.activatorTimer > 0) {
-        state.activatorTimer--;
+      // Update global world wind simulation if any Environmental Wind is placed
+      let hasWindEmitter = false;
+      for (const [, cell] of state.worldCells.entries()) {
+        if (cell.type === 'environment' && cell.subtype === 'Environmental Wind') {
+          hasWindEmitter = true;
+          break;
+        }
+      }
+      if (hasWindEmitter) {
+        worldWindState.timer++;
+        worldWindState.noiseTimer++;
+        if (worldWindState.noiseTimer >= 480) {
+          worldWindState.noiseTimer = 0;
+          if (Math.random() < 0.75) sfx.windGust();
+        }
+        if (worldWindState.timer >= worldWindState.nextChangeTick) {
+          worldWindState.timer = 0;
+          worldWindState.nextChangeTick = 240 + Math.floor(Math.random() * 360);
+          worldWindState.dir = Math.random() < 0.5 ? 1 : -1;
+          worldWindState.speed = 0.9 + Math.random() * 1.6;
+        }
       }
 
-      // Reset per-tick incoming wire counters for logic gates
-      for (const [, cell] of state.worldCells.entries()) {
-        cell._incomingSignalCount = 0;
-        cell._totalIncomingWires = 0;
-      }
-      for (const [, cell] of state.worldCells.entries()) {
-        if (Array.isArray(cell.wires)) {
-          for (const w of cell.wires) {
-            const tCell = getWorldCellAtWireRef(w);
-            if (tCell) tCell._totalIncomingWires = (tCell._totalIncomingWires || 0) + 1;
+      // Update Drifty Things drifting in the wind
+      for (let i = state.dynamicEntities.length - 1; i >= 0; i--) {
+        const ent = state.dynamicEntities[i];
+        const sp = getSpriteById(ent.spriteId);
+        if (sp && sp.type === 'thing' && (sp.subtype === 'Drifty' || sp.subtype === 'Furry')) {
+          if (ent.driftyAlpha === undefined) ent.driftyAlpha = 0.05;
+          if (ent.driftyAlpha < 1) ent.driftyAlpha = Math.min(1, ent.driftyAlpha + 0.035);
+          if (hasWindEmitter) {
+            ent.vx = (ent.vx || 0) + worldWindState.dir * worldWindState.speed * 0.035;
+            ent.vx *= 0.96;
+            ent.x += ent.vx;
+            ent.y += Math.sin(worldTickCount * 0.04 + ent.x * 0.1) * 0.25;
           }
         }
       }
@@ -5762,7 +5699,7 @@
       }
 
       // Track continuous downward falling time & off-world void threshold:
-      // Falling for more than 3 seconds (180 ticks at 60Hz) or falling off the bottom of the world triggers ragdoll death & respawn
+      // Falling for more than 4 seconds (240 ticks at 60Hz) or falling off the bottom of the world triggers ragdoll death & respawn
       const isFreeFallingDown =
         !p.onGround &&
         !p.onLadder &&
@@ -5780,7 +5717,7 @@
       const lowestWorldCellY = getLowestStaticWorldY();
       const fellOffWorldVoid = !state.hardFloorY0 && p.y > lowestWorldCellY + 240 && !hasFloorBelowInColumn(p.x, p.y, p.w);
 
-      if ((p.fallTicks >= 180 || fellOffWorldVoid) && p.deadTimer === 0) {
+      if ((p.fallTicks >= 240 || fellOffWorldVoid) && p.deadTimer === 0) {
         p.fallTicks = 0;
         const prevInvuln = p.invulnTimer;
         p.invulnTimer = 0;
@@ -11402,7 +11339,8 @@
           const matchName = s.name.toLowerCase().includes(q);
           const matchType = s.type.toLowerCase().includes(q);
           const matchSub = (s.subtype || '').toLowerCase().includes(q);
-          if (!matchName && !matchType && !matchSub) return false;
+          const matchCategory = getTypeSpec(s.type).name.toLowerCase().includes(q);
+          if (!matchName && !matchType && !matchSub && !matchCategory) return false;
         }
         return true;
       }).slice().reverse();

@@ -509,6 +509,15 @@
       <img id="custom-drag-preview-img" src="" alt="" class="w-12 h-12 object-contain" style="image-rendering: pixelated;" />
     </div>
 
+    <!-- Top-Level Floating Canvas for Held Viewport Blocks (Visible over Viewport, HUD & Creation Menu) -->
+    <canvas
+      id="held-block-overlay-canvas"
+      width="160"
+      height="160"
+      class="hidden fixed z-[130] pointer-events-none -translate-x-1/2 -translate-y-1/2"
+      style="left: -999px; top: -999px;"
+    ></canvas>
+
     <!-- In-World Motion Bar Box Below the Player (Opens with Down / S or when dragging a Motion) -->
     <div
       id="world-motion-bar"
@@ -974,12 +983,6 @@
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>
               <span>MOVE</span>
             </div>
-          </div>
-
-          <!-- Floating Brush Size Change Preview Toast -->
-          <div id="brush-size-toast" class="pointer-events-none opacity-0 transition-opacity duration-150 absolute top-11 left-1/2 -translate-x-1/2 z-30 bg-[#16161d]/95 border border-blue-400/70 px-3 py-1.5 rounded-sm shadow-xl flex items-center gap-2.5">
-            <div id="brush-toast-box" class=" border border-white/80 bg-blue-400/30 flex items-center justify-center"></div>
-            <span id="brush-toast-label" class="text-[10px] text-zinc-100 mono">1px</span>
           </div>
 
           <!-- Top-Right Combinable Aseprite Symmetry Presets Bar -->
@@ -1848,6 +1851,8 @@
     let worldTickCount = 0;
 
     const mouseWorld = {
+      clientX: 0,
+      clientY: 0,
       sx: 0,
       sy: 0,
       wx: 0,
@@ -1862,6 +1867,41 @@
       pendingHoldGrab: null,
       wireDragSource: null
     };
+
+    const heldBlockOverlayCanvas = document.getElementById('held-block-overlay-canvas');
+    const heldBlockOverlayCtx = heldBlockOverlayCanvas ? heldBlockOverlayCanvas.getContext('2d') : null;
+
+    function clearPendingHoldGrab() {
+      if (mouseWorld.pendingHoldGrab) {
+        if (mouseWorld.pendingHoldGrab.timer) {
+          clearTimeout(mouseWorld.pendingHoldGrab.timer);
+        }
+        mouseWorld.pendingHoldGrab = null;
+      }
+    }
+
+    function getOrientationLabel(orient) {
+      const o = ((orient || 0) % 8 + 8) % 8;
+      const labels = ['', '90°', '180°', '270°', 'Flip', 'Flip 90°', 'Flip 180°', 'Flip 270°'];
+      return labels[o] || '';
+    }
+
+    function drawImageWithOrient(ctx, img, x, y, w, h, orient = 0, extraScale = 1) {
+      const o = ((orient || 0) % 8 + 8) % 8;
+      if (o === 0 && extraScale === 1) {
+        ctx.drawImage(img, x, y, w, h);
+        return;
+      }
+      const quarterTurns = o % 4;
+      const flipped = o >= 4;
+      ctx.save();
+      ctx.translate(x + w / 2, y + h / 2);
+      if (flipped) ctx.scale(-1, 1);
+      if (quarterTurns !== 0) ctx.rotate(quarterTurns * (Math.PI / 2));
+      if (extraScale !== 1) ctx.scale(extraScale, extraScale);
+      ctx.drawImage(img, -w / 2, -h / 2, w, h);
+      ctx.restore();
+    }
 
     // Offscreen cache for rendered sprite frames & O(1) sprite lookup table
     const spriteCanvasCache = new Map();
@@ -2691,6 +2731,44 @@
         oGain.connect(this.out);
         pop.start(now);
         pop.stop(now + 0.15);
+      },
+      buzzer() {
+        if (!state.soundEnabled) return;
+        const perfNow = performance.now();
+        if (this.lastBuzzerTime && perfNow - this.lastBuzzerTime < 140) return;
+        this.lastBuzzerTime = perfNow;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+
+        // Tame, soft two-note muffled low buzzer ("uh-uh") that isn't harsh or shocking
+        const notes = [
+          { delay: 0.00, dur: 0.065, freq: 162 },
+          { delay: 0.075, dur: 0.085, freq: 128 }
+        ];
+        notes.forEach((n) => {
+          const t0 = now + n.delay;
+          const osc = this.ctx.createOscillator();
+          const lp = this.ctx.createBiquadFilter();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(n.freq, t0);
+          osc.frequency.exponentialRampToValueAtTime(n.freq * 0.92, t0 + n.dur);
+
+          lp.type = 'lowpass';
+          lp.frequency.setValueAtTime(360, t0);
+
+          gain.gain.setValueAtTime(0.001, t0);
+          gain.gain.linearRampToValueAtTime(0.065, t0 + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0008, t0 + n.dur);
+
+          osc.connect(lp);
+          lp.connect(gain);
+          gain.connect(this.out);
+          osc.start(t0);
+          osc.stop(t0 + n.dur + 0.01);
+        });
       }
     };
 
@@ -2825,7 +2903,10 @@
 
     function loadAmbianceYouTubeUrl(rawUrl) {
       const vid = extractYouTubeId(rawUrl);
-      if (!vid) return;
+      if (!vid) {
+        sfx.buzzer();
+        return;
+      }
       state.ambianceVideoId = vid;
       state.ambianceEnabled = true;
       syncAmbianceUI();
@@ -3840,7 +3921,10 @@
     }
 
     function undoWorldAction() {
-      if (state.worldUndoStack.length === 0) return;
+      if (state.worldUndoStack.length === 0) {
+        sfx.buzzer();
+        return;
+      }
       const prev = state.worldUndoStack.pop();
       state.worldRedoStack.push(cloneWorldSnapshot());
       sfx.ui(410);
@@ -3848,7 +3932,10 @@
     }
 
     function redoWorldAction() {
-      if (state.worldRedoStack.length === 0) return;
+      if (state.worldRedoStack.length === 0) {
+        sfx.buzzer();
+        return;
+      }
       const next = state.worldRedoStack.pop();
       state.worldUndoStack.push(cloneWorldSnapshot());
       sfx.ui(540);
@@ -4003,7 +4090,7 @@
     }
 
     function getEquippedBodyMotionIds() {
-      const bodySp = state.sprites.find(s => s.id === state.activeBodyId);
+      const bodySp = getSpriteById(state.activeBodyId);
       if (bodySp) {
         if (!Array.isArray(bodySp.motions)) bodySp.motions = [];
         bodySp.motions = bodySp.motions.filter(id => {
@@ -4020,8 +4107,9 @@
     }
 
     function addMotionToCurrentBody(motionSpriteId) {
-      const mSp = state.sprites.find(s => s.id === motionSpriteId);
+      const mSp = getSpriteById(motionSpriteId);
       if (!isMotionCompatibleSprite(mSp)) {
+        sfx.buzzer();
         state.floatingTexts.push({
           x: state.player.x + state.player.w / 2,
           y: state.player.y - 10,
@@ -4053,7 +4141,7 @@
     }
 
     function removeMotionFromCurrentBody(motionSpriteId) {
-      const bodySp = state.sprites.find(s => s.id === state.activeBodyId);
+      const bodySp = getSpriteById(state.activeBodyId);
       if (bodySp && Array.isArray(bodySp.motions)) {
         bodySp.motions = bodySp.motions.filter(id => id !== motionSpriteId);
       } else {
@@ -4069,7 +4157,7 @@
     function findBodySleepOrLayMotion() {
       const ids = getEquippedBodyMotionIds();
       for (const id of ids) {
-        const sp = state.sprites.find(s => s.id === id);
+        const sp = getSpriteById(id);
         if (!sp) continue;
         const n = sp.name.toLowerCase();
         if (sp.motionEffect === 'sleep' || /\b(sleep|lay|lie|nap|rest|bed)\b/.test(n)) {
@@ -4525,19 +4613,24 @@
     /********************************************************************
      * FIXED-TIMESTEP 60FPS PHYSICS & WORLD ENTITIES LOOP
      ********************************************************************/
-    // Spaghetti Wire Helpers: Activators can wire directly to doors, traps, item throwers, etc.
-    function isTargetWiredByAnyActivator(targetCell) {
-      if (!targetCell) return false;
+    // Spaghetti Wire Helpers: O(1) lookup set rebuilt once per tick so collision checks never scan all worldCells
+    const activeWiredTargetsSet = new Set();
+
+    function rebuildWiredTargetsSet() {
+      activeWiredTargetsSet.clear();
       for (const [, cell] of state.worldCells.entries()) {
-        if (cell.type === 'activator' && cell.subtype === 'Activater' && Array.isArray(cell.wires) && cell.wires.length > 0) {
-          for (const w of cell.wires) {
-            if (w.x === targetCell.x && w.y === targetCell.y && (w.layer || 'main') === (targetCell.layer || 'main')) {
-              return true;
-            }
+        if (cell.type === 'activator' && cell.subtype === 'Activater' && Array.isArray(cell.wires)) {
+          for (let i = 0; i < cell.wires.length; i++) {
+            const w = cell.wires[i];
+            activeWiredTargetsSet.add(`${w.x},${w.y},${w.layer || 'main'}`);
           }
         }
       }
-      return false;
+    }
+
+    function isTargetWiredByAnyActivator(targetCell) {
+      if (!targetCell) return false;
+      return activeWiredTargetsSet.has(`${targetCell.x},${targetCell.y},${targetCell.layer || 'main'}`);
     }
 
     function isCellCurrentlyActivated(cell) {
@@ -4617,15 +4710,30 @@
         if (dirIdx === 0) dirIdx = 2;
         else if (dirIdx === 2) dirIdx = 0;
       }
-      if (dirIdx === 0) return { fx: 0.52, fy: 0, maxVx: 3.6, maxVy: 0 };
-      if (dirIdx === 2) return { fx: -0.52, fy: 0, maxVx: -3.6, maxVy: 0 };
-      if (dirIdx === 3) return { fx: 0, fy: -0.62, maxVx: 0, maxVy: -4.8 };
-      return { fx: 0, fy: 0.52, maxVx: 0, maxVy: 4.5 };
+      // Wind gust force: pushes entities through the gust and gently repels opposing movement
+      if (dirIdx === 0) return { dx: 1, dy: 0, fx: 0.34, fy: 0, maxVx: 2.85, maxVy: 0 };
+      if (dirIdx === 2) return { dx: -1, dy: 0, fx: -0.34, fy: 0, maxVx: -2.85, maxVy: 0 };
+      if (dirIdx === 3) return { dx: 0, dy: -1, fx: 0, fy: -0.40, maxVx: 0, maxVy: -3.4 };
+      return { dx: 0, dy: 1, fx: 0, fy: 0.34, maxVx: 0, maxVy: 3.2 };
+    }
+
+    // Returns the active quarter-turn direction of a placed cell (0 = upright/top, 1 = right, 2 = upside-down/bottom, 3 = left)
+    function getCellQuarterTurn(cell) {
+      return ((cell.orient ?? cell.rotation ?? 0) % 4 + 4) % 4;
+    }
+
+    function triggerCellBounceAnim(cell) {
+      const spBounce = getSpriteById(cell.spriteId);
+      const extraCells = spBounce ? Math.max(1, spBounce.frames.length - 1) : 1;
+      const ticksPerCel = Math.max(5, Math.round(60 / (spBounce?.animFps || state.walkFps || 8)));
+      cell._bounceMax = extraCells * ticksPerCel;
+      cell._bounceTick = cell._bounceMax;
     }
 
     function updatePhysicsTick() {
       worldTickCount++;
       const p = state.player;
+      rebuildWiredTargetsSet();
 
       // Smoothly interpolate zoom level so zooming never hard-cuts
       state.renderZoom += (state.zoom - state.renderZoom) * 0.22;
@@ -5321,6 +5429,17 @@
           }
         }
 
+        // Check if projectile is passing through a Pushing wind gust
+        for (const [, cell] of state.worldCells.entries()) {
+          if (cell.type !== 'pushing') continue;
+          if (pr.x < cell.x + cell.w && pr.x + pr.w > cell.x && pr.y < cell.y + cell.h && pr.y + pr.h > cell.y) {
+            const gust = getPushingVectorForCell(cell);
+            pr.vx += gust.fx * 0.65;
+            pr.vy += gust.fy * 0.65;
+            cell._interactTick = 10;
+          }
+        }
+
         // 2. Vertical step & floor/ceiling/bouncy collisions
         pr.y += pr.vy;
         let onSlideySurface = false;
@@ -5339,20 +5458,18 @@
           }
 
           const solidKind = isCellSolid(cell);
-          const hitOneWay = solidKind === 'oneway' && pr.vy >= 0 && (pr.y + pr.h - pr.vy <= cell.y + 6);
-          if (solidKind === true || hitOneWay) {
-            if (pr.vy >= 0) {
+          const qTurn = getCellQuarterTurn(cell);
+          const hitOneWayTop = solidKind === 'oneway' && qTurn !== 2 && pr.vy >= 0 && (pr.y + pr.h - pr.vy <= cell.y + 6);
+          const hitOneWayBottom = solidKind === 'oneway' && qTurn === 2 && pr.vy < 0 && (pr.y - pr.vy >= cell.y + cell.h - 6);
+          if (solidKind === true || hitOneWayTop || hitOneWayBottom) {
+            if (pr.vy >= 0 && !hitOneWayBottom) {
               pr.y = cell.y - pr.h;
               if (cell.type === 'bouncy') {
                 pr.vy = -Math.max(5.2, Math.abs(pr.vy) * 0.92);
                 if (cell.subtype === 'Tilted Bouncy') pr.vx += (pr.vx >= 0 ? 1 : -1) * 2.2;
                 pr.vrot = pr.vx * 0.14;
                 sfx.bounce();
-                const spBounce = getSpriteById(cell.spriteId);
-                const extraCells = spBounce ? Math.max(1, spBounce.frames.length - 1) : 1;
-                const ticksPerCel = Math.max(5, Math.round(60 / (spBounce?.animFps || state.walkFps || 8)));
-                cell._bounceMax = extraCells * ticksPerCel;
-                cell._bounceTick = cell._bounceMax;
+                triggerCellBounceAnim(cell);
               } else {
                 if (Math.abs(pr.vy) > 1.35) {
                   sfx.step(resolveCellSurfaceMaterial(cell));
@@ -5365,7 +5482,16 @@
               }
             } else {
               pr.y = cell.y + cell.h;
-              pr.vy = -pr.vy * 0.35;
+              if (cell.type === 'bouncy') {
+                // Upside-down bouncy launches projectiles downward!
+                pr.vy = Math.max(5.0, Math.abs(pr.vy) * 0.92);
+                if (cell.subtype === 'Tilted Bouncy') pr.vx += (pr.vx >= 0 ? 1 : -1) * 2.2;
+                pr.vrot = pr.vx * 0.14;
+                sfx.bounce();
+                triggerCellBounceAnim(cell);
+              } else {
+                pr.vy = -pr.vy * 0.35;
+              }
             }
             break;
           }
@@ -5529,18 +5655,49 @@
             triggerActivatorCell(cell, 240);
           }
           if (cell.type === 'pushing') {
-            const pushVec = getPushingVectorForCell(cell);
-            p.vx += pushVec.fx;
-            p.vy += pushVec.fy;
-            if (pushVec.fx > 0 && p.vx > pushVec.maxVx) p.vx = pushVec.maxVx;
-            if (pushVec.fx < 0 && p.vx < pushVec.maxVx) p.vx = pushVec.maxVx;
-            if (pushVec.fy < 0) {
-              p.onGround = false;
-              if (p.vy < pushVec.maxVy) p.vy = pushVec.maxVy;
-            } else if (pushVec.fy > 0 && p.vy > pushVec.maxVy) {
-              p.vy = pushVec.maxVy;
+            // Gust of wind: player can pass right through it, gets pushed along with the gust,
+            // and is lightly repelled if trying to walk/move in the opposite direction!
+            const gust = getPushingVectorForCell(cell);
+            if (gust.dx !== 0) {
+              const movingAgainstWind =
+                (gust.dx > 0 && (state.keys.left || p.vx < -0.05)) ||
+                (gust.dx < 0 && (state.keys.right || p.vx > 0.05));
+              if (movingAgainstWind) {
+                // Dampen opposing walk speed and gently repel back with the wind
+                p.vx = p.vx * 0.72 + gust.fx * 0.95;
+              } else {
+                p.vx += gust.fx * 0.78;
+                if (gust.dx > 0 && p.vx > gust.maxVx) p.vx = gust.maxVx;
+                if (gust.dx < 0 && p.vx < gust.maxVx) p.vx = gust.maxVx;
+              }
+            }
+            if (gust.dy !== 0) {
+              const movingAgainstVertWind =
+                (gust.dy < 0 && state.keys.down) ||
+                (gust.dy > 0 && state.keys.up);
+              if (gust.dy < 0) {
+                p.onGround = false;
+                p.vy += movingAgainstVertWind ? gust.fy * 0.55 : gust.fy;
+                if (p.vy < gust.maxVy) p.vy = gust.maxVy;
+              } else {
+                p.vy += movingAgainstVertWind ? gust.fy * 0.6 : gust.fy * 0.85;
+                if (p.vy > gust.maxVy) p.vy = gust.maxVy;
+              }
             }
             cell._interactTick = 14;
+            if (worldTickCount % 7 === 0 && Math.random() < 0.65) {
+              state.particles.push({
+                x: cell.x + Math.random() * cell.w,
+                y: cell.y + Math.random() * cell.h,
+                vx: gust.dx * (1.2 + Math.random() * 0.9),
+                vy: gust.dy * (1.2 + Math.random() * 0.9),
+                drag: 0.95,
+                size: 1.4,
+                color: 'rgba(228, 228, 231, 0.45)',
+                life: 14,
+                maxLife: 14
+              });
+            }
           }
           if (['viewable', 'textual', 'holder', 'transporting'].includes(cell.type)) {
             cell._interactTick = 12;
@@ -5606,9 +5763,14 @@
           });
         }
 
-        const cellBottomY = cell.y + cell.h;
-        // Player's feet interact when overlapping the furry tile vertically or walking along the block directly under it
-        const playerNearVert = pFootY >= cell.y + 2 && pFootY <= cellBottomY + 6 && p.y < cellBottomY + 2;
+        const qTurn = getCellQuarterTurn(cell);
+        const isUpsideDownFurry = qTurn === 2;
+        const cellAnchorY = isUpsideDownFurry ? cell.y : (cell.y + cell.h);
+        // Player interacts when feet (upright) or head/body (upside-down) brush through the furry tile
+        const playerContactY = isUpsideDownFurry ? p.y : pFootY;
+        const playerNearVert = isUpsideDownFurry
+          ? (playerContactY >= cell.y - 6 && playerContactY <= cell.y + cell.h - 2 && pFootY > cell.y - 2)
+          : (pFootY >= cell.y + 2 && pFootY <= cellAnchorY + 6 && p.y < cellAnchorY + 2);
         const playerNearHoriz = pFootX >= cell.x - 10 && pFootX <= cell.x + cell.w + 10;
 
         let ruffledThisTick = false;
@@ -5641,13 +5803,13 @@
 
           // 2. Also react to projectiles and moving/falling entities passing through the grass
           for (const pr of state.projectiles) {
-            if (Math.abs((pr.y + pr.h) - cellBottomY) < 14 && Math.abs((pr.x + pr.w * 0.5) - strandWorldX) < 10) {
+            if (Math.abs((pr.y + pr.h) - cellAnchorY) < 14 && Math.abs((pr.x + pr.w * 0.5) - strandWorldX) < 10) {
               st.vel += Math.max(-0.35, Math.min(0.35, pr.vx * 0.08));
               ruffledThisTick = true;
             }
           }
           for (const ent of state.dynamicEntities) {
-            if (Math.abs((ent.y + ent.h) - cellBottomY) < 14 && Math.abs((ent.x + ent.w * 0.5) - strandWorldX) < 12) {
+            if (Math.abs((ent.y + ent.h) - cellAnchorY) < 14 && Math.abs((ent.x + ent.w * 0.5) - strandWorldX) < 12) {
               if (Math.abs(ent.vx || 0) > 0.1) {
                 st.vel += Math.max(-0.3, Math.min(0.3, (ent.vx || 0) * 0.09));
                 ruffledThisTick = true;
@@ -5679,7 +5841,7 @@
             const speckColor = getPrimaryColorFromSprite(sp, '#4ade80');
             state.particles.push({
               x: pFootX + (Math.random() - 0.5) * 10,
-              y: cellBottomY - 2 - Math.random() * 5,
+              y: cellAnchorY - 2 - Math.random() * 5,
               vx: -p.vx * 0.35 + (Math.random() - 0.5) * 0.9,
               vy: -0.55 - Math.random() * 0.85,
               ay: 0.06,
@@ -5713,25 +5875,96 @@
         const aboveLadder = state.worldCells.get(`${cell.x},${cell.y - TILE_SIZE},${cell.layer}`);
         if (!aboveLadder || aboveLadder.type !== 'climbable') return 'oneway';
       }
-      if (['solid', 'crumbling', 'bouncy', 'slidey', 'pushing'].includes(cell.type)) return true;
+      if (['solid', 'crumbling', 'bouncy', 'slidey'].includes(cell.type)) return true;
       if (cell.type === 'moving' && cell.subtype === 'Mover') return true;
       return false;
+    }
+
+    function doesPlayerRectOverlapSolid(rx, ry, rw, rh, ignoreCell = null) {
+      for (const [, c] of state.worldCells.entries()) {
+        if (c === ignoreCell || !hasSpriteId(c.spriteId)) continue;
+        if (isCellSolid(c) !== true) continue;
+        if (rx < c.x + c.w - 0.1 && rx + rw > c.x + 0.1 && ry < c.y + c.h - 0.1 && ry + rh > c.y + 0.1) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function ejectPlayerFromSolidCell(p, cell) {
+      const bx = cell.x, by = cell.y, bw = cell.w, bh = cell.h;
+      const overlapUp = (p.y + p.h) - by;
+      const overlapDown = (by + bh) - p.y;
+      const overlapLeft = (p.x + p.w) - bx;
+      const overlapRight = (bx + bw) - p.x;
+
+      // Candidate directions to kick the player out, slightly favoring upward ejection onto the top of the block
+      const candidates = [
+        { dir: 'up', x: p.x, y: by - p.h, dist: overlapUp * 0.85, vx: p.vx, vy: Math.min(p.vy, -1.6) },
+        { dir: 'left', x: bx - p.w, y: p.y, dist: overlapLeft, vx: -2.2, vy: p.vy },
+        { dir: 'right', x: bx + bw, y: p.y, dist: overlapRight, vx: 2.2, vy: p.vy },
+        { dir: 'down', x: p.x, y: by + bh, dist: overlapDown * 1.15, vx: p.vx, vy: Math.max(p.vy, 1.4) }
+      ];
+
+      candidates.sort((a, b) => a.dist - b.dist);
+
+      for (const cand of candidates) {
+        if (!doesPlayerRectOverlapSolid(cand.x, cand.y, p.w, p.h, cell)) {
+          p.x = cand.x;
+          p.y = cand.y;
+          p.prevX = p.x;
+          p.prevY = p.y;
+          p.vx = cand.vx;
+          p.vy = cand.vy;
+          if (cand.dir === 'up') {
+            p.onGround = true;
+            p.squashX = 0.88;
+            p.squashY = 1.14;
+          } else if (cand.dir === 'left' || cand.dir === 'right') {
+            p.squashX = 1.14;
+            p.squashY = 0.88;
+          }
+          return;
+        }
+      }
+
+      // Fallback if surrounded by solids on all 4 immediate sides: search nearest open tile ring
+      for (let rad = 1; rad <= 5; rad++) {
+        const offsets = [
+          [0, -rad], [-rad, 0], [rad, 0], [0, rad],
+          [-rad, -rad], [rad, -rad], [-rad, rad], [rad, rad]
+        ];
+        for (const [ox, oy] of offsets) {
+          const tx = bx + ox * TILE_SIZE;
+          const ty = by + oy * TILE_SIZE;
+          if (!doesPlayerRectOverlapSolid(tx, ty, p.w, p.h, cell)) {
+            p.x = tx;
+            p.y = ty;
+            p.prevX = p.x;
+            p.prevY = p.y;
+            p.vx = ox * 1.8;
+            p.vy = oy <= 0 ? -1.8 : 0;
+            return;
+          }
+        }
+      }
     }
 
     function resolveWorldCollisions(p, horizontal) {
       const prevX = p.prevX !== undefined ? p.prevX : (p.x - p.vx);
       const prevY = p.prevY !== undefined ? p.prevY : (p.y - p.vy);
 
-      // Helper to compute the highest slope surface Y under the player's horizontal foot span
+      // Helper to compute the floor or upside-down ceiling slope surface Y under/above the player's horizontal span
       const getSlopeTargetYForPlayer = (cell, playerX) => {
         const bw = cell.w;
         const bh = cell.h;
         const bx = cell.x;
         const by = cell.y;
         const orient = (cell.orient ?? cell.rotation ?? 0) % 8;
-        const isOrientMirrored = (orient >= 4) !== (orient % 4 === 1 || orient % 4 === 2);
+        const qTurn = orient % 4;
+        const isUpsideDown = qTurn === 2;
+        const isOrientMirrored = (orient >= 4) !== (qTurn === 1 || qTurn === 2);
         const isDescendingRight = (cell.frameIdx === 1) !== isOrientMirrored;
-        // Sample across the player's inner foot span [playerX + 3, playerX + p.w - 3] so the leading foot reaches the top of the slope cleanly
         const leftSample = Math.max(0, Math.min(bw, (playerX + 3) - bx));
         const rightSample = Math.max(0, Math.min(bw, (playerX + p.w - 3) - bx));
         const centerSample = Math.max(0, Math.min(bw, (playerX + p.w / 2) - bx));
@@ -5739,10 +5972,14 @@
           ? Math.min(leftSample, centerSample)
           : Math.max(rightSample, centerSample);
         const slopeH = isDescendingRight ? (bh - (relX / bw) * bh) : ((relX / bw) * bh);
+        if (isUpsideDown) {
+          // Upside-down ceiling slope: solid thickness hangs down from top `by` by `slopeH`
+          return by + slopeH;
+        }
         return by + bh - slopeH - p.h;
       };
 
-      // Pass 1: Resolve all overlapping SLOPE tiles first so the player is lifted to the slope height before solid wall checks
+      // Pass 1: Resolve all overlapping SLOPE tiles first (supports both upright floor slopes and upside-down ceiling slopes)
       let onSlopeThisStep = false;
       for (const [key, cell] of state.worldCells.entries()) {
         if (!hasSpriteId(cell.spriteId)) {
@@ -5753,8 +5990,15 @@
         const bw = cell.w, bh = cell.h, bx = cell.x, by = cell.y;
         if (p.x >= bx + bw || p.x + p.w <= bx || p.y >= by + bh || p.y + p.h <= by) continue;
 
+        const qTurn = getCellQuarterTurn(cell);
         const targetY = getSlopeTargetYForPlayer(cell, p.x);
-        if (p.y >= targetY - 1.5 && p.vy >= -0.5) {
+        if (qTurn === 2) {
+          // Upside-down ceiling slope deflects player downward when their head enters the slope ceiling
+          if (p.y <= targetY + 1.5 && p.vy <= 0.5) {
+            p.y = targetY;
+            if (!horizontal && p.vy < 0) p.vy = 0;
+          }
+        } else if (p.y >= targetY - 1.5 && p.vy >= -0.5) {
           p.y = targetY;
           if (!horizontal && p.vy > 0) p.vy = 0;
           p.onGround = true;
@@ -5764,7 +6008,7 @@
         }
       }
 
-      // Pass 2: Resolve SOLID and ONE-WAY collisions
+      // Pass 2: Resolve SOLID and ONE-WAY collisions (including upside-down & sideways rotated objects)
       for (const [key, cell] of state.worldCells.entries()) {
         if (!hasSpriteId(cell.spriteId) || cell.type === 'slope') continue;
 
@@ -5775,25 +6019,30 @@
         const bh = cell.h;
         const bx = cell.x;
         const by = cell.y;
-
-        // Also allow standing on top of a Pushing block to propel the player horizontally or upward
-        if (!horizontal && cell.type === 'pushing') {
-          const touchingTop = p.x + 2 < bx + bw && p.x + p.w - 2 > bx && Math.abs((p.y + p.h) - by) <= 4;
-          if (touchingTop) {
-            const pushVec = getPushingVectorForCell(cell);
-            p.vx += pushVec.fx * 0.85;
-            if (pushVec.fy < 0) {
-              p.vy = pushVec.maxVy;
-              p.onGround = false;
-            }
-            cell._interactTick = 14;
-          }
-        }
+        const qTurn = getCellQuarterTurn(cell);
 
         if (p.x >= bx + bw || p.x + p.w <= bx || p.y >= by + bh || p.y + p.h <= by) continue;
 
         if (solidType === 'oneway') {
-          if (
+          if (qTurn === 2) {
+            // Upside-down One-Way / Walkable block acts as a one-way ceiling from below!
+            if (!horizontal && p.vy < 0 && (prevY >= by + bh - 5)) {
+              p.y = by + bh;
+              p.vy = 0;
+            }
+          } else if (qTurn === 1) {
+            // 90° CW One-Way acts as a one-way wall from the right
+            if (horizontal && p.vx < 0 && (prevX >= bx + bw - 5)) {
+              p.x = bx + bw;
+              p.vx = 0;
+            }
+          } else if (qTurn === 3) {
+            // 270° CW One-Way acts as a one-way wall from the left
+            if (horizontal && p.vx > 0 && (prevX + p.w <= bx + 5)) {
+              p.x = bx - p.w;
+              p.vx = 0;
+            }
+          } else if (
             !horizontal &&
             p.vy >= 0 &&
             !state.keys.down &&
@@ -5823,11 +6072,12 @@
           }
         }
 
-        // Prevent hitbox glitching when jumping or walking inside a solid block that was placed directly on the player:
-        // If the player was ALREADY overlapping this solid block's interior before this axis step, let them move/jump out freely!
+        // If the player is already inside a solid block (e.g. a solid was placed on them or solidified around them),
+        // immediately kick them out to the nearest open edge!
         const wasOverlappingX = prevX < bx + bw - 0.05 && prevX + p.w > bx + 0.05;
         const wasOverlappingY = prevY < by + bh - 0.05 && prevY + p.h > by + 0.05;
         if (wasOverlappingX && wasOverlappingY) {
+          ejectPlayerFromSolidCell(p, cell);
           continue;
         }
 
@@ -5852,10 +6102,28 @@
         if (horizontal) {
           if (p.vx > 0 && prevX + p.w <= bx + 1.5) {
             p.x = bx - p.w;
-            p.vx = 0;
+            if (cell.type === 'bouncy' && (qTurn === 3 || qTurn === 1)) {
+              p.vx = -5.6;
+              p.vy = Math.min(p.vy, -2.2);
+              p.squashX = 1.26;
+              p.squashY = 0.78;
+              sfx.bounce();
+              triggerCellBounceAnim(cell);
+            } else {
+              p.vx = 0;
+            }
           } else if (p.vx < 0 && prevX >= bx + bw - 1.5) {
             p.x = bx + bw;
-            p.vx = 0;
+            if (cell.type === 'bouncy' && (qTurn === 1 || qTurn === 3)) {
+              p.vx = 5.6;
+              p.vy = Math.min(p.vy, -2.2);
+              p.squashX = 1.26;
+              p.squashY = 0.78;
+              sfx.bounce();
+              triggerCellBounceAnim(cell);
+            } else {
+              p.vx = 0;
+            }
           } else {
             continue;
           }
@@ -5865,11 +6133,15 @@
             p.vy = Math.min(p.vy, 0.35);
             cell._interactTick = 14;
           }
-          if (cell.type === 'pushing') {
-            const pushVec = getPushingVectorForCell(cell);
-            p.vx += pushVec.fx;
-            if (pushVec.fy < 0) p.vy = pushVec.maxVy;
-            cell._interactTick = 14;
+          if (cell.type === 'crumbling' && (qTurn === 1 || qTurn === 3)) {
+            if (cell.subtype === 'Flexible') {
+              cell._steppedOn = true;
+              cell._interactTick = 14;
+            } else if (cell.crumbleState === 0) {
+              cell.crumbleState = 1;
+              cell.timer = 0;
+              sfx.crumble(false);
+            }
           }
         } else {
           if (p.vy > 0 && prevY + p.h <= by + Math.max(5, p.vy + 1.5)) {
@@ -5898,11 +6170,7 @@
                 p.vx = p.facing * 3.5 * flipDir;
               }
               sfx.bounce();
-              const spBounce = getSpriteById(cell.spriteId);
-              const extraCells = spBounce ? Math.max(1, spBounce.frames.length - 1) : 1;
-              const ticksPerCel = Math.max(5, Math.round(60 / (spBounce?.animFps || state.walkFps || 8)));
-              cell._bounceMax = extraCells * ticksPerCel;
-              cell._bounceTick = cell._bounceMax;
+              triggerCellBounceAnim(cell);
             } else {
               p.vy = 0;
               p.onGround = true;
@@ -5913,15 +6181,6 @@
               }
               if (cell.type === 'solid' && cell.subtype === 'Sticky') {
                 p.onSticky = true;
-                cell._interactTick = 14;
-              }
-              if (cell.type === 'pushing') {
-                const pushVec = getPushingVectorForCell(cell);
-                p.vx += pushVec.fx * 1.15;
-                if (pushVec.fy < 0) {
-                  p.vy = pushVec.maxVy;
-                  p.onGround = false;
-                }
                 cell._interactTick = 14;
               }
               if (cell.type === 'crumbling') {
@@ -5948,7 +6207,38 @@
               }
             }
             p.y = by + bh;
-            p.vy = 0;
+            // Upside-down Bouncy (or hitting a bouncy from underneath) bounces the player downward!
+            if (cell.type === 'bouncy') {
+              const downBoost = state.keys.down ? 1.25 : 0;
+              p.vy = 5.8 + downBoost;
+              p.squashX = 1.26;
+              p.squashY = 0.76;
+              if (cell.subtype === 'Tilted Bouncy') {
+                const orient = (cell.orient ?? cell.rotation ?? 0) % 8;
+                const flipDir = (orient >= 4 || orient % 4 === 2) ? -1 : 1;
+                p.vx = p.facing * 3.5 * flipDir;
+              }
+              sfx.bounce();
+              triggerCellBounceAnim(cell);
+            } else {
+              p.vy = 0;
+              // Upside-down Crumbling / Flexible / Sticky blocks also work when hit from underneath!
+              if (cell.type === 'solid' && cell.subtype === 'Sticky' && qTurn === 2) {
+                p.onSticky = true;
+                p.vy = -0.15;
+                cell._interactTick = 14;
+              }
+              if (cell.type === 'crumbling') {
+                if (cell.subtype === 'Flexible') {
+                  cell._steppedOn = true;
+                  cell._interactTick = 14;
+                } else if (cell.crumbleState === 0) {
+                  cell.crumbleState = 1;
+                  cell.timer = 0;
+                  sfx.crumble(false);
+                }
+              }
+            }
           }
         }
       }
@@ -6137,18 +6427,16 @@
             const solidKind = isCellSolid(cell);
             if (!solidKind) continue;
             if (ent.x < cell.x + cell.w && ent.x + ent.w > cell.x && ent.y < cell.y + cell.h && ent.y + ent.h > cell.y) {
-              if (solidKind === 'oneway' && (ent.vy < 0 || ent.y + ent.h - ent.vy > cell.y + 6)) continue;
-              if (ent.vy >= 0) {
+              const qTurn = getCellQuarterTurn(cell);
+              if (solidKind === 'oneway' && qTurn !== 2 && (ent.vy < 0 || ent.y + ent.h - ent.vy > cell.y + 6)) continue;
+              if (solidKind === 'oneway' && qTurn === 2 && (ent.vy >= 0 || ent.y - ent.vy < cell.y + cell.h - 6)) continue;
+              if (ent.vy >= 0 && !(solidKind === 'oneway' && qTurn === 2)) {
                 ent.y = cell.y - ent.h;
                 if (cell.type === 'bouncy') {
                   ent.vy = -Math.max(5.6, Math.abs(preVy) * 0.9);
                   if (cell.subtype === 'Tilted Bouncy') ent.vx += 2.4;
                   sfx.bounce();
-                  const spBounce = getSpriteById(cell.spriteId);
-                  const extraCells = spBounce ? Math.max(1, spBounce.frames.length - 1) : 1;
-                  const ticksPerCel = Math.max(5, Math.round(60 / (spBounce?.animFps || state.walkFps || 8)));
-                  cell._bounceMax = extraCells * ticksPerCel;
-                  cell._bounceTick = cell._bounceMax;
+                  triggerCellBounceAnim(cell);
                 } else if (isSphere && Math.abs(preVy) > 1.2) {
                   ent.vy = -preVy * 0.68;
                   sfx.step(resolveCellSurfaceMaterial(cell));
@@ -6161,9 +6449,15 @@
                   grounded = true;
                   if (cell.type === 'slidey') onSlidey = true;
                 }
-              } else if (solidKind === true) {
+              } else if (solidKind === true || (solidKind === 'oneway' && qTurn === 2)) {
                 ent.y = cell.y + cell.h;
-                ent.vy = 0;
+                if (cell.type === 'bouncy') {
+                  ent.vy = Math.max(5.2, Math.abs(preVy) * 0.9);
+                  sfx.bounce();
+                  triggerCellBounceAnim(cell);
+                } else {
+                  ent.vy = 0;
+                }
               }
             }
           }
@@ -6547,12 +6841,17 @@
 
     function getPrimaryColorFromSprite(sp, fallbackHex = '#93c5fd') {
       if (!sp || !sp.frames || !sp.frames[0]) return fallbackHex;
+      if (sp._cachedPrimaryColor !== undefined) {
+        return sp._cachedPrimaryColor || fallbackHex;
+      }
       const buf = sp.frames[0];
       for (let i = 0; i < buf.length; i += 4) {
         if (buf[i + 3] > 25) {
-          return rgbaToHex(buf[i], buf[i + 1], buf[i + 2]);
+          sp._cachedPrimaryColor = rgbaToHex(buf[i], buf[i + 1], buf[i + 2]);
+          return sp._cachedPrimaryColor;
         }
       }
+      sp._cachedPrimaryColor = null;
       return fallbackHex;
     }
 
@@ -6989,60 +7288,59 @@
 
       // Smart Auto-Back Fill: When 2 or more BACK tiles are placed around an object (such as a SOLID, THING, CLIMBABLE, ACTIVATOR, etc.)
       // that doesn't already have an explicit BACK tile directly behind it, automatically render the surrounding BACK behind that object!
-      const autoSurroundBackCells = [];
-      const neighborOffsets = [
-        [-TILE_SIZE, 0],
-        [TILE_SIZE, 0],
-        [0, -TILE_SIZE],
-        [0, TILE_SIZE],
-        [-TILE_SIZE, -TILE_SIZE],
-        [TILE_SIZE, -TILE_SIZE],
-        [-TILE_SIZE, TILE_SIZE],
-        [TILE_SIZE, TILE_SIZE]
-      ];
-      for (const [, cell] of state.worldCells.entries()) {
-        if (cell.layer === 'back' || cell.layer === 'farback' || cell.type === 'back' || cell.type === 'environment' || cell.type === 'light') {
-          continue;
-        }
-        // Skip if there is already an explicit BACK tile at this exact coordinate
-        if (state.worldCells.has(`${cell.x},${cell.y},back`) || state.worldCells.has(`${cell.x},${cell.y},farback`)) {
-          continue;
-        }
-        let backNeighborCount = 0;
-        let bestBackNeighbor = null;
-        const countsBySprite = new Map();
-        for (let i = 0; i < neighborOffsets.length; i++) {
-          const [ox, oy] = neighborOffsets[i];
-          const nBack = state.worldCells.get(`${cell.x + ox},${cell.y + oy},back`) ||
-                        state.worldCells.get(`${cell.x + ox},${cell.y + oy},farback`);
-          if (nBack && nBack.type === 'back' && hasSpriteId(nBack.spriteId)) {
-            // Cardinal neighbors count with full weight (1), diagonal neighbors count when adjacent backs surround the object
-            backNeighborCount += (i < 4) ? 1 : 0.6;
-            const c = (countsBySprite.get(nBack.spriteId) || 0) + (i < 4 ? 2 : 1);
-            countsBySprite.set(nBack.spriteId, c);
-            if (!bestBackNeighbor || c > (countsBySprite.get(bestBackNeighbor.spriteId) || 0)) {
-              bestBackNeighbor = nBack;
+      if (backCells.length > 0 || farBackCells.length > 0) {
+        const autoSurroundBackCells = [];
+        const neighborOffsets = [
+          [-TILE_SIZE, 0],
+          [TILE_SIZE, 0],
+          [0, -TILE_SIZE],
+          [0, TILE_SIZE],
+          [-TILE_SIZE, -TILE_SIZE],
+          [TILE_SIZE, -TILE_SIZE],
+          [-TILE_SIZE, TILE_SIZE],
+          [TILE_SIZE, TILE_SIZE]
+        ];
+        for (const [, cell] of state.worldCells.entries()) {
+          if (cell.layer === 'back' || cell.layer === 'farback' || cell.type === 'back' || cell.type === 'environment' || cell.type === 'light') {
+            continue;
+          }
+          // Skip if there is already an explicit BACK tile at this exact coordinate
+          if (state.worldCells.has(`${cell.x},${cell.y},back`) || state.worldCells.has(`${cell.x},${cell.y},farback`)) {
+            continue;
+          }
+          let backNeighborCount = 0;
+          let bestBackNeighbor = null;
+          const countsBySprite = new Map();
+          for (let i = 0; i < neighborOffsets.length; i++) {
+            const [ox, oy] = neighborOffsets[i];
+            const nBack = state.worldCells.get(`${cell.x + ox},${cell.y + oy},back`) ||
+                          state.worldCells.get(`${cell.x + ox},${cell.y + oy},farback`);
+            if (nBack && nBack.type === 'back' && hasSpriteId(nBack.spriteId)) {
+              backNeighborCount += (i < 4) ? 1 : 0.6;
+              const c = (countsBySprite.get(nBack.spriteId) || 0) + (i < 4 ? 2 : 1);
+              countsBySprite.set(nBack.spriteId, c);
+              if (!bestBackNeighbor || c > (countsBySprite.get(bestBackNeighbor.spriteId) || 0)) {
+                bestBackNeighbor = nBack;
+              }
             }
           }
+          if (backNeighborCount >= 1.5 && bestBackNeighbor) {
+            autoSurroundBackCells.push({
+              spriteId: bestBackNeighbor.spriteId,
+              x: cell.x,
+              y: cell.y,
+              w: TILE_SIZE,
+              h: TILE_SIZE,
+              type: 'back',
+              subtype: bestBackNeighbor.subtype || 'Back',
+              layer: bestBackNeighbor.layer || 'back',
+              orient: bestBackNeighbor.orient || 0,
+              rotation: bestBackNeighbor.rotation || 0,
+              frameIdx: bestBackNeighbor.frameIdx || 0,
+              placeAnim: cell.placeAnim !== undefined ? cell.placeAnim : 1
+            });
+          }
         }
-        if (backNeighborCount >= 1.5 && bestBackNeighbor) {
-          autoSurroundBackCells.push({
-            spriteId: bestBackNeighbor.spriteId,
-            x: cell.x,
-            y: cell.y,
-            w: TILE_SIZE,
-            h: TILE_SIZE,
-            type: 'back',
-            subtype: bestBackNeighbor.subtype || 'Back',
-            layer: bestBackNeighbor.layer || 'back',
-            orient: bestBackNeighbor.orient || 0,
-            rotation: bestBackNeighbor.rotation || 0,
-            frameIdx: bestBackNeighbor.frameIdx || 0,
-            placeAnim: cell.placeAnim !== undefined ? cell.placeAnim : 1
-          });
-        }
-      }
-      if (autoSurroundBackCells.length > 0) {
         for (const autoCell of autoSurroundBackCells) {
           if (autoCell.layer === 'farback') farBackCells.push(autoCell);
           else backCells.push(autoCell);
@@ -7794,6 +8092,8 @@
           const isTallShag = cell.subtype === 'Tall Shag';
           const flowAmount = (sp.furryFlow ?? (cell.subtype === 'Flowing Many' ? 85 : 55)) / 100;
           const cellOrient = (cell.orient ?? cell.rotation ?? 0) % 8;
+          const qTurn = cellOrient % 4;
+          const isUpsideDownFurry = qTurn === 2;
           const orientFlipped = cellOrient >= 4;
 
           const strands = Array.isArray(cell._furryStrands) && cell._furryStrands.length > 0
@@ -7821,9 +8121,9 @@
               : 0;
             const totalShear = Math.max(-0.95, Math.min(0.95, ambientWave + st.angle));
 
-            // Root anchor at the bottom of the tile so it sits planted on top of the block underneath
+            // Root anchor at the bottom of the tile (or top of the tile when placed upside down!)
             const rootScreenX = Math.round(sx + sw * st.relX);
-            const rootScreenY = syEnd;
+            const rootScreenY = isUpsideDownFurry ? sy : syEnd;
             const tuftW = isMany ? Math.round(sw * 0.78) : sw;
             const tallMult = isTallShag ? 1.28 : 1.0;
             const tuftH = Math.round(sh * (st.heightScale || 1) * tallMult * (st.squash || 1) * placeScale);
@@ -7831,11 +8131,11 @@
 
             worldCtx.save();
             worldCtx.translate(rootScreenX, rootScreenY);
-            // Shear horizontally from the bottom root: top of blade sways by totalShear * tuftH while base stays fixed at 0
-            worldCtx.transform(1, 0, totalShear, 1, 0, 0);
+            // Shear horizontally from the root: tip sways while base stays anchored to the block
+            worldCtx.transform(1, 0, isUpsideDownFurry ? -totalShear : totalShear, 1, 0, 0);
             const flipThisStrand = (orientFlipped !== (isMany && (i % 2 === 1)));
-            if (flipThisStrand) {
-              worldCtx.scale(-1, 1);
+            if (flipThisStrand || isUpsideDownFurry) {
+              worldCtx.scale(flipThisStrand ? -1 : 1, isUpsideDownFurry ? -1 : 1);
             }
             worldCtx.drawImage(fc, Math.round(-drawW / 2), -tuftH, drawW, tuftH);
             worldCtx.restore();
@@ -7994,7 +8294,7 @@
           const hsy = Math.round(camScreenY + (hoveredItem.y + flexY) * zoom);
           const hsw = Math.max(1, Math.round(hoveredItem.w * zoom));
           const hsh = Math.max(1, Math.round(hoveredItem.h * zoom));
-          const isEraseHover = (state.mode === 'build' && state.worldTool === 'erase') || mouseWorld.downButton === 2;
+          const isEraseHover = (state.mode === 'build' && state.worldTool === 'erase') || mouseWorld.downButton === 2 || editor.ctrlHeld;
 
           worldCtx.save();
           worldCtx.fillStyle = isEraseHover ? 'rgba(239, 68, 68, 0.10)' : 'rgba(255, 255, 255, 0.045)';
@@ -8017,55 +8317,72 @@
         held.holdTicks = (held.holdTicks || 0) + 1;
         const item = held.item;
         const sp = held.sprite;
-        const hw = (item.w || TILE_SIZE) * zoom;
-        const hh = (item.h || TILE_SIZE) * zoom;
+        const hw = Math.max(1, Math.round((item.w || TILE_SIZE) * zoom));
+        const hh = Math.max(1, Math.round((item.h || TILE_SIZE) * zoom));
 
-        const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
-        const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
-        const targetScreenX = Math.round(camScreenX + snapX * zoom);
-        const targetScreenY = Math.round(camScreenY + snapY * zoom);
+        // 1. Subtle landing slot outline at the snapped grid coordinate when inside the viewport
+        if (mouseWorld.inside) {
+          const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
+          const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
+          const targetScreenX = Math.round(camScreenX + snapX * zoom);
+          const targetScreenY = Math.round(camScreenY + snapY * zoom);
 
-        // 1. Subtle landing slot outline at the snapped grid coordinate
-        worldCtx.save();
-        worldCtx.strokeStyle = held.mode === 'move' ? 'rgba(56, 189, 248, 0.55)' : 'rgba(74, 222, 128, 0.55)';
-        worldCtx.setLineDash([3, 3]);
-        worldCtx.lineWidth = 1;
-        worldCtx.strokeRect(targetScreenX + 0.5, targetScreenY + 0.5, hw - 1, hh - 1);
-        worldCtx.restore();
-
-        // 2. If in 'clone' mode and still near the source block, lightly jiggle a highlight on the source block too
-        const jiggleAngle = Math.sin(worldTickCount * 0.54) * 0.072 + Math.sin(worldTickCount * 0.87) * 0.024;
-        const jiggleOffsetX = Math.cos(worldTickCount * 0.43) * 0.75 * zoom;
-        const jiggleOffsetY = Math.sin(worldTickCount * 0.61) * 0.75 * zoom;
-        const liftScale = 1 + Math.min(0.10, held.holdTicks * 0.02);
-
-        const drawX = Math.round(camScreenX + (mouseWorld.wx - (item.w || TILE_SIZE) / 2) * zoom + jiggleOffsetX);
-        const drawY = Math.round(camScreenY + (mouseWorld.wy - (item.h || TILE_SIZE) / 2) * zoom + jiggleOffsetY);
-
-        worldCtx.save();
-        worldCtx.translate(drawX + hw / 2, drawY + hh / 2);
-        worldCtx.rotate(jiggleAngle);
-        worldCtx.scale(liftScale, liftScale);
-
-        // Soft elevated drop shadow
-        worldCtx.fillStyle = 'rgba(0, 0, 0, 0.38)';
-        worldCtx.fillRect(-hw / 2 + 2, -hh / 2 + 3, hw, hh);
-
-        if (item.spriteId === '__starter_ground__' || !sp) {
-          worldCtx.fillStyle = '#23232b';
-          worldCtx.fillRect(-hw / 2, -hh / 2, hw, hh);
-          worldCtx.fillStyle = '#343442';
-          worldCtx.fillRect(-hw / 2, -hh / 2, hw, Math.max(2, Math.round(zoom)));
-        } else {
-          const fc = getCachedFrameCanvas(sp, item.frameIdx || 0);
-          drawImageWithOrient(worldCtx, fc, -hw / 2, -hh / 2, hw, hh, item.orient || 0, 1);
+          worldCtx.save();
+          worldCtx.strokeStyle = held.mode === 'move' ? 'rgba(56, 189, 248, 0.55)' : 'rgba(74, 222, 128, 0.55)';
+          worldCtx.setLineDash([3, 3]);
+          worldCtx.lineWidth = 1;
+          worldCtx.strokeRect(targetScreenX + 0.5, targetScreenY + 0.5, hw - 1, hh - 1);
+          worldCtx.restore();
         }
 
-        // Crisp subtle frame around the shaking held block
-        worldCtx.strokeStyle = held.mode === 'move' ? 'rgba(125, 211, 252, 0.85)' : 'rgba(134, 239, 172, 0.85)';
-        worldCtx.lineWidth = 1;
-        worldCtx.strokeRect(-hw / 2 + 0.5, -hh / 2 + 0.5, hw - 1, hh - 1);
-        worldCtx.restore();
+        // 2. Render the shaking held block on the top-level fixed overlay canvas so it can be seen over both the viewport and the Creation Menu / "+ Create" button
+        if (heldBlockOverlayCanvas && heldBlockOverlayCtx) {
+          const pad = 28;
+          const reqW = Math.max(96, hw + pad * 2);
+          const reqH = Math.max(96, hh + pad * 2);
+          if (heldBlockOverlayCanvas.width !== reqW || heldBlockOverlayCanvas.height !== reqH) {
+            heldBlockOverlayCanvas.width = reqW;
+            heldBlockOverlayCanvas.height = reqH;
+          }
+          heldBlockOverlayCanvas.classList.remove('hidden');
+          heldBlockOverlayCanvas.style.left = `${mouseWorld.clientX}px`;
+          heldBlockOverlayCanvas.style.top = `${mouseWorld.clientY}px`;
+
+          heldBlockOverlayCtx.clearRect(0, 0, reqW, reqH);
+          heldBlockOverlayCtx.imageSmoothingEnabled = false;
+
+          const jiggleAngle = Math.sin(worldTickCount * 0.54) * 0.072 + Math.sin(worldTickCount * 0.87) * 0.024;
+          const jiggleOffsetX = Math.cos(worldTickCount * 0.43) * 0.75 * zoom;
+          const jiggleOffsetY = Math.sin(worldTickCount * 0.61) * 0.75 * zoom;
+          const liftScale = 1 + Math.min(0.10, held.holdTicks * 0.02);
+
+          heldBlockOverlayCtx.save();
+          heldBlockOverlayCtx.translate(reqW / 2 + jiggleOffsetX, reqH / 2 + jiggleOffsetY);
+          heldBlockOverlayCtx.rotate(jiggleAngle);
+          heldBlockOverlayCtx.scale(liftScale, liftScale);
+
+          // Soft elevated drop shadow
+          heldBlockOverlayCtx.fillStyle = 'rgba(0, 0, 0, 0.38)';
+          heldBlockOverlayCtx.fillRect(-hw / 2 + 2, -hh / 2 + 3, hw, hh);
+
+          if (item.spriteId === '__starter_ground__' || !sp) {
+            heldBlockOverlayCtx.fillStyle = '#23232b';
+            heldBlockOverlayCtx.fillRect(-hw / 2, -hh / 2, hw, hh);
+            heldBlockOverlayCtx.fillStyle = '#343442';
+            heldBlockOverlayCtx.fillRect(-hw / 2, -hh / 2, hw, Math.max(2, Math.round(zoom)));
+          } else {
+            const fc = getCachedFrameCanvas(sp, item.frameIdx || 0);
+            drawImageWithOrient(heldBlockOverlayCtx, fc, -hw / 2, -hh / 2, hw, hh, item.orient || 0, 1);
+          }
+
+          // Crisp subtle frame around the shaking held block
+          heldBlockOverlayCtx.strokeStyle = held.mode === 'move' ? 'rgba(125, 211, 252, 0.85)' : 'rgba(134, 239, 172, 0.85)';
+          heldBlockOverlayCtx.lineWidth = 1;
+          heldBlockOverlayCtx.strokeRect(-hw / 2 + 0.5, -hh / 2 + 0.5, hw - 1, hh - 1);
+          heldBlockOverlayCtx.restore();
+        }
+      } else if (heldBlockOverlayCanvas && !heldBlockOverlayCanvas.classList.contains('hidden')) {
+        heldBlockOverlayCanvas.classList.add('hidden');
       }
 
       // 10. Brush / Cursor Cell Highlight (Suppressed while grabbing or arrow-key scrolling so grid boxes don't flash past)
@@ -8112,23 +8429,26 @@
         if (!sp || !sp.frames || !sp.frames[0]) return;
         const w = sp.w || 19;
         const h = sp.h || 19;
-        const buf = sp.frames[0];
-        let minRow = h;
-        for (let y = 0; y < h; y++) {
-          let rowHasPixel = false;
-          for (let x = 0; x < w; x++) {
-            if (buf[(y * w + x) * 4 + 3] > 15) {
-              rowHasPixel = true;
+        if (sp._cachedTopPixelRow === undefined) {
+          const buf = sp.frames[0];
+          let minRow = h;
+          for (let y = 0; y < h; y++) {
+            let rowHasPixel = false;
+            for (let x = 0; x < w; x++) {
+              if (buf[(y * w + x) * 4 + 3] > 15) {
+                rowHasPixel = true;
+                break;
+              }
+            }
+            if (rowHasPixel) {
+              minRow = y;
               break;
             }
           }
-          if (rowHasPixel) {
-            minRow = y;
-            break;
-          }
+          sp._cachedTopPixelRow = minRow;
         }
         const spriteBottomWorldY = p.renderY + p.h + extraOffsetY;
-        const topPixelWorldY = spriteBottomWorldY - (h - minRow);
+        const topPixelWorldY = spriteBottomWorldY - (h - sp._cachedTopPixelRow);
         if (topPixelWorldY < highestTopWorldY) {
           highestTopWorldY = topPixelWorldY;
         }
@@ -8382,60 +8702,12 @@
       for (const k of spriteCanvasCache.keys()) {
         if (k.startsWith(spriteId + '_')) spriteCanvasCache.delete(k);
       }
-    }
-
-    function mainLoop(now) {
-      let delta = now - lastTime;
-      lastTime = now;
-      if (delta > 100) delta = 100;
-
-      accumulator += delta;
-      while (accumulator >= FIXED_DT) {
-        updatePhysicsTick();
-        if (editor.isOpen) updateEditorPreviewTick();
-        accumulator -= FIXED_DT;
-      }
-
-      renderWorld();
-      requestAnimationFrame(mainLoop);
-    }
-
-    /********************************************************************
-     * WORLD CONTROLS, ASEPRITE-STYLE LEVEL BUILDING & CAMERA PANNING
-     ********************************************************************/
-    function getOrientationLabel(orient) {
-      const o = ((orient || 0) % 8 + 8) % 8;
-      const labels = ['', '90°', '180°', '270°', 'Flip', 'Flip 90°', 'Flip 180°', 'Flip 270°'];
-      return labels[o] || '';
-    }
-
-    // Draws an image/canvas with the 8-state dihedral orientation (0..3 = 0/90/180/270° CW, 4..7 = Flipped + 0/90/180/270° CW)
-    function drawImageWithOrient(ctx, img, x, y, w, h, orient = 0, scale = 1) {
-      const o = ((orient || 0) % 8 + 8) % 8;
-      if (o === 0 && scale === 1) {
-        ctx.drawImage(img, x, y, w, h);
-        return;
-      }
-      const quarterTurns = o % 4;
-      const flipped = o >= 4;
-      ctx.save();
-      ctx.translate(x + w / 2, y + h / 2);
-      if (quarterTurns !== 0) {
-        ctx.rotate(quarterTurns * (Math.PI / 2));
-      }
-      if (flipped || scale !== 1) {
-        ctx.scale(scale * (flipped ? -1 : 1), scale);
-      }
-      ctx.drawImage(img, -w / 2, -h / 2, w, h);
-      ctx.restore();
-    }
-
-    function clearPendingHoldGrab() {
-      if (mouseWorld.pendingHoldGrab) {
-        if (mouseWorld.pendingHoldGrab.timer) {
-          clearTimeout(mouseWorld.pendingHoldGrab.timer);
-        }
-        mouseWorld.pendingHoldGrab = null;
+      const sp = getSpriteById(spriteId);
+      if (sp) {
+        delete sp._cachedPrimaryColor;
+        delete sp._cachedTopPixelRow;
+        delete sp._cachedDynAttrs;
+        delete sp._cachedInferredSurface;
       }
     }
 
@@ -8460,15 +8732,9 @@
         spawnDustParticles(targetCell.x + targetCell.w / 2, targetCell.y + targetCell.h / 2, targetCell.w, targetCell.h, 5);
         sfx.ui(540);
       } else {
-        // Clone mode: also select and highlight this object in the Creation Menu so it counts as your active creation
+        // Clone mode: lift a single clone without keying it to the mouse for repeated placements
         spawnDustParticles(targetCell.x + targetCell.w / 2, targetCell.y + targetCell.h / 2, targetCell.w, targetCell.h, 4);
         sfx.ui(610);
-        if (sp && !['body', 'wearable', 'holdable', 'mountable'].includes(sp.type)) {
-          state.activeBrushId = sp.id;
-          state.brushOrient = itemOrient;
-          updateBrushBar();
-          renderSidebarSprites();
-        }
       }
 
       const createBtn = document.getElementById('open-create-btn');
@@ -8494,6 +8760,9 @@
       if (!held) return;
       state.heldWorldBlock = null;
       clearPendingHoldGrab();
+      if (heldBlockOverlayCanvas) {
+        heldBlockOverlayCanvas.classList.add('hidden');
+      }
 
       const createBtn = document.getElementById('open-create-btn');
       if (createBtn) {
@@ -8521,7 +8790,7 @@
             sfx.ui(640);
             openSpriteEditor(held.sprite.id, true);
           } else {
-            // Clone directly into the Creation Menu list and select it
+            // Clone directly into the Creation Menu list without locking it to the mouse cursor
             const src = held.sprite;
             const newId = 'sp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
             const clonedSprite = {
@@ -8534,8 +8803,6 @@
             };
             state.sprites.push(clonedSprite);
             rebuildSpriteLookup();
-            state.activeBrushId = clonedSprite.id;
-            state.brushOrient = held.item.orient || 0;
             updateBrushBar();
             renderSidebarSprites();
             saveAutoBackup();
@@ -8579,19 +8846,22 @@
         }
       }
 
-      // Count the cloned/moved viewport object as the selected creation in the Creation Menu
-      if (held.sprite && !['body', 'wearable', 'holdable', 'mountable'].includes(held.sprite.type)) {
-        state.activeBrushId = held.sprite.id;
-        state.brushOrient = finalOrient;
-        updateBrushBar();
-        renderSidebarSprites();
-      }
-
       scheduleWorldAutoBackup();
       updateWorldCursor();
     }
 
     function updateMouseWorldCoords(e) {
+      mouseWorld.clientX = e.clientX;
+      mouseWorld.clientY = e.clientY;
+      if (typeof e.ctrlKey === 'boolean' || typeof e.metaKey === 'boolean') {
+        editor.ctrlHeld = Boolean(e.ctrlKey || e.metaKey);
+      }
+      if (typeof e.shiftKey === 'boolean') {
+        editor.shiftHeld = Boolean(e.shiftKey);
+      }
+      if (typeof e.altKey === 'boolean') {
+        editor.altHeld = Boolean(e.altKey);
+      }
       const rect = worldCanvas.getBoundingClientRect();
       const sx = e.clientX - rect.left;
       const sy = e.clientY - rect.top;
@@ -8647,20 +8917,21 @@
         worldCanvas.style.cursor = 'grabbing';
         return;
       }
-      if (state.mode === 'build' && e?.altKey) {
+      if (state.mode === 'build' && (e?.altKey || editor.altHeld)) {
         worldCanvas.style.cursor = 'grab';
         return;
       }
 
-      // 2. Right-Click Dragging to Erase (including Ctrl + Right-Click)
-      if (mouseWorld.downButton === 2) {
+      // 2. Holding Ctrl or Right-Click Dragging shows the Eraser icon
+      const isCtrlDown = Boolean(e?.ctrlKey || e?.metaKey || editor.ctrlHeld);
+      if (mouseWorld.downButton === 2 || isCtrlDown) {
         worldCanvas.style.cursor = ERASER_CURSOR;
         return;
       }
 
-      // 3. Holding Shift or Ctrl over a placed creation shows grab cursor to pick it up & move it
+      // 3. Holding Shift over a placed creation shows grab cursor to pick it up & move it
       const hoveredCell = mouseWorld.inside ? getHoveredWorldCell(mouseWorld.wx, mouseWorld.wy) : null;
-      if ((e?.ctrlKey || e?.metaKey || e?.shiftKey) && hoveredCell) {
+      if ((e?.shiftKey || editor.shiftHeld) && hoveredCell) {
         worldCanvas.style.cursor = 'grab';
         return;
       }
@@ -8791,7 +9062,8 @@
               lightFade: 1,
               placedOrder: state.placementCounter++,
               placeAnim: 1,
-              rotation: 0,
+              orient: ent.orient || 0,
+              rotation: ent.orient || 0,
               frameIdx: 0,
               timer: 0,
               crumbleState: 0,
@@ -8824,6 +9096,11 @@
     }
 
     function placeSpriteAtWorld(sp, snapX, snapY, animDelay = 0, playSound = true, customOrient = undefined) {
+      // Motions (and Body/Wearable/Holdable/Mountable avatar items) cannot be placed in the viewport—only Dynamics and world objects can!
+      if (sp && (['body', 'wearable', 'holdable', 'mountable'].includes(sp.type))) {
+        sfx.buzzer();
+        return;
+      }
       const orient = ((customOrient !== undefined ? customOrient : (state.brushOrient || 0)) % 8 + 8) % 8;
       // Allow placing starter ground blocks in Build Mode when no custom sprite is passed
       if (!sp) {
@@ -8834,7 +9111,7 @@
           const otherKey = `${snapX},${snapY},${l}`;
           if (state.worldCells.has(otherKey)) {
             const oldC = state.worldCells.get(otherKey);
-            const oldSp = state.sprites.find(s => s.id === oldC.spriteId);
+            const oldSp = getSpriteById(oldC.spriteId);
             state.deleteAnimations.push({ x: oldC.x, y: oldC.y, w: oldC.w, h: oldC.h, sprite: oldSp, progress: 0 });
             state.worldCells.delete(otherKey);
           }
@@ -8914,7 +9191,7 @@
         if (state.worldCells.has(otherKey)) {
           const oldCell = state.worldCells.get(otherKey);
           if (oldCell && oldCell.spriteId !== sp.id) {
-            const oldSp = state.sprites.find(s => s.id === oldCell.spriteId);
+            const oldSp = getSpriteById(oldCell.spriteId);
             state.deleteAnimations.push({
               x: oldCell.x,
               y: oldCell.y,
@@ -8965,7 +9242,7 @@
         const hit = wx >= ent.x && wx < ent.x + ent.w && wy >= ent.y && wy < ent.y + ent.h;
         if (hit) {
           erasedAny = true;
-          const sp = state.sprites.find(s => s.id === ent.spriteId);
+          const sp = getSpriteById(ent.spriteId);
           state.deleteAnimations.push({ x: ent.x, y: ent.y, w: ent.w, h: ent.h, sprite: sp, progress: 0 });
           spawnDustParticles(ent.x + ent.w / 2, ent.y + ent.h / 2, ent.w, ent.h, 8);
         }
@@ -8976,7 +9253,7 @@
       for (const [k, cell] of Array.from(state.worldCells.entries())) {
         if (wx >= cell.x && wx < cell.x + cell.w && wy >= cell.y && wy < cell.y + cell.h) {
           erasedAny = true;
-          const sp = state.sprites.find(s => s.id === cell.spriteId);
+          const sp = getSpriteById(cell.spriteId);
           state.deleteAnimations.push({
             x: cell.x,
             y: cell.y,
@@ -9039,7 +9316,7 @@
       mouseWorld.downButton = e.button;
 
       // Holdable: Aimable or Swing Line in Play mode when clicking empty space without a tile brush
-      const heldSp = state.sprites.find(s => s.id === state.activeHoldableId);
+      const heldSp = getSpriteById(state.activeHoldableId);
       if (state.mode === 'play' && !state.activeBrushId && !hoveredItem && e.button === 0 && heldSp) {
         if (heldSp.subtype === 'Swing Line') {
           state.player.grappleTarget = { x: mouseWorld.wx, y: mouseWorld.wy };
@@ -9071,7 +9348,7 @@
         }
       }
 
-      const brushSp = state.sprites.find(s => s.id === state.activeBrushId);
+      const brushSp = getSpriteById(state.activeBrushId);
       const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
       const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
 
@@ -9201,6 +9478,9 @@
           clearPendingHoldGrab();
           pushWorldUndo();
           placeSpriteAtWorld(brushSp, snapX, snapY);
+        } else if (state.mode === 'build' && activeTool === 'stamp') {
+          // Clicking empty space in Build Mode with no creation selected plays a gentle buzzer
+          sfx.buzzer();
         }
       }
     });
@@ -9333,7 +9613,11 @@
               sfx.createSuccess();
             }
             scheduleWorldAutoBackup();
+          } else {
+            sfx.buzzer();
           }
+        } else {
+          sfx.buzzer();
         }
         mouseWorld.downButton = null;
         updateWorldCursor(e);
@@ -9352,7 +9636,7 @@
       if (mouseWorld.pendingHoldGrab && e.button === 0) {
         const pGrab = mouseWorld.pendingHoldGrab;
         clearPendingHoldGrab();
-        const brushSp = state.sprites.find(s => s.id === state.activeBrushId);
+        const brushSp = getSpriteById(state.activeBrushId);
         if (brushSp && brushSp.id !== pGrab.targetCell.spriteId) {
           pushWorldUndo();
           placeSpriteAtWorld(brushSp, pGrab.snapX, pGrab.snapY);
@@ -9365,7 +9649,7 @@
       const activeTool = state.mode === 'build' ? state.worldTool : 'stamp';
       if (mouseWorld.dragStart && mouseWorld.downButton === 0) {
         updateMouseWorldCoords(e);
-        const brushSp = state.sprites.find(s => s.id === state.activeBrushId);
+        const brushSp = getSpriteById(state.activeBrushId);
         const stepW = (activeTool === 'erase' || !brushSp)
           ? TILE_SIZE
           : Math.max(TILE_SIZE, Math.round(brushSp.w / TILE_SIZE) * TILE_SIZE);
@@ -9395,7 +9679,12 @@
 
     // Zoom Controls
     function setZoom(z) {
-      state.zoom = Math.max(1, Math.min(8, z));
+      const clamped = Math.max(1, Math.min(8, z));
+      if (clamped === state.zoom && z !== state.zoom) {
+        sfx.buzzer();
+        return;
+      }
+      state.zoom = clamped;
       zoomLabel.textContent = state.zoom + 'x';
     }
     document.getElementById('zoom-out-btn').addEventListener('click', () => setZoom(state.zoom - 1));
@@ -9408,21 +9697,6 @@
     // Play / Build Mode & Build Toolbar Controls
     const modePlayBtn = document.getElementById('mode-play-btn');
     const modeBuildBtn = document.getElementById('mode-build-btn');
-
-    function ensureValidBuildBrush() {
-      const currentBrush = state.sprites.find(s => s.id === state.activeBrushId);
-      if (currentBrush) return currentBrush;
-      for (let i = state.sprites.length - 1; i >= 0; i--) {
-        const s = state.sprites[i];
-        if (!['body', 'wearable', 'holdable', 'mountable'].includes(s.type)) {
-          state.activeBrushId = s.id;
-          updateBrushBar();
-          renderSidebarSprites();
-          return s;
-        }
-      }
-      return null;
-    }
 
     function updateWorldToolButtonsUI() {
       document.querySelectorAll('.wtool-btn').forEach(btn => {
@@ -9500,6 +9774,11 @@
 
     // Keyboard Input, Shortcuts & Chat
     window.addEventListener('keydown', (e) => {
+      if (e.key === 'Control' || e.key === 'Meta' || e.key === 'Alt' || e.key === 'Shift') {
+        handleeditorAltAndCtrlKeys(e, true);
+        if (!editor.isOpen) updateWorldCursor(e);
+      }
+
       if (typePickerModal.classList.contains('open')) {
         if (e.key === 'Escape') closeTypePickerModal();
         return;
@@ -9545,24 +9824,27 @@
           p.lying = false;
           p.activeMotionId = null;
           // If an item is selected for placing from the creation menu, Escape also deselects it without taking off the Body
-          if (e.key === 'Escape' && state.activeBrushId) {
-            state.activeBrushId = null;
-            state.brushOrient = 0;
-            updateBrushBar();
-            renderSidebarSprites();
+          if (e.key === 'Escape' && (state.activeBrushId || state.heldWorldBlock)) {
+            deselectMouseItemWithFeedback();
+          } else {
+            sfx.ui(400);
           }
           updateWorldMotionBarUI();
           return;
         }
-        if (e.key === 'ArrowLeft') {
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
           e.preventDefault();
+          state.keys.left = false;
           p.motionBarIndex = (p.motionBarIndex - 1 + entries.length) % entries.length;
+          sfx.ui(520);
           renderWorldMotionBarSlots();
           return;
         }
-        if (e.key === 'ArrowRight') {
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
           e.preventDefault();
+          state.keys.right = false;
           p.motionBarIndex = (p.motionBarIndex + 1) % entries.length;
+          sfx.ui(520);
           renderWorldMotionBarSlots();
           return;
         }
@@ -9631,21 +9913,7 @@
       // Pressing Escape in the viewport cancels a held block or deselects the active placement item from the creation menu (never takes off the equipped Body)
       if (e.key === 'Escape' && !state.chatOpen && !editor.isOpen) {
         e.preventDefault();
-        clearPendingHoldGrab();
-        mouseWorld.dragStart = null;
-        mouseWorld.downButton = null;
-        mouseWorld.wireDragSource = null;
-        if (state.heldWorldBlock) {
-          commitHeldWorldBlock(true);
-        }
-        if (state.activeBrushId) {
-          state.activeBrushId = null;
-          state.brushOrient = 0;
-          sfx.ui(420);
-          updateBrushBar();
-          renderSidebarSprites();
-        }
-        updateWorldCursor();
+        deselectMouseItemWithFeedback();
         return;
       }
 
@@ -9669,12 +9937,81 @@
       if (e.key === ' ') state.keys.space = false;
     });
 
+    function deselectMouseItemWithFeedback() {
+      const hadHeldBlock = Boolean(state.heldWorldBlock);
+      const hadBrush = Boolean(state.activeBrushId);
+      const hadDrag = Boolean(mouseWorld.dragStart || mouseWorld.wireDragSource);
+      const targetSprite = hadHeldBlock
+        ? state.heldWorldBlock.sprite
+        : (hadBrush ? getSpriteById(state.activeBrushId) : null);
+
+      clearPendingHoldGrab();
+      mouseWorld.dragStart = null;
+      mouseWorld.downButton = null;
+      mouseWorld.wireDragSource = null;
+
+      if (hadHeldBlock) {
+        commitHeldWorldBlock(true);
+      }
+
+      if (hadBrush) {
+        state.activeBrushId = null;
+        state.brushOrient = 0;
+        updateBrushBar();
+        renderSidebarSprites();
+      }
+
+      if (hadHeldBlock || hadBrush || hadDrag) {
+        const fxX = mouseWorld.inside
+          ? Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE
+          : state.player.x;
+        const fxY = mouseWorld.inside
+          ? Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE
+          : state.player.y;
+        const fw = targetSprite ? targetSprite.w : TILE_SIZE;
+        const fh = targetSprite ? targetSprite.h : TILE_SIZE;
+
+        // Shrink-out ghost animation + dust puff at the mouse cursor
+        state.deleteAnimations.push({
+          x: fxX,
+          y: fxY,
+          w: fw,
+          h: fh,
+          sprite: targetSprite,
+          progress: 0,
+          isUndo: true
+        });
+        spawnDustParticles(fxX + fw / 2, fxY + fh / 2, fw, fh, 7);
+
+        state.floatingTexts.push({
+          x: fxX + fw / 2,
+          y: fxY - 4,
+          vy: -0.45,
+          text: 'DESELECTED',
+          color: '#93c5fd',
+          life: 32,
+          maxLife: 32
+        });
+
+        // Subtle flash on the sidebar equipped status bar
+        const brushBar = document.getElementById('active-brush-bar');
+        if (brushBar) {
+          brushBar.classList.add('bg-blue-950/60');
+          setTimeout(() => brushBar.classList.remove('bg-blue-950/60'), 180);
+        }
+
+        sfx.poof(false);
+      }
+
+      updateWorldCursor();
+    }
+
     function handleWorldInteractAction() {
       const p = state.player;
       p.usingHoldable = 18;
 
       // Holdable item actions (Throw Item, Emitter, Consumable, Swing Line)
-      const heldSp = state.sprites.find(s => s.id === state.activeHoldableId);
+      const heldSp = getSpriteById(state.activeHoldableId);
       if (heldSp) {
         if (heldSp.subtype === 'Item') {
           // Throw Holdable with spinning arc, bounce, rolling friction & water buoyancy
@@ -9736,7 +10073,7 @@
         }
       }
 
-      // Check for Transporting portal or Instrument under player
+      // Check for Transporting portal under player
       for (const [, cell] of state.worldCells.entries()) {
         if (p.x < cell.x + cell.w && p.x + p.w > cell.x && p.y < cell.y + cell.h && p.y + p.h > cell.y) {
           if (cell.type === 'transporting') {
@@ -9747,15 +10084,9 @@
                 return;
               }
             }
-          } else if (cell.type === 'instrument' || cell.type === 'music') {
-            playSynthTone();
           }
         }
       }
-    }
-
-    function playSynthTone() {
-      sfx.ui(660);
     }
 
     /********************************************************************
@@ -9835,11 +10166,11 @@
     });
 
     function updateBrushBar() {
-      const bodySp = state.sprites.find(s => s.id === state.activeBodyId);
-      const wearSp = state.sprites.find(s => s.id === state.activeWearableId);
-      const holdSp = state.sprites.find(s => s.id === state.activeHoldableId);
-      const mountSp = state.sprites.find(s => s.id === state.activeMountId);
-      const brushSp = state.sprites.find(s => s.id === state.activeBrushId);
+      const bodySp = getSpriteById(state.activeBodyId);
+      const wearSp = getSpriteById(state.activeWearableId);
+      const holdSp = getSpriteById(state.activeHoldableId);
+      const mountSp = getSpriteById(state.activeMountId);
+      const brushSp = getSpriteById(state.activeBrushId);
 
       const wornParts = [bodySp?.name, wearSp?.name, holdSp?.name, mountSp?.name].filter(Boolean);
       if (wornParts.length > 0) {
@@ -11085,7 +11416,10 @@
     }
 
     function pasteMarqueeOrCel() {
-      if (!editor.clipboardSelection) return;
+      if (!editor.clipboardSelection) {
+        sfx.buzzer();
+        return;
+      }
       commitMarqueeSelection();
       pushUndo();
       const clip = editor.clipboardSelection;
@@ -11423,7 +11757,10 @@
     }
 
     function popUndo() {
-      if (editor.undoStack.length === 0) return;
+      if (editor.undoStack.length === 0) {
+        sfx.buzzer();
+        return;
+      }
       const prevBuf = new Uint8ClampedArray(editor.frames[editor.activeFrame]);
       const prevW = editor.w, prevH = editor.h;
       const last = editor.undoStack.pop();
@@ -11441,7 +11778,10 @@
     }
 
     function popRedo() {
-      if (editor.redoStack.length === 0) return;
+      if (editor.redoStack.length === 0) {
+        sfx.buzzer();
+        return;
+      }
       const prevBuf = new Uint8ClampedArray(editor.frames[editor.activeFrame]);
       const prevW = editor.w, prevH = editor.h;
       const next = editor.redoStack.pop();
@@ -11635,7 +11975,10 @@
     });
 
     document.getElementById('rotate-btn').addEventListener('click', () => {
-      if (editor.w !== editor.h) return;
+      if (editor.w !== editor.h) {
+        sfx.buzzer();
+        return;
+      }
       pushUndo();
       const n = editor.w;
       const buf = editor.frames[editor.activeFrame];
@@ -12412,17 +12755,24 @@
     document.getElementById('move-cel-left-btn').addEventListener('click', () => {
       if (editor.activeFrame > 0) {
         swapEditorCels(editor.activeFrame, editor.activeFrame - 1);
+      } else {
+        sfx.buzzer();
       }
     });
 
     document.getElementById('move-cel-right-btn').addEventListener('click', () => {
       if (editor.activeFrame < editor.frames.length - 1) {
         swapEditorCels(editor.activeFrame, editor.activeFrame + 1);
+      } else {
+        sfx.buzzer();
       }
     });
 
     document.getElementById('sort-cels-state-btn').addEventListener('click', () => {
-      if (editor.frames.length <= 1) return;
+      if (editor.frames.length <= 1) {
+        sfx.buzzer();
+        return;
+      }
       commitMarqueeSelection();
       const baseLabels = getFrameLabelsForSubtype(editor.type, editor.subtype);
       const activeBufRef = editor.frames[editor.activeFrame];
@@ -12455,7 +12805,10 @@
     });
 
     document.getElementById('add-frame-btn').addEventListener('click', () => {
-      if (editor.frames.length >= 32) return;
+      if (editor.frames.length >= 32) {
+        sfx.buzzer();
+        return;
+      }
       commitMarqueeSelection();
       const hasNamedStates = (editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable';
       const currentDim = (editor.frameDims && editor.frameDims[editor.activeFrame]) || { w: editor.w, h: editor.h };
@@ -12477,7 +12830,10 @@
     });
 
     document.getElementById('del-frame-btn').addEventListener('click', () => {
-      if (editor.frames.length <= 1) return;
+      if (editor.frames.length <= 1) {
+        sfx.buzzer();
+        return;
+      }
       commitMarqueeSelection();
       editor.frames.splice(editor.activeFrame, 1);
       editor.frameDims.splice(editor.activeFrame, 1);
@@ -13675,6 +14031,7 @@
     window.addEventListener('keyup', (e) => {
       if (e.key === 'Control' || e.key === 'Meta' || e.key === 'Alt' || e.key === 'Shift') {
         handleeditorAltAndCtrlKeys(e, false);
+        if (!editor.isOpen) updateWorldCursor(e);
       }
       if (e.key === ' ') {
         editor.spaceHeld = false;
@@ -13841,13 +14198,46 @@
     });
 
     function serializeCurrentState() {
+      const cleanCells = [];
+      for (const [k, cell] of state.worldCells.entries()) {
+        const copy = { ...cell };
+        delete copy._furryStrands;
+        delete copy._interactTick;
+        delete copy._bounceTick;
+        delete copy._bounceMax;
+        delete copy._wireActiveTimer;
+        delete copy._steppedOn;
+        delete copy._touched;
+        delete copy.placeAnim;
+        delete copy.envVisFade;
+        delete copy.lightFade;
+        cleanCells.push([k, copy]);
+      }
+
+      const cleanEntities = state.dynamicEntities.map(ent => {
+        const copy = { ...ent };
+        delete copy._interactTick;
+        delete copy._inWater;
+        delete copy.placeAnim;
+        return copy;
+      });
+
       return {
-        sprites: state.sprites.map(s => ({
-          ...s,
-          frames: s.frames.map(f => Array.from(f))
-        })),
-        worldCells: Array.from(state.worldCells.entries()),
-        dynamicEntities: state.dynamicEntities,
+        sprites: state.sprites.map(s => {
+          const spCopy = {
+            ...s,
+            frames: s.frames.map(f => Array.from(f))
+          };
+          delete spCopy._cachedCodeRef;
+          delete spCopy._cachedDynAttrs;
+          delete spCopy._cachedNameRef;
+          delete spCopy._cachedInferredSurface;
+          delete spCopy._cachedPrimaryColor;
+          delete spCopy._cachedTopPixelRow;
+          return spCopy;
+        }),
+        worldCells: cleanCells,
+        dynamicEntities: cleanEntities,
         spawnPoint: state.spawnPoint,
         activeBodyId: state.activeBodyId,
         activeWearableId: state.activeWearableId,
@@ -13860,10 +14250,26 @@
     function applySerializedData(data, mergeSpritesOnly = false) {
       if (!data) return;
       if (Array.isArray(data.sprites)) {
-        const incomingSprites = data.sprites.map(s => ({
-          ...s,
-          frames: s.frames.map(f => new Uint8ClampedArray(f))
-        }));
+        const incomingSprites = data.sprites.map(s => {
+          const w = Math.max(1, Number(s.w) || TILE_SIZE);
+          const h = Math.max(1, Number(s.h) || TILE_SIZE);
+          const rawFrames = Array.isArray(s.frames) && s.frames.length > 0 ? s.frames : [new Uint8ClampedArray(w * h * 4)];
+          const frames = rawFrames.map((f, idx) => {
+            const d = (s.frameDims && s.frameDims[idx]) || { w, h };
+            const expectedLen = Math.max(1, d.w) * Math.max(1, d.h) * 4;
+            const arr = new Uint8ClampedArray(expectedLen);
+            if (f && f.length) {
+              arr.set(f.slice ? f.slice(0, expectedLen) : f);
+            }
+            return arr;
+          });
+          return {
+            ...s,
+            w,
+            h,
+            frames
+          };
+        });
         if (mergeSpritesOnly) {
           const existingIds = new Set(state.sprites.map(s => s.id));
           incomingSprites.forEach(sp => {
@@ -14257,46 +14663,24 @@
       e.target.value = '';
     });
 
-    // Batch Export All Sprites as Horizontal PNG Strips for Aseprite / Paint.NET
-    document.getElementById('export-all-strips-btn').addEventListener('click', () => {
-      state.sprites.forEach((sp, i) => {
-        setTimeout(() => exportSpriteObjectAsStripPng(sp), i * 180);
-      });
-    });
+    function mainLoop(now) {
+      const dt = Math.min(100, Math.max(0, now - lastTime));
+      lastTime = now;
+      accumulator += dt;
 
-    document.getElementById('restore-autosave-btn').addEventListener('click', () => {
-      loadAutoBackupOnStartup();
-      closeWorldsModal();
-    });
-
-    // Save / Load Project JSON
-    document.getElementById('export-json-btn').addEventListener('click', () => {
-      const payload = serializeCurrentState();
-      const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'loombit-project.json';
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-
-    document.getElementById('import-json-input').addEventListener('change', (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const data = JSON.parse(reader.result);
-          applySerializedData(data, false);
-          saveAutoBackup();
-        } catch (err) {
-          console.error('Failed to load project file:', err);
+      let steps = 0;
+      while (accumulator >= FIXED_DT && steps < 4) {
+        updatePhysicsTick();
+        if (editor.isOpen) {
+          updateEditorPreviewTick();
         }
-      };
-      reader.readAsText(file);
-      e.target.value = '';
-    });
+        accumulator -= FIXED_DT;
+        steps++;
+      }
+
+      renderWorld();
+      requestAnimationFrame(mainLoop);
+    }
 
     window.onload = function () {
       const bootScreen = document.getElementById('boot-loading-screen');

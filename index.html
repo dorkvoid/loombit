@@ -1783,6 +1783,8 @@
     let worldTickCount = 0;
 
     const mouseWorld = {
+      sx: 0,
+      sy: 0,
       wx: 0,
       wy: 0,
       inside: false,
@@ -4886,14 +4888,18 @@
           if (isClimbCell) {
             p.onLadder = true;
             const d = Math.abs((p.x + p.w / 2) - (cell.x + cell.w / 2));
-            if (d < bestLadderDist) {
-              bestLadderDist = d;
-              p.ladderX = cell.x;
-            }
-            if (Math.abs(p.vy) > 0.1 || Math.abs(p.vx) > 0.1) {
+          if (d < bestLadderDist) {
+            bestLadderDist = d;
+            p.ladderX = cell.x;
+          }
+          // Only enter the climbing state if airborne on the ladder or actively pressing Up/Down to climb
+          if (!p.onGround || state.keys.up || state.keys.down) {
+            p.onLadder = true;
+            if (Math.abs(p.vy) > 0.1 || Math.abs(p.vx) > 0.1 || state.keys.up || state.keys.down) {
               cell._interactTick = 16;
             }
           }
+        }
 
           if (cell.type === 'liquid' || dynAttrs.has('LIQUID')) {
             p.inLiquid = true;
@@ -5976,6 +5982,18 @@
 
       const camScreenX = Math.floor(W / 2 - state.camera.x * zoom);
       const camScreenY = Math.floor(H / 2 - state.camera.y * zoom);
+
+      // Keep mouse world coordinates synchronized with camera movement even when the mouse is held completely still
+      if (mouseWorld.inside) {
+        mouseWorld.wx = (mouseWorld.sx - camScreenX) / zoom;
+        mouseWorld.wy = (mouseWorld.sy - camScreenY) / zoom;
+        const gx = Math.floor(mouseWorld.wx / TILE_SIZE);
+        const gy = Math.floor(mouseWorld.wy / TILE_SIZE);
+        const coordText = `${gx}, ${gy}`;
+        if (worldCoordsReadout.textContent !== coordText) {
+          worldCoordsReadout.textContent = coordText;
+        }
+      }
 
       // 1. Render 'sky' layer Lights & Environments (Behind all blocks)
       renderLightsForLayer('sky', W, H, camScreenX, camScreenY, zoom);
@@ -7181,6 +7199,8 @@
       const rect = worldCanvas.getBoundingClientRect();
       const sx = e.clientX - rect.left;
       const sy = e.clientY - rect.top;
+      mouseWorld.sx = sx;
+      mouseWorld.sy = sy;
       const zoom = state.renderZoom;
       const camScreenX = Math.floor(worldCanvas.width / 2 - state.camera.x * zoom);
       const camScreenY = Math.floor(worldCanvas.height / 2 - state.camera.y * zoom);

@@ -885,7 +885,7 @@
           <button id="rotate-btn" title="Rotate 90 Degrees (R)" class="tool-btn">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
           </button>
-          <button id="undo-btn" title="Undo (Ctrl+Z)" class="tool-btn">
+          <button id="undo-btn" title="Undo (Ctrl+Z) | Shift+Click or R-Click: Redo (Ctrl+Y)" class="tool-btn">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
           </button>
           <button id="color-fx-btn" title="Adjust Hue, Saturation, Color Tint & Opacity (U)" class="tool-btn mono text-[9px] text-amber-300 font-bold">
@@ -952,7 +952,10 @@
                   <input id="fx-all-cels-toggle" type="checkbox" class="accent-blue-500" />
                   <span>All Cels</span>
                 </label>
-                <button id="fx-outline-btn" type="button" title="Add 1px Outline in Active Brush Color" class="ase-btn px-1.5 py-0.5 text-[9px] text-sky-300">+Outline</button>
+                <div class="flex items-center gap-1 bg-[#121318] border border-[#2e303e] rounded-xs px-1 py-0.5">
+                  <input id="fx-outline-color" type="color" value="#000000" title="Outline Color (Defaults to Active Brush Color)" class="w-4 h-4 bg-transparent border-0 cursor-pointer p-0 shrink-0" />
+                  <button id="fx-outline-btn" type="button" title="Add 1px Outline (Ctrl+Z to Undo)" class="ase-btn px-1.5 py-0.5 text-[9px] text-sky-300">+Outline</button>
+                </div>
               </div>
               <div class="flex items-center gap-1.5">
                 <button id="fx-reset-btn" class="ase-btn px-2 py-0.5 text-[9px] text-zinc-300">Reset</button>
@@ -3366,6 +3369,8 @@
       colorPicker.value = clean;
       colorHex.value = clean.toUpperCase();
       activeColorSwatch.style.backgroundColor = clean;
+      const fxOutlineColorInput = document.getElementById('fx-outline-color');
+      if (fxOutlineColorInput) fxOutlineColorInput.value = clean;
 
       if (updateHsv) {
         const [r, g, b] = hexToRgba(clean);
@@ -7427,7 +7432,7 @@
       // Biome-aware ambient light blending without "flashbang" or background takeover:
       // Group by subtype ('Fill Light', 'Top Light', 'Surround Light') so each ambient slot blends smoothly
       // between biomes by proximity weight instead of stacking multiple overlays on top of each other.
-      const layerMaxAmbientCap = (targetLayer === 'front' || targetLayer === 'main') ? 0.42 : 0.68;
+      const layerMaxAmbientCap = (targetLayer === 'front' || targetLayer === 'main') ? 0.65 : 1.0;
       const ambientsBySubtype = new Map();
       const pointLights = [];
 
@@ -7464,32 +7469,32 @@
           if (rawAlpha <= 0.004) continue;
 
           if (subType === 'Fill Light') {
-            const effAlpha = rawAlpha * 0.78;
+            const effAlpha = rawAlpha;
             worldCtx.save();
             if (item.opt === 'Top Half') {
-              const bandH = Math.floor(H * 0.42);
+              const bandH = Math.floor(H * 0.5);
               const grad = worldCtx.createLinearGradient(0, 0, 0, bandH);
               grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
-              grad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.65).toFixed(3)})`);
+              grad.addColorStop(0.75, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.85).toFixed(3)})`);
               grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
               worldCtx.fillStyle = grad;
               worldCtx.fillRect(0, 0, W, bandH);
             } else if (item.opt === 'Bottom Half') {
-              const bandH = Math.floor(H * 0.42);
+              const bandH = Math.floor(H * 0.5);
               const startY = H - bandH;
               const grad = worldCtx.createLinearGradient(0, startY, 0, H);
               grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
-              grad.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.65).toFixed(3)})`);
+              grad.addColorStop(0.25, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.85).toFixed(3)})`);
               grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
               worldCtx.fillStyle = grad;
               worldCtx.fillRect(0, startY, W, bandH);
             } else if (item.opt === 'Center Band') {
-              const bandY = Math.floor(H * 0.28);
-              const bandH = Math.floor(H * 0.44);
+              const bandY = Math.floor(H * 0.25);
+              const bandH = Math.floor(H * 0.5);
               const grad = worldCtx.createLinearGradient(0, bandY, 0, bandY + bandH);
               grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
-              grad.addColorStop(0.35, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
-              grad.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
+              grad.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
+              grad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
               grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
               worldCtx.fillStyle = grad;
               worldCtx.fillRect(0, bandY, W, bandH);
@@ -7499,20 +7504,20 @@
             }
             worldCtx.restore();
           } else if (subType === 'Top Light') {
-            // Covers the top ~44% of the viewport with a balanced gradient falloff
-            const effAlpha = rawAlpha * 0.88;
-            const gradH = Math.min(400, Math.max(140, Math.floor(H * 0.44)));
+            // Covers the top ~64% of the viewport with a smooth, lush sky gradient
+            const effAlpha = rawAlpha;
+            const gradH = Math.max(200, Math.floor(H * 0.64));
             worldCtx.save();
             const grad = worldCtx.createLinearGradient(0, 0, 0, gradH);
             grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${effAlpha.toFixed(3)})`);
-            grad.addColorStop(0.45, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.55).toFixed(3)})`);
-            grad.addColorStop(0.78, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.18).toFixed(3)})`);
+            grad.addColorStop(0.38, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.72).toFixed(3)})`);
+            grad.addColorStop(0.72, `rgba(${r}, ${g}, ${b}, ${(effAlpha * 0.32).toFixed(3)})`);
             grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
             worldCtx.fillStyle = grad;
             worldCtx.fillRect(0, 0, W, gradH);
             worldCtx.restore();
           } else if (subType === 'Surround Light') {
-            const effAlpha = rawAlpha * 0.85;
+            const effAlpha = rawAlpha * 0.95;
             const outerR = Math.hypot(W, H) * 0.55;
             let innerR = outerR * 0.52;
             if (item.opt === 'Thick') innerR = outerR * 0.38;
@@ -11653,6 +11658,17 @@
     const fxReplaceFrom = document.getElementById('fx-replace-from');
     const fxReplaceTo = document.getElementById('fx-replace-to');
     const fxReplaceBtn = document.getElementById('fx-replace-btn');
+    const fxOutlineColor = document.getElementById('fx-outline-color');
+
+    function areFxSlidersAtDefault() {
+      return (
+        (parseInt(fxHueSlider.value, 10) || 0) === 0 &&
+        (parseInt(fxSatSlider.value, 10) || 0) === 0 &&
+        (parseInt(fxValSlider.value, 10) || 0) === 0 &&
+        (parseInt(fxTintSlider.value, 10) || 0) === 0 &&
+        ((parseInt(fxAlphaSlider.value, 10) ?? 100) === 100)
+      );
+    }
 
     function resetFxSlidersUI() {
       fxHueSlider.value = 0;
@@ -11666,6 +11682,9 @@
       fxAlphaSlider.value = 100;
       fxAlphaLabel.textContent = '100%';
       fxTintColor.value = editor.color || '#3b82f6';
+      if (fxOutlineColor) {
+        fxOutlineColor.value = editor.color || '#000000';
+      }
       if (fxReplaceFrom) {
         const curBuf = editor.frames[editor.activeFrame];
         let firstHex = editor.color || '#ffffff';
@@ -11682,6 +11701,33 @@
       if (fxReplaceTo) {
         fxReplaceTo.value = editor.color || '#3b82f6';
       }
+    }
+
+    function commitPendingFxSlidersIfDirty() {
+      if (!editor.fxSession || areFxSlidersAtDefault()) return;
+      // Save the pre-slider state onto the undo stack, then bake the slider preview as the new baseline
+      const currentFrames = editor.frames.map(f => new Uint8ClampedArray(f));
+      const currentFloating = (editor.marquee && editor.marquee.floatingData)
+        ? new Uint8ClampedArray(editor.marquee.floatingData)
+        : null;
+
+      editor.frames.forEach((f, idx) => {
+        if (editor.fxSession.origFrames[idx]) f.set(editor.fxSession.origFrames[idx]);
+      });
+      if (editor.marquee && editor.fxSession.origFloating && editor.marquee.floatingData) {
+        editor.marquee.floatingData.set(editor.fxSession.origFloating);
+      }
+      pushUndo();
+
+      editor.frames.forEach((f, idx) => {
+        f.set(currentFrames[idx]);
+        editor.fxSession.origFrames[idx] = new Uint8ClampedArray(currentFrames[idx]);
+      });
+      if (editor.marquee && currentFloating && editor.marquee.floatingData) {
+        editor.marquee.floatingData.set(currentFloating);
+        editor.fxSession.origFloating = new Uint8ClampedArray(currentFloating);
+      }
+      resetFxSlidersUI();
     }
 
     function previewColorFxLive() {
@@ -11701,7 +11747,7 @@
 
       const applyAll = fxAllCelsToggle.checked;
 
-      // Restore unadjusted frames first
+      // Restore unadjusted base frames first
       editor.frames.forEach((f, idx) => {
         if (editor.fxSession.origFrames[idx]) {
           f.set(editor.fxSession.origFrames[idx]);
@@ -11767,22 +11813,20 @@
     function closeColorFxPopover(commitChanges = false) {
       if (!colorFxPopover || colorFxPopover.classList.contains('hidden')) return;
       if (editor.fxSession) {
+        const slidersModified = !areFxSlidersAtDefault();
         if (!commitChanges) {
-          // Revert back to original unadjusted buffers
-          editor.frames.forEach((f, idx) => {
-            if (editor.fxSession.origFrames[idx]) f.set(editor.fxSession.origFrames[idx]);
-          });
-          if (editor.marquee && editor.fxSession.origFloating && editor.marquee.floatingData) {
-            editor.marquee.floatingData.set(editor.fxSession.origFloating);
+          // Revert any uncommitted slider adjustments back to origFrames
+          if (slidersModified) {
+            editor.frames.forEach((f, idx) => {
+              if (editor.fxSession.origFrames[idx]) f.set(editor.fxSession.origFrames[idx]);
+            });
+            if (editor.marquee && editor.fxSession.origFloating && editor.marquee.floatingData) {
+              editor.marquee.floatingData.set(editor.fxSession.origFloating);
+            }
           }
-        } else {
-          // Push original active frame to undo stack before committing
-          editor.undoStack.push({
-            frame: editor.activeFrame,
-            data: new Uint8ClampedArray(editor.fxSession.origFrames[editor.activeFrame])
-          });
-          if (editor.undoStack.length > 40) editor.undoStack.shift();
-          editor.redoStack = [];
+        } else if (slidersModified) {
+          // Push the pre-slider state to the undo stack before committing slider changes
+          commitPendingFxSlidersIfDirty();
         }
         editor.fxSession = null;
       }
@@ -11808,11 +11852,23 @@
     document.getElementById('color-fx-close-btn').addEventListener('click', () => closeColorFxPopover(false));
     document.getElementById('fx-reset-btn').addEventListener('click', () => {
       if (editor.fxSession) {
-        editor.frames.forEach((f, idx) => {
-          if (editor.fxSession.origFrames[idx]) f.set(editor.fxSession.origFrames[idx]);
-        });
-        if (editor.marquee && editor.fxSession.origFloating && editor.marquee.floatingData) {
-          editor.marquee.floatingData.set(editor.fxSession.origFloating);
+        if (!areFxSlidersAtDefault()) {
+          // Reset active sliders back to origFrames
+          editor.frames.forEach((f, idx) => {
+            if (editor.fxSession.origFrames[idx]) f.set(editor.fxSession.origFrames[idx]);
+          });
+          if (editor.marquee && editor.fxSession.origFloating && editor.marquee.floatingData) {
+            editor.marquee.floatingData.set(editor.fxSession.origFloating);
+          }
+        } else if (editor.fxSession.initialFrames) {
+          // If sliders are already at 0, Reset restores the state from when FX was first opened
+          pushUndo();
+          editor.frames.forEach((f, idx) => {
+            if (editor.fxSession.initialFrames[idx]) {
+              f.set(editor.fxSession.initialFrames[idx]);
+              editor.fxSession.origFrames[idx] = new Uint8ClampedArray(editor.fxSession.initialFrames[idx]);
+            }
+          });
         }
       }
       resetFxSlidersUI();
@@ -11833,29 +11889,59 @@
 
     if (fxReplaceBtn && fxReplaceFrom && fxReplaceTo) {
       fxReplaceBtn.addEventListener('click', () => {
+        if (!editor.fxSession) beginColorFxSession();
+        commitPendingFxSlidersIfDirty();
+        if (editor.marquee && editor.marquee.floatingData) {
+          commitMarqueeSelection();
+          editor.fxSession.origFrames = editor.frames.map(f => new Uint8ClampedArray(f));
+          editor.fxSession.origFloating = null;
+        }
+
         const [sr, sg, sb] = hexToRgba(fxReplaceFrom.value);
         const [tr, tg, tb] = hexToRgba(fxReplaceTo.value);
         const targetRgba = [tr, tg, tb, editor.alpha || 255];
         const applyAll = fxAllCelsToggle.checked;
+        const indices = applyAll ? editor.frames.map((_, i) => i) : [editor.activeFrame];
 
-        if (editor.fxSession) {
-          const indices = applyAll ? editor.fxSession.origFrames.map((_, i) => i) : [editor.activeFrame];
-          indices.forEach(idx => {
-            const buf = editor.fxSession.origFrames[idx];
-            if (!buf) return;
-            for (let i = 0; i < buf.length; i += 4) {
-              if (buf[i + 3] > 0 && buf[i] === sr && buf[i + 1] === sg && buf[i + 2] === sb) {
-                buf[i] = targetRgba[0];
-                buf[i + 1] = targetRgba[1];
-                buf[i + 2] = targetRgba[2];
+        let changedCount = 0;
+        indices.forEach(idx => {
+          const buf = editor.frames[idx];
+          if (!buf) return;
+          for (let i = 0; i < buf.length; i += 4) {
+            if (buf[i + 3] > 0 && buf[i] === sr && buf[i + 1] === sg && buf[i + 2] === sb) {
+              if (buf[i] !== targetRgba[0] || buf[i + 1] !== targetRgba[1] || buf[i + 2] !== targetRgba[2]) {
+                changedCount++;
               }
             }
-          });
-          recordUsedColor(fxReplaceTo.value);
-          fxReplaceFrom.value = fxReplaceTo.value;
-          sfx.ui(580);
-          previewColorFxLive();
+          }
+        });
+
+        if (changedCount === 0) {
+          sfx.buzzer();
+          return;
         }
+
+        pushUndo();
+        indices.forEach(idx => {
+          const buf = editor.frames[idx];
+          if (!buf) return;
+          for (let i = 0; i < buf.length; i += 4) {
+            if (buf[i + 3] > 0 && buf[i] === sr && buf[i + 1] === sg && buf[i + 2] === sb) {
+              buf[i] = targetRgba[0];
+              buf[i + 1] = targetRgba[1];
+              buf[i + 2] = targetRgba[2];
+            }
+          }
+          if (editor.fxSession && editor.fxSession.origFrames[idx]) {
+            editor.fxSession.origFrames[idx] = new Uint8ClampedArray(buf);
+          }
+        });
+
+        recordUsedColor(fxReplaceTo.value);
+        fxReplaceFrom.value = fxReplaceTo.value;
+        sfx.ui(580);
+        renderPaintCanvas();
+        renderFrameTabs();
       });
     }
 
@@ -11863,38 +11949,75 @@
     if (fxOutlineBtn) {
       fxOutlineBtn.addEventListener('click', () => {
         if (!editor.fxSession) beginColorFxSession();
-        const [or, og, ob] = hexToRgba(editor.color || '#000000');
-        const oa = editor.alpha || 255;
+        // If any FX sliders were moved, commit them as their own step first so the outline uses exact brush color
+        commitPendingFxSlidersIfDirty();
+        if (editor.marquee && editor.marquee.floatingData) {
+          commitMarqueeSelection();
+          if (editor.fxSession) {
+            editor.fxSession.origFrames = editor.frames.map(f => new Uint8ClampedArray(f));
+            editor.fxSession.origFloating = null;
+          }
+        }
+
+        const outlineHex = (fxOutlineColor && fxOutlineColor.value) ? fxOutlineColor.value : (editor.color || '#000000');
+        const [or, og, ob] = hexToRgba(outlineHex);
+        const oa = Math.max(1, editor.alpha || 255);
         const applyAll = fxAllCelsToggle.checked;
-        const indices = applyAll ? editor.fxSession.origFrames.map((_, i) => i) : [editor.activeFrame];
+        const indices = applyAll ? editor.frames.map((_, i) => i) : [editor.activeFrame];
+
+        const nextBuffers = new Map();
+        let totalAdded = 0;
 
         indices.forEach(idx => {
-          const buf = editor.fxSession.origFrames[idx];
+          const src = editor.frames[idx];
           const dim = (editor.frameDims && editor.frameDims[idx]) || { w: editor.w, h: editor.h };
-          if (!buf) return;
-          const copy = new Uint8ClampedArray(buf);
+          if (!src) return;
           const w = dim.w, h = dim.h;
+          const outBuf = new Uint8ClampedArray(src);
+
           for (let y = 0; y < h; y++) {
             for (let x = 0; x < w; x++) {
+              if (!applyAll && editor.marquee && !editor.marquee.floatingData) {
+                if (!isPixelInMarqueeMask(editor.marquee, x - editor.marquee.x, y - editor.marquee.y)) continue;
+              }
               const i = (y * w + x) * 4;
-              if (copy[i + 3] > 20) continue;
+              if (src[i + 3] > 0) continue;
               const hasNeighbor =
-                (x > 0 && copy[(y * w + (x - 1)) * 4 + 3] > 20) ||
-                (x < w - 1 && copy[(y * w + (x + 1)) * 4 + 3] > 20) ||
-                (y > 0 && copy[((y - 1) * w + x) * 4 + 3] > 20) ||
-                (y < h - 1 && copy[((y + 1) * w + x) * 4 + 3] > 20);
+                (x > 0 && src[(y * w + (x - 1)) * 4 + 3] > 0) ||
+                (x < w - 1 && src[(y * w + (x + 1)) * 4 + 3] > 0) ||
+                (y > 0 && src[((y - 1) * w + x) * 4 + 3] > 0) ||
+                (y < h - 1 && src[((y + 1) * w + x) * 4 + 3] > 0);
               if (hasNeighbor) {
-                buf[i] = or;
-                buf[i + 1] = og;
-                buf[i + 2] = ob;
-                buf[i + 3] = oa;
+                outBuf[i] = or;
+                outBuf[i + 1] = og;
+                outBuf[i + 2] = ob;
+                outBuf[i + 3] = oa;
+                totalAdded++;
               }
             }
           }
+          nextBuffers.set(idx, outBuf);
         });
-        recordUsedColor(editor.color);
+
+        if (totalAdded === 0) {
+          sfx.buzzer();
+          return;
+        }
+
+        // Push pre-outline state onto undoStack BEFORE applying the outline so Ctrl+Z / Ctrl+Y works immediately
+        pushUndo();
+
+        for (const [idx, outBuf] of nextBuffers.entries()) {
+          editor.frames[idx].set(outBuf);
+          if (editor.fxSession && editor.fxSession.origFrames[idx]) {
+            editor.fxSession.origFrames[idx] = new Uint8ClampedArray(outBuf);
+          }
+        }
+
+        recordUsedColor(outlineHex);
         sfx.ui(610);
-        previewColorFxLive();
+        renderPaintCanvas();
+        renderFrameTabs();
       });
     }
 
@@ -12033,6 +12156,7 @@
       const ow = editor.w;
       const oh = editor.h;
       if (nw === ow && nh === oh) return;
+      pushUndo();
 
       // If editing Light Glow, only resize the active cell so Cell 1 (19x19) and Cell 2 (38x38) stay distinct
       if (editor.type === 'light' && editor.subtype === 'Light Glow') {
@@ -12582,6 +12706,7 @@
 
     function beginColorFxSession() {
       editor.fxSession = {
+        initialFrames: editor.frames.map(f => new Uint8ClampedArray(f)),
         origFrames: editor.frames.map(f => new Uint8ClampedArray(f)),
         origFloating: (editor.marquee && editor.marquee.floatingData)
           ? new Uint8ClampedArray(editor.marquee.floatingData)
@@ -12932,95 +13057,105 @@
       plotPixelWithSymmetry(buf, x, y, rgba);
       renderPaintCanvas();
     }
-
-    function floodFill(buf, w, h, startX, startY, newColor) {
-      const startIdx = (startY * w + startX) * 4;
-      const tr = buf[startIdx], tg = buf[startIdx + 1], tb = buf[startIdx + 2], ta = buf[startIdx + 3];
-      if (tr === newColor[0] && tg === newColor[1] && tb === newColor[2] && ta === newColor[3]) return;
-
-      const stack = [[startX, startY]];
-      const visited = new Uint8Array(w * h);
-
-      while (stack.length > 0) {
-        const [x, y] = stack.pop();
-        if (x < 0 || x >= w || y < 0 || y >= h) continue;
-        const p = y * w + x;
-        if (visited[p]) continue;
-        const i = p * 4;
-        if (buf[i] !== tr || buf[i + 1] !== tg || buf[i + 2] !== tb || buf[i + 3] !== ta) continue;
-
-        visited[p] = 1;
-        buf[i] = newColor[0];
-        buf[i + 1] = newColor[1];
-        buf[i + 2] = newColor[2];
-        buf[i + 3] = newColor[3];
-
-        stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
-      }
+    function createEditorUndoSnapshot() {
+      return {
+        activeFrame: editor.activeFrame,
+        w: editor.w,
+        h: editor.h,
+        frames: editor.frames.map(f => new Uint8ClampedArray(f)),
+        frameDims: editor.frameDims.map(d => ({ w: d.w, h: d.h })),
+        frameStates: [...(editor.frameStates || [])],
+        marquee: editor.marquee ? {
+          x: editor.marquee.x,
+          y: editor.marquee.y,
+          w: editor.marquee.w,
+          h: editor.marquee.h,
+          mask: editor.marquee.mask ? new Uint8Array(editor.marquee.mask) : null,
+          floatingData: editor.marquee.floatingData ? new Uint8ClampedArray(editor.marquee.floatingData) : null
+        } : null
+      };
     }
 
-    // Replaces all instances of the color at (startX, startY) across the active cel (or all cels if acrossAllCels is true)
-    function replaceColorInEditor(startX, startY, newColor, acrossAllCels = false) {
-      const activeBuf = editor.frames[editor.activeFrame];
-      const startIdx = (startY * editor.w + startX) * 4;
-      const tr = activeBuf[startIdx], tg = activeBuf[startIdx + 1], tb = activeBuf[startIdx + 2], ta = activeBuf[startIdx + 3];
-      if (tr === newColor[0] && tg === newColor[1] && tb === newColor[2] && ta === newColor[3]) return;
+    function restoreEditorUndoSnapshot(snap) {
+      if (!snap) return;
+      const prevBuf = editor.frames[editor.activeFrame]
+        ? new Uint8ClampedArray(editor.frames[editor.activeFrame])
+        : null;
+      const prevW = editor.w, prevH = editor.h;
 
-      const targetFrames = acrossAllCels
-        ? editor.frames.map((_, idx) => idx)
-        : [editor.activeFrame];
-
-      targetFrames.forEach(fIdx => {
-        const buf = editor.frames[fIdx];
-        const dim = (editor.frameDims && editor.frameDims[fIdx]) || { w: editor.w, h: editor.h };
-        for (let py = 0; py < dim.h; py++) {
-          for (let px = 0; px < dim.w; px++) {
-            if (!acrossAllCels && editor.marquee && !editor.marquee.floatingData) {
-              if (!isPixelInMarqueeMask(editor.marquee, px - editor.marquee.x, py - editor.marquee.y)) continue;
-            }
-            const i = (py * dim.w + px) * 4;
-            const matches = ta === 0
-              ? (buf[i + 3] === 0)
-              : (buf[i] === tr && buf[i + 1] === tg && buf[i + 2] === tb && buf[i + 3] === ta);
-            if (matches) {
-              buf[i] = newColor[0];
-              buf[i + 1] = newColor[1];
-              buf[i + 2] = newColor[2];
-              buf[i + 3] = newColor[3];
-            }
-          }
+      if (Array.isArray(snap.frames)) {
+        editor.frames = snap.frames.map(f => new Uint8ClampedArray(f));
+        editor.frameDims = Array.isArray(snap.frameDims)
+          ? snap.frameDims.map(d => ({ w: d.w, h: d.h }))
+          : editor.frames.map(() => ({ w: snap.w || editor.w, h: snap.h || editor.h }));
+        if (Array.isArray(snap.frameStates)) {
+          editor.frameStates = [...snap.frameStates];
         }
-      });
+        editor.activeFrame = Math.max(0, Math.min(snap.activeFrame ?? 0, editor.frames.length - 1));
+        editor.marquee = snap.marquee ? {
+          x: snap.marquee.x,
+          y: snap.marquee.y,
+          w: snap.marquee.w,
+          h: snap.marquee.h,
+          mask: snap.marquee.mask ? new Uint8Array(snap.marquee.mask) : null,
+          floatingData: snap.marquee.floatingData ? new Uint8ClampedArray(snap.marquee.floatingData) : null
+        } : null;
+      } else if (snap.data && typeof snap.frame === 'number') {
+        editor.activeFrame = Math.max(0, Math.min(snap.frame, editor.frames.length - 1));
+        editor.frames[editor.activeFrame] = new Uint8ClampedArray(snap.data);
+      }
+
+      syncActiveFrameDimensions();
+
+      // Keep FX session synchronized if the FX popover is open during Undo/Redo
+      if (editor.fxSession) {
+        editor.fxSession.origFrames = editor.frames.map(f => new Uint8ClampedArray(f));
+        editor.fxSession.origFloating = (editor.marquee && editor.marquee.floatingData)
+          ? new Uint8ClampedArray(editor.marquee.floatingData)
+          : null;
+        resetFxSlidersUI();
+      }
+
+      if (prevBuf && prevW === editor.w && prevH === editor.h) {
+        editor.undoTransition = { buf: prevBuf, w: prevW, h: prevH, alpha: 0.28 };
+      } else {
+        editor.undoTransition = null;
+      }
+
+      renderFrameTabs();
+      renderPaintCanvas();
     }
 
     function pushUndo() {
-      editor.undoStack.push({
-        frame: editor.activeFrame,
-        data: new Uint8ClampedArray(editor.frames[editor.activeFrame])
-      });
+      editor.undoStack.push(createEditorUndoSnapshot());
       if (editor.undoStack.length > 40) editor.undoStack.shift();
       editor.redoStack = [];
     }
 
     function popUndo() {
+      // If FX sliders are currently previewing an uncommitted adjustment, undo resets the sliders first
+      if (editor.fxSession && !areFxSlidersAtDefault()) {
+        editor.redoStack.push(createEditorUndoSnapshot());
+        editor.frames.forEach((f, idx) => {
+          if (editor.fxSession.origFrames[idx]) f.set(editor.fxSession.origFrames[idx]);
+        });
+        if (editor.marquee && editor.fxSession.origFloating && editor.marquee.floatingData) {
+          editor.marquee.floatingData.set(editor.fxSession.origFloating);
+        }
+        resetFxSlidersUI();
+        sfx.ui(410);
+        renderFrameTabs();
+        renderPaintCanvas();
+        return;
+      }
       if (editor.undoStack.length === 0) {
         sfx.buzzer();
         return;
       }
-      const prevBuf = new Uint8ClampedArray(editor.frames[editor.activeFrame]);
-      const prevW = editor.w, prevH = editor.h;
       const last = editor.undoStack.pop();
-      editor.redoStack.push({
-        frame: last.frame,
-        data: new Uint8ClampedArray(editor.frames[last.frame])
-      });
-      editor.activeFrame = last.frame;
-      editor.frames[last.frame] = last.data;
-      editor.undoTransition = { buf: prevBuf, w: prevW, h: prevH, alpha: 0.65 };
+      editor.redoStack.push(createEditorUndoSnapshot());
       sfx.ui(410);
-      syncActiveFrameDimensions();
-      renderFrameTabs();
-      renderPaintCanvas();
+      restoreEditorUndoSnapshot(last);
     }
 
     function popRedo() {
@@ -13028,20 +13163,10 @@
         sfx.buzzer();
         return;
       }
-      const prevBuf = new Uint8ClampedArray(editor.frames[editor.activeFrame]);
-      const prevW = editor.w, prevH = editor.h;
       const next = editor.redoStack.pop();
-      editor.undoStack.push({
-        frame: next.frame,
-        data: new Uint8ClampedArray(editor.frames[next.frame])
-      });
-      editor.activeFrame = next.frame;
-      editor.frames[next.frame] = next.data;
-      editor.undoTransition = { buf: prevBuf, w: prevW, h: prevH, alpha: 0.65 };
+      editor.undoStack.push(createEditorUndoSnapshot());
       sfx.ui(540);
-      syncActiveFrameDimensions();
-      renderFrameTabs();
-      renderPaintCanvas();
+      restoreEditorUndoSnapshot(next);
     }
 
     function shiftFramePixels(dx, dy) {
@@ -13243,7 +13368,15 @@
       renderFrameTabs();
     });
 
-    document.getElementById('undo-btn').addEventListener('click', popUndo);
+    const undoBtnEl = document.getElementById('undo-btn');
+    undoBtnEl.addEventListener('click', (e) => {
+      if (e.shiftKey) popRedo();
+      else popUndo();
+    });
+    undoBtnEl.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      popRedo();
+    });
 
     document.getElementById('clear-canvas-btn').addEventListener('click', () => {
       pushUndo();
@@ -13981,6 +14114,7 @@
     function swapEditorCels(idxA, idxB) {
       if (idxA < 0 || idxB < 0 || idxA >= editor.frames.length || idxB >= editor.frames.length || idxA === idxB) return;
       commitMarqueeSelection();
+      pushUndo();
       const tmpFrame = editor.frames[idxA];
       editor.frames[idxA] = editor.frames[idxB];
       editor.frames[idxB] = tmpFrame;
@@ -14021,6 +14155,7 @@
         return;
       }
       commitMarqueeSelection();
+      pushUndo();
       const baseLabels = getFrameLabelsForSubtype(editor.type, editor.subtype);
       const activeBufRef = editor.frames[editor.activeFrame];
 
@@ -14057,6 +14192,7 @@
         return;
       }
       commitMarqueeSelection();
+      pushUndo();
       const hasNamedStates = (editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable';
       const currentDim = (editor.frameDims && editor.frameDims[editor.activeFrame]) || { w: editor.w, h: editor.h };
       const insertIdx = editor.activeFrame + 1;
@@ -14082,6 +14218,7 @@
         return;
       }
       commitMarqueeSelection();
+      pushUndo();
       editor.frames.splice(editor.activeFrame, 1);
       editor.frameDims.splice(editor.activeFrame, 1);
       if (editor.frameStates) editor.frameStates.splice(editor.activeFrame, 1);
@@ -14365,24 +14502,24 @@
         const a = Math.max(0.05, Math.min(1, (editor.lightAlpha ?? 45) / 100));
 
         if (editor.subtype === 'Top Light') {
-          const grad = previewCtx.createLinearGradient(0, 0, 0, 24);
-          grad.addColorStop(0, `rgba(${r},${g},${b},${a * 0.88})`);
-          grad.addColorStop(0.45, `rgba(${r},${g},${b},${a * 0.55})`);
-          grad.addColorStop(0.78, `rgba(${r},${g},${b},${a * 0.18})`);
+          const grad = previewCtx.createLinearGradient(0, 0, 0, 33);
+          grad.addColorStop(0, `rgba(${r},${g},${b},${a})`);
+          grad.addColorStop(0.38, `rgba(${r},${g},${b},${a * 0.72})`);
+          grad.addColorStop(0.72, `rgba(${r},${g},${b},${a * 0.32})`);
           grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
           previewCtx.fillStyle = grad;
-          previewCtx.fillRect(0, 0, 76, 24);
+          previewCtx.fillRect(0, 0, 76, 33);
         } else if (editor.subtype === 'Fill Light') {
-          previewCtx.fillStyle = `rgba(${r},${g},${b},${a * 0.78})`;
-          if (editor.lightOption === 'Top Half') previewCtx.fillRect(0, 0, 76, 16);
-          else if (editor.lightOption === 'Bottom Half') previewCtx.fillRect(0, 23, 76, 16);
-          else if (editor.lightOption === 'Center Band') previewCtx.fillRect(0, 11, 76, 17);
+          previewCtx.fillStyle = `rgba(${r},${g},${b},${a})`;
+          if (editor.lightOption === 'Top Half') previewCtx.fillRect(0, 0, 76, 19);
+          else if (editor.lightOption === 'Bottom Half') previewCtx.fillRect(0, 20, 76, 19);
+          else if (editor.lightOption === 'Center Band') previewCtx.fillRect(0, 10, 76, 19);
           else previewCtx.fillRect(0, 0, 76, 39);
         } else if (editor.subtype === 'Surround Light') {
           const grad = previewCtx.createRadialGradient(38, 24, 16, 38, 24, 44);
           grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
           grad.addColorStop(0.55, `rgba(${r},${g},${b},${a * 0.35})`);
-          grad.addColorStop(1, `rgba(${r},${g},${b},${a * 0.85})`);
+          grad.addColorStop(1, `rgba(${r},${g},${b},${a * 0.95})`);
           previewCtx.fillStyle = grad;
           previewCtx.fillRect(0, 0, 76, 57);
         } else if (editor.subtype === 'Light') {
@@ -15206,8 +15343,13 @@
     function handleEditorShortcuts(e) {
       handleeditorAltAndCtrlKeys(e, true);
 
-      const tag = document.activeElement ? document.activeElement.tagName : '';
-      const inTextInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      const activeEl = document.activeElement;
+      const tag = activeEl ? activeEl.tagName : '';
+      const inputType = (activeEl && activeEl.type) ? activeEl.type.toLowerCase() : '';
+      const inTextInput =
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        (tag === 'INPUT' && ['text', 'number', 'search', 'password', 'url'].includes(inputType));
 
       if (e.key === ' ' && !inTextInput) {
         e.preventDefault();
@@ -15223,6 +15365,8 @@
         if (!dynamicCodePopup.classList.contains('hidden')) {
           dynamicCodePopup.classList.add('hidden');
           dynamicCodePopup.classList.remove('flex');
+        } else if (colorFxPopover && !colorFxPopover.classList.contains('hidden')) {
+          closeColorFxPopover(false);
         } else if (editor.marquee) {
           commitMarqueeSelection();
         } else {

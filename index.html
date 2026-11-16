@@ -1656,8 +1656,13 @@
     const surfaceTypeSelect = document.getElementById('surface-type-select');
     const motionFxSelect = document.getElementById('motion-fx-select');
     const worldMotionBar = document.getElementById('world-motion-bar');
-    const motionBarSlots = document.getElementById('motion-bar-slots');
     const motionBarTitle = document.getElementById('motion-bar-title');
+    const motionBarSlots = document.getElementById('motion-bar-slots');
+    const openCodePopupBtn = document.getElementById('open-code-popup-btn');
+    const dynamicCodePopup = document.getElementById('dynamic-code-popup');
+    const dynamicCodeHeader = document.getElementById('dynamic-code-header');
+    const dynamicCodeTextarea = document.getElementById('dynamic-code-textarea');
+    const dynamicCodeInput = document.getElementById('dynamic-code-input');
     const lightControlsGroup = document.getElementById('light-controls-group');
     const lightColorPicker = document.getElementById('light-color-picker');
     const lightAlphaSlider = document.getElementById('light-alpha-slider');
@@ -1669,47 +1674,110 @@
     const envSpeedSlider = document.getElementById('env-speed-slider');
     const envAlphaSlider = document.getElementById('env-alpha-slider');
     const envAlphaLabel = document.getElementById('env-alpha-label');
-    const dynamicCodeInput = document.getElementById('dynamic-code-input');
-    const openCodePopupBtn = document.getElementById('open-code-popup-btn');
-    const dynamicCodePopup = document.getElementById('dynamic-code-popup');
-    const dynamicCodeHeader = document.getElementById('dynamic-code-header');
-    const dynamicCodeTextarea = document.getElementById('dynamic-code-textarea');
     const canvasWInput = document.getElementById('canvas-w-input');
     const canvasHInput = document.getElementById('canvas-h-input');
+    const stripNoticeBar = document.getElementById('strip-notice-bar');
+    const stripNoticeText = document.getElementById('strip-notice-text');
     const paintStage = document.getElementById('paint-stage');
     const paintCanvas = document.getElementById('paint-canvas');
     const paintCtx = paintCanvas.getContext('2d');
+    const cursorCoords = document.getElementById('cursor-coords');
     const canvasZoomLabel = document.getElementById('canvas-zoom-label');
-    const previewCanvas = document.getElementById('preview-canvas');
-    const previewCtx = previewCanvas.getContext('2d');
-    const previewControlsBar = document.getElementById('preview-controls-bar');
-    const framesContainer = document.getElementById('frames-container');
-    const activeCelNameBadge = document.getElementById('active-cel-name-badge');
-    const celStateSelect = document.getElementById('cel-state-select');
     const marqueeSubbar = document.getElementById('marquee-subbar');
     const shapeSubbar = document.getElementById('shape-subbar');
     const spraySubbar = document.getElementById('spray-subbar');
-    const symmetryPopover = document.getElementById('symmetry-popover');
     const activeToolReadout = document.getElementById('active-tool-readout');
-    const cursorCoords = document.getElementById('cursor-coords');
-    const colorPicker = document.getElementById('color-picker');
-    const colorHex = document.getElementById('color-hex');
-    const activeColorSwatch = document.getElementById('active-color-swatch');
-    const alphaSlider = document.getElementById('alpha-slider');
-    const alphaLabel = document.getElementById('alpha-label');
-    const stripNoticeBar = document.getElementById('strip-notice-bar');
-    const stripNoticeText = document.getElementById('strip-notice-text');
-
-    // Aseprite Spectrum Canvases
+    const symmetryPopover = document.getElementById('symmetry-popover');
     const svCanvas = document.getElementById('sv-spectrum-canvas');
     const svCtx = svCanvas.getContext('2d');
     const svCursor = document.getElementById('sv-cursor');
     const hueCanvas = document.getElementById('hue-strip-canvas');
     const hueCtx = hueCanvas.getContext('2d');
     const hueCursor = document.getElementById('hue-cursor');
+    const alphaSlider = document.getElementById('alpha-slider');
+    const alphaLabel = document.getElementById('alpha-label');
+    const activeColorSwatch = document.getElementById('active-color-swatch');
+    const colorPicker = document.getElementById('color-picker');
+    const colorHex = document.getElementById('color-hex');
+    const previewCanvas = document.getElementById('preview-canvas');
+    const previewCtx = previewCanvas.getContext('2d');
+    const previewControlsBar = document.getElementById('preview-controls-bar');
+    const framesContainer = document.getElementById('frames-container');
+    const activeCelNameBadge = document.getElementById('active-cel-name-badge');
+    const celStateSelect = document.getElementById('cel-state-select');
 
-    // Offscreen cache for rendered sprite frames
+    // Hoisted Loop & Mouse State (Initialized before ResizeObserver / renderWorld calls)
+    const FIXED_DT = 1000 / 60;
+    let lastTime = performance.now();
+    let accumulator = 0;
+    let worldTickCount = 0;
+
+    const mouseWorld = {
+      wx: 0,
+      wy: 0,
+      inside: false,
+      downButton: null,
+      isPanning: false,
+      panStartScreen: { x: 0, y: 0 },
+      panStartCam: { x: 0, y: 0 },
+      dragStart: null,
+      pendingHoldGrab: null
+    };
+
+    // Offscreen cache for rendered sprite frames & O(1) sprite lookup table
     const spriteCanvasCache = new Map();
+    const spriteLookupMap = new Map();
+    let spriteLookupRef = null;
+    let spriteLookupLen = -1;
+
+    function rebuildSpriteLookup() {
+      spriteLookupMap.clear();
+      for (let i = 0; i < state.sprites.length; i++) {
+        const sp = state.sprites[i];
+        if (sp && sp.id) spriteLookupMap.set(sp.id, sp);
+      }
+      spriteLookupRef = state.sprites;
+      spriteLookupLen = state.sprites.length;
+    }
+
+    function getSpriteById(id) {
+      if (!id || id === '__starter_ground__') return null;
+      if (spriteLookupRef !== state.sprites || spriteLookupLen !== state.sprites.length) {
+        rebuildSpriteLookup();
+      }
+      const found = spriteLookupMap.get(id);
+      if (found) return found;
+      // Fallback rebuild if an entry was mutated in-place
+      rebuildSpriteLookup();
+      return spriteLookupMap.get(id) || null;
+    }
+
+    function hasSpriteId(id) {
+      if (id === '__starter_ground__') return true;
+      return Boolean(getSpriteById(id));
+    }
+
+    function getCachedDynamicAttributes(sp) {
+      if (!sp || sp.type !== 'dynamic') return new Set();
+      if (sp._cachedCodeRef !== sp.code || !sp._cachedDynAttrs) {
+        sp._cachedCodeRef = sp.code;
+        sp._cachedDynAttrs = parseDynamicAttributes(sp.code);
+      }
+      return sp._cachedDynAttrs;
+    }
+
+    function resetAllHeldKeys() {
+      state.keys.left = false;
+      state.keys.right = false;
+      state.keys.up = false;
+      state.keys.down = false;
+      state.keys.space = false;
+      editor.ctrlHeld = false;
+      editor.altHeld = false;
+      editor.shiftHeld = false;
+      editor.spaceHeld = false;
+      editor.isPanningCanvas = false;
+    }
 
     /********************************************************************
      * TACTILE WEB AUDIO SYNTHESIZER & YOUTUBE SANDBOX AMBIANCE
@@ -3195,13 +3263,16 @@
 
     function resolveCellSurfaceMaterial(cell) {
       if (!cell || cell.spriteId === '__starter_ground__') return 'stone';
-      const sp = state.sprites.find(s => s.id === cell.spriteId);
+      const sp = getSpriteById(cell.spriteId);
       if (sp) {
         if (sp.surfaceType && sp.surfaceType !== 'auto') {
           return sp.surfaceType;
         }
-        const namedMat = inferSurfaceFromName(sp.name);
-        if (namedMat) return namedMat;
+        if (sp._cachedNameRef !== sp.name) {
+          sp._cachedNameRef = sp.name;
+          sp._cachedInferredSurface = inferSurfaceFromName(sp.name);
+        }
+        if (sp._cachedInferredSurface) return sp._cachedInferredSurface;
       }
       if (cell.type === 'slidey' || (cell.type === 'slope' && cell.subtype === 'Slidey Slope')) return 'snow';
       if (cell.type === 'solid' && cell.subtype === 'Sticky') return 'mud';
@@ -3332,7 +3403,7 @@
       for (const [k, oldCell] of state.worldCells.entries()) {
         const nextCell = nextCellsMap.get(k);
         if (!nextCell || nextCell.spriteId !== oldCell.spriteId) {
-          const sp = state.sprites.find(s => s.id === oldCell.spriteId);
+          const sp = getSpriteById(oldCell.spriteId);
           state.deleteAnimations.push({
             x: oldCell.x,
             y: oldCell.y,
@@ -3373,7 +3444,7 @@
           ne => ne.spriteId === oldEnt.spriteId && Math.abs(ne.x - oldEnt.x) < 2 && Math.abs(ne.y - oldEnt.y) < 2
         );
         if (!stillExists) {
-          const sp = state.sprites.find(s => s.id === oldEnt.spriteId);
+          const sp = getSpriteById(oldEnt.spriteId);
           state.deleteAnimations.push({
             x: oldEnt.x,
             y: oldEnt.y,
@@ -3423,12 +3494,12 @@
 
       // 1. Ensure the player's body space at (gx, gy) is free of solids and hazards
       for (const [, cell] of state.worldCells.entries()) {
-        if (cell.spriteId !== '__starter_ground__' && !state.sprites.some(s => s.id === cell.spriteId)) continue;
+        if (!hasSpriteId(cell.spriteId)) continue;
         const overlapsBody = gx < cell.x + cell.w && gx + pw > cell.x && gy < cell.y + cell.h && gy + ph > cell.y;
         if (!overlapsBody) continue;
 
-        const sp = state.sprites.find(s => s.id === cell.spriteId);
-        const dynAttrs = (sp && sp.type === 'dynamic') ? parseDynamicAttributes(sp.code) : new Set();
+        const sp = getSpriteById(cell.spriteId);
+        const dynAttrs = getCachedDynamicAttributes(sp);
         if (cell.type === 'harmful' || dynAttrs.has('HARMFUL') || dynAttrs.has('DEADLY')) {
           return false;
         }
@@ -3442,12 +3513,12 @@
       let hasSafeFloor = state.hardFloorY0 && footY === 0;
 
       for (const [, cell] of state.worldCells.entries()) {
-        if (cell.spriteId !== '__starter_ground__' && !state.sprites.some(s => s.id === cell.spriteId)) continue;
+        if (!hasSpriteId(cell.spriteId)) continue;
         const underFeet = gx + 3 < cell.x + cell.w && gx + pw - 3 > cell.x && footY >= cell.y && footY <= cell.y + 6;
         if (!underFeet) continue;
 
-        const sp = state.sprites.find(s => s.id === cell.spriteId);
-        const dynAttrs = (sp && sp.type === 'dynamic') ? parseDynamicAttributes(sp.code) : new Set();
+        const sp = getSpriteById(cell.spriteId);
+        const dynAttrs = getCachedDynamicAttributes(sp);
         if (cell.type === 'harmful' || dynAttrs.has('HARMFUL') || dynAttrs.has('DEADLY')) {
           return false;
         }
@@ -3523,6 +3594,8 @@
         if (nearbySafe) {
           target = nearbySafe;
         }
+      } else {
+        p.lastSafePos = null;
       }
 
       p.x = target.x;
@@ -3934,11 +4007,6 @@
     /********************************************************************
      * FIXED-TIMESTEP 60FPS PHYSICS & WORLD ENTITIES LOOP
      ********************************************************************/
-    const FIXED_DT = 1000 / 60;
-    let lastTime = performance.now();
-    let accumulator = 0;
-    let worldTickCount = 0;
-
     function updatePhysicsTick() {
       worldTickCount++;
       const p = state.player;
@@ -3995,7 +4063,7 @@
           if (cell.subtype === 'Sparkling' && worldTickCount % 18 === 0) {
             spawnWorldParticles(cell.x + Math.random() * cell.w, cell.y + Math.random() * cell.h, '#fde047', 1);
           } else if (cell.subtype === 'Item Thrower' && worldTickCount % 95 === 0) {
-            const sp = state.sprites.find(s => s.id === cell.spriteId);
+            const sp = getSpriteById(cell.spriteId);
             if (sp) {
               state.projectiles.push({
                 spriteId: sp.id,
@@ -4012,7 +4080,7 @@
             }
           }
         } else if (cell.type === 'environment') {
-          const spEnv = state.sprites.find(s => s.id === cell.spriteId);
+          const spEnv = getSpriteById(cell.spriteId);
           if (spEnv) {
             updateWorldEnvironmentEmitter(cell, spEnv);
           }
@@ -4074,10 +4142,10 @@
       checkOverlapTriggers(p);
 
       const isMountedFlying = (() => {
-        const m = state.sprites.find(s => s.id === state.activeMountId);
+        const m = getSpriteById(state.activeMountId);
         if (m && m.subtype === 'Flying Mountable') return true;
-        const b = state.sprites.find(s => s.id === state.activeBodyId);
-        return b && b.type === 'dynamic' && parseDynamicAttributes(b.code).has('FLYING MOUNTABLE');
+        const b = getSpriteById(state.activeBodyId);
+        return b && b.type === 'dynamic' && getCachedDynamicAttributes(b).has('FLYING MOUNTABLE');
       })();
 
       // Calm, deliberate Manyland movement parameters
@@ -4277,13 +4345,13 @@
       }
 
       // Holdable: Liner trail drawing
-      const heldSp = state.sprites.find(s => s.id === state.activeHoldableId);
+      const heldSp = getSpriteById(state.activeHoldableId);
       if (heldSp && heldSp.subtype === 'Liner' && p.usingHoldable > 0) {
         state.linerPoints.push({ x: p.x + p.w / 2, y: p.y + p.h / 2, life: 360 });
       }
 
       // Walk / Climb cycle cadence (uses equipped Body's per-state stateFps if set, else animFps / global walkFps)
-      const activeBodySp = state.sprites.find(s => s.id === state.activeBodyId);
+      const activeBodySp = getSpriteById(state.activeBodyId);
       const activeMoveState = p.onLadder ? 'Climb' : 'Walk';
       const effectiveWalkFps =
         (activeBodySp && activeBodySp.stateFps && activeBodySp.stateFps[activeMoveState])
@@ -4317,7 +4385,7 @@
       if (p.activeMotionId) p.activeMotionTick++;
 
       // Emit floating 'Z's when sleeping/lying or performing a sleep motion
-      const activeMotionSp = state.sprites.find(s => s.id === p.activeMotionId);
+      const activeMotionSp = getSpriteById(p.activeMotionId);
       const isSleepingNow = p.lying || (activeMotionSp && (activeMotionSp.motionEffect === 'sleep' || /\b(sleep|lay|lie)\b/.test(activeMotionSp.name.toLowerCase())));
       if (isSleepingNow && worldTickCount % 38 === 0) {
         state.floatingTexts.push({
@@ -4454,7 +4522,7 @@
       let foundPose = null;
       for (const [, cell] of state.worldCells.entries()) {
         if (cell.spriteId === '__starter_ground__') continue;
-        const sp = state.sprites.find(s => s.id === cell.spriteId);
+        const sp = getSpriteById(cell.spriteId);
         if (!sp) continue;
 
         const horizOverlap = p.x + 3 < cell.x + cell.w && p.x + p.w - 3 > cell.x;
@@ -4484,18 +4552,15 @@
       p.liquidSurfaceY = null;
       let bestLadderDist = Infinity;
 
-      const ticksPerFrame = Math.max(2, Math.round(60 / state.walkFps));
-      const animStep = Math.floor(worldTickCount / ticksPerFrame);
-
       for (const [key, cell] of state.worldCells.entries()) {
         // Guarantee orphaned cells whose sprite was deleted never trigger anything
-        if (cell.spriteId !== '__starter_ground__' && !state.sprites.some(s => s.id === cell.spriteId)) {
+        if (!hasSpriteId(cell.spriteId)) {
           state.worldCells.delete(key);
           continue;
         }
 
-        const sp = state.sprites.find(s => s.id === cell.spriteId);
-        const dynAttrs = (sp && sp.type === 'dynamic') ? parseDynamicAttributes(sp.code) : new Set();
+        const sp = getSpriteById(cell.spriteId);
+        const dynAttrs = getCachedDynamicAttributes(sp);
         const isClimbCell = cell.type === 'climbable' || dynAttrs.has('CLIMBABLE');
 
         // Also detect a ladder directly beneath the player's feet when standing on top of a ladder or platform gap
@@ -4584,7 +4649,7 @@
           }
           if (cell.type === 'harmful' || dynAttrs.has('HARMFUL') || dynAttrs.has('DEADLY')) {
             // Deadly Emerging is safe on Cell 1 (index 0) and lethal on any emerged cell (Cell 2, Cell 3, etc.)
-            const spHarm = state.sprites.find(s => s.id === cell.spriteId);
+            const spHarm = sp;
             const harmFrames = spHarm ? Math.max(1, spHarm.frames.length) : 2;
             const harmStep = Math.floor(worldTickCount / Math.max(2, Math.round(60 / (spHarm?.animFps || state.walkFps))));
             if (cell.subtype === 'Deadly Emerging' && harmFrames > 1 && (harmStep % harmFrames === 0)) {
@@ -4611,14 +4676,14 @@
     }
 
     function isCellSolid(cell) {
-      if (cell.spriteId !== '__starter_ground__' && !state.sprites.some(s => s.id === cell.spriteId)) return false;
+      if (!hasSpriteId(cell.spriteId)) return false;
       if (cell.type === 'crumbling' && cell.crumbleState === 2) return false;
       if (cell.type === 'activator' && cell.subtype === 'Open on Activate') {
         return state.activatorTimer <= 0;
       }
       if (cell.type === 'dynamic') {
-        const sp = state.sprites.find(s => s.id === cell.spriteId);
-        const attrs = sp ? parseDynamicAttributes(sp.code) : new Set();
+        const sp = getSpriteById(cell.spriteId);
+        const attrs = getCachedDynamicAttributes(sp);
         if (attrs.has('ONE-WAY') || attrs.has('WALKABLE')) return 'oneway';
         if (cell.subtype === 'Solid Dynamic' || attrs.has('SOLID') || attrs.has('BOUNCY') || attrs.has('SLIDEY') || attrs.has('STICKY')) return true;
       }
@@ -4636,7 +4701,7 @@
 
     function resolveWorldCollisions(p, horizontal) {
       for (const [key, cell] of state.worldCells.entries()) {
-        if (cell.spriteId !== '__starter_ground__' && !state.sprites.some(s => s.id === cell.spriteId)) {
+        if (!hasSpriteId(cell.spriteId)) {
           state.worldCells.delete(key);
           continue;
         }
@@ -4681,24 +4746,9 @@
           continue;
         }
 
-        if (solidType === 'oneway') {
-          if (
-            !horizontal &&
-            p.vy >= 0 &&
-            !state.keys.down &&
-            !(cell.type === 'climbable' && state.keys.up) &&
-            (p.y + p.h - Math.max(0, p.vy) <= by + 5)
-          ) {
-            p.y = by - p.h;
-            p.vy = 0;
-            p.onGround = true;
-          }
-          continue;
-        }
-
         // Also allow sitting/laying when standing ON TOP of a Sittable/Layable SOLID block and pressing Down
         if (!horizontal && p.vy >= 0 && Math.abs((p.y + p.h) - by) <= 4 && state.keys.down) {
-          const spTop = state.sprites.find(s => s.id === cell.spriteId);
+          const spTop = getSpriteById(cell.spriteId);
           if (spTop) {
             const ln = spTop.name.toLowerCase();
             if ((spTop.poseType === 'lay' || /\b(bed|mattress|hammock|cot)\b/.test(ln)) && !p.lying) {
@@ -4744,7 +4794,7 @@
               p.vy = -7.2;
               if (cell.subtype === 'Tilted Bouncy') p.vx = p.facing * 3.5;
               sfx.bounce();
-              const spBounce = state.sprites.find(s => s.id === cell.spriteId);
+              const spBounce = getSpriteById(cell.spriteId);
               const extraCells = spBounce ? Math.max(1, spBounce.frames.length - 1) : 1;
               const ticksPerCel = Math.max(5, Math.round(60 / (spBounce?.animFps || state.walkFps || 8)));
               cell._bounceMax = extraCells * ticksPerCel;
@@ -4820,7 +4870,7 @@
     function updateDynamicEntities() {
       for (let i = state.dynamicEntities.length - 1; i >= 0; i--) {
         const ent = state.dynamicEntities[i];
-        if (!state.sprites.some(s => s.id === ent.spriteId)) {
+        if (!hasSpriteId(ent.spriteId)) {
           state.dynamicEntities.splice(i, 1);
           continue;
         }
@@ -4855,137 +4905,6 @@
           }
         }
       }
-    }
-
-    /********************************************************************
-     * MANYLAND LIGHT SYSTEM (Light, Top Light, Fill Light, Surround Light, Light Glow)
-     ********************************************************************/
-    function getSpriteLightColorAndAlpha(sp) {
-      if (!sp) return { r: 255, g: 232, b: 150, alpha: 0.45 };
-      let hex = sp.lightColor;
-      if (!hex) {
-        // Fallback: first non-transparent pixel color in Cell 1
-        const buf = sp.frames[0];
-        for (let i = 0; i < buf.length; i += 4) {
-          if (buf[i + 3] > 25) {
-            hex = rgbaToHex(buf[i], buf[i + 1], buf[i + 2]);
-            break;
-          }
-        }
-      }
-      if (!hex) hex = '#ffe896';
-      const n = parseInt(hex.slice(1), 16);
-      const r = (n >> 16) & 255;
-      const g = (n >> 8) & 255;
-      const b = n & 255;
-      const alpha = Math.max(0.05, Math.min(1, (sp.lightAlpha ?? 45) / 100));
-      return { r, g, b, alpha };
-    }
-
-    function renderManylandBackgroundLights(W, H) {
-      let ambientLights = [];
-      let topLight = null;
-      let latestFillLight = null;
-      let surroundLight = null;
-
-      for (const [, cell] of state.worldCells.entries()) {
-        if (cell.type !== 'light') continue;
-        const sp = state.sprites.find(s => s.id === cell.spriteId);
-        if (!sp) continue;
-
-        const sub = cell.subtype || sp.subtype || 'Light';
-        const opt = sp.lightOption || 'Standard';
-        const col = getSpriteLightColorAndAlpha(sp);
-
-        if (sub === 'Light') {
-          ambientLights.push({ col, opt });
-        } else if (sub === 'Top Light') {
-          topLight = { col, opt };
-        } else if (sub === 'Fill Light') {
-          if (!latestFillLight || (cell.placedOrder || 0) >= (latestFillLight.placedOrder || 0)) {
-            latestFillLight = { col, opt, placedOrder: cell.placedOrder || 0 };
-          }
-        } else if (sub === 'Surround Light') {
-          surroundLight = { col, opt };
-        }
-      }
-
-      // 1. Fill Light: fills the background with solid color using the user's adjustable Light Alpha
-      if (latestFillLight) {
-        const { r, g, b, alpha } = latestFillLight.col;
-        worldCtx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)})`;
-        const mode = latestFillLight.opt;
-        if (mode === 'Top Half') {
-          worldCtx.fillRect(0, 0, W, Math.floor(H / 2));
-        } else if (mode === 'Bottom Half') {
-          worldCtx.fillRect(0, Math.floor(H / 2), W, Math.ceil(H / 2));
-        } else if (mode === 'Center Band') {
-          worldCtx.fillRect(0, Math.floor(H * 0.25), W, Math.floor(H * 0.5));
-        } else {
-          worldCtx.fillRect(0, 0, W, H);
-        }
-      }
-
-      // 2. Standard "Light" objects: use adjustable Light Alpha, stack saturation if multiple placed, and support Pulsating / Thick
-      if (ambientLights.length > 0) {
-        let rAvg = 0, gAvg = 0, bAvg = 0;
-        let totalAlpha = 0;
-        ambientLights.forEach(item => {
-          rAvg += item.col.r;
-          gAvg += item.col.g;
-          bAvg += item.col.b;
-          let baseA = item.col.alpha * (item.opt.includes('Thick') ? 1.35 : 1.0);
-          if (item.opt.includes('Pulsating')) {
-            baseA *= (0.65 + 0.35 * Math.sin(worldTickCount * 0.045));
-          }
-          totalAlpha += baseA;
-        });
-        rAvg = Math.round(rAvg / ambientLights.length);
-        gAvg = Math.round(gAvg / ambientLights.length);
-        bAvg = Math.round(bAvg / ambientLights.length);
-        const clampedAlpha = Math.min(0.95, totalAlpha);
-
-        state.smoothLight.r += (rAvg - state.smoothLight.r) * 0.14;
-        state.smoothLight.g += (gAvg - state.smoothLight.g) * 0.14;
-        state.smoothLight.b += (bAvg - state.smoothLight.b) * 0.14;
-        state.smoothLight.a += (clampedAlpha - state.smoothLight.a) * 0.14;
-      } else {
-        state.smoothLight.a += (0 - state.smoothLight.a) * 0.14;
-      }
-
-      if (state.smoothLight.a > 0.005) {
-        worldCtx.fillStyle = `rgba(${Math.round(state.smoothLight.r)}, ${Math.round(state.smoothLight.g)}, ${Math.round(state.smoothLight.b)}, ${state.smoothLight.a.toFixed(3)})`;
-        worldCtx.fillRect(0, 0, W, H);
-      }
-
-      // 3. Top Light: screen-space top gradient using the user's Light Color and Light Alpha
-      if (topLight) {
-        const { r, g, b, alpha } = topLight.col;
-        const grad = worldCtx.createLinearGradient(0, 0, 0, H * 0.72);
-        grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)})`);
-        grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
-        worldCtx.fillStyle = grad;
-        worldCtx.fillRect(0, 0, W, H * 0.72);
-      }
-
-      return surroundLight;
-    }
-
-    function renderSurroundLightVignette(W, H, surroundLight) {
-      if (!surroundLight) return;
-      const { r, g, b, alpha } = surroundLight.col;
-      const opt = surroundLight.opt;
-      const innerFactor = opt === 'Very Thick' ? 0.14 : (opt === 'Thick' ? 0.28 : 0.45);
-      const outerAlpha = Math.min(0.95, alpha * (opt === 'Very Thick' ? 1.4 : (opt === 'Thick' ? 1.2 : 1.0)));
-
-      const cx = W / 2;
-      const cy = H / 2;
-      const maxR = Math.hypot(cx, cy);
-      const grad = worldCtx.createRadialGradient(cx, cy, maxR * innerFactor, cx, cy, maxR);
-      grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
-      grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${outerAlpha.toFixed(3)})`);
-      worldCtx.fillStyle = grad;
-      worldCtx.fillRect(0, 0, W, H);
     }
 
     /********************************************************************
@@ -5191,7 +5110,7 @@
 
       for (const [, cell] of state.worldCells.entries()) {
         if (cell.type !== 'light') continue;
-        const sp = state.sprites.find(s => s.id === cell.spriteId);
+        const sp = getSpriteById(cell.spriteId);
         if (!sp) continue;
         const effectiveLayer = sp.lightLayer || cell.lightLayer || 'sky';
         if (effectiveLayer !== targetLayer) continue;
@@ -5420,7 +5339,7 @@
       const envEntries = [];
       for (const [, cell] of state.worldCells.entries()) {
         if (cell.type !== 'environment') continue;
-        const sp = state.sprites.find(s => s.id === cell.spriteId);
+        const sp = getSpriteById(cell.spriteId);
         if (!sp) continue;
         const sub = cell.subtype || sp.subtype || 'Environmental Mist';
         const effectiveLayer = sp.envLayer || getDefaultEnvLayerForSubtype(sub);
@@ -5548,7 +5467,7 @@
         worldCtx.save();
         const lifeAlpha = wp.maxLife ? Math.min(1, wp.life / 25) : 1;
         worldCtx.globalAlpha = Math.max(0, Math.min(1, wp.alpha * lifeAlpha));
-        const sp = state.sprites.find(s => s.id === wp.spriteId);
+        const sp = getSpriteById(wp.spriteId);
         const hasArt = sp && isBufferNonEmpty(sp.frames[0]);
 
         if (wp.kind === 'rain') {
@@ -5604,7 +5523,7 @@
       }
 
       // 3. Render Placed World Cells by Layer ('farback', 'back', 'main', 'front')
-      const activeBodyForFps = state.sprites.find(s => s.id === state.activeBodyId);
+      const activeBodyForFps = getSpriteById(state.activeBodyId);
       const bodyWalkFps = (activeBodyForFps && activeBodyForFps.animFps) ? activeBodyForFps.animFps : state.walkFps;
       const ticksPerFrame = Math.max(1, Math.round(60 / Math.max(1, bodyWalkFps)));
       const animStep = Math.floor(worldTickCount / ticksPerFrame);
@@ -5674,7 +5593,7 @@
 
           if (cell.type === 'crumbling' && cell.crumbleState === 2) continue;
 
-          const sp = state.sprites.find(s => s.id === cell.spriteId);
+          const sp = getSpriteById(cell.spriteId);
           if (!sp) continue;
 
           if (cell.type === 'activator' && cell.subtype === 'Open on Activate' && (cell.openProgress || 0) > 0.96) {
@@ -5894,7 +5813,7 @@
       }
 
       for (const ent of state.dynamicEntities) {
-        const sp = state.sprites.find(s => s.id === ent.spriteId);
+        const sp = getSpriteById(ent.spriteId);
         if (!sp) continue;
         if (ent._interactTick > 0) ent._interactTick--;
         if (ent.placeAnim !== undefined && ent.placeAnim < 1) {
@@ -5947,7 +5866,7 @@
       }
 
       for (const pr of state.projectiles) {
-        const sp = state.sprites.find(s => s.id === pr.spriteId);
+        const sp = getSpriteById(pr.spriteId);
         if (!sp) continue;
         const fc = getCachedFrameCanvas(sp, pr.frameIdx || 0);
         worldCtx.drawImage(
@@ -6065,17 +5984,16 @@
           worldCtx.scale(-1, 1);
           worldCtx.drawImage(fc, 0, 0, lw, lh);
         } else {
-          worldCtx.drawImage(fc, lx, syOrLy(ly), lw, lh);
+          worldCtx.drawImage(fc, lx, ly, lw, lh);
         }
         worldCtx.restore();
       };
-      function syOrLy(v) { return v; }
 
-      const wornBody = state.sprites.find(s => s.id === state.activeBodyId);
-      const wornWearable = state.sprites.find(s => s.id === state.activeWearableId);
-      const wornHoldable = state.sprites.find(s => s.id === state.activeHoldableId);
-      const wornMount = state.sprites.find(s => s.id === state.activeMountId);
-      const activeMotionSprite = state.sprites.find(s => s.id === p.activeMotionId);
+      const wornBody = getSpriteById(state.activeBodyId);
+      const wornWearable = getSpriteById(state.activeWearableId);
+      const wornHoldable = getSpriteById(state.activeHoldableId);
+      const wornMount = getSpriteById(state.activeMountId);
+      const activeMotionSprite = getSpriteById(p.activeMotionId);
 
       if (wornMount) {
         const mFrame = Math.abs(p.vx) > 0.15 ? (animStep % wornMount.frames.length) : 0;
@@ -6297,7 +6215,7 @@
 
       // 8. Render Front Layer ('Thing in Front' & 'Big Thing: Back + Front' Cell 2+)
       for (const cell of frontCells) {
-        const sp = state.sprites.find(s => s.id === cell.spriteId);
+        const sp = getSpriteById(cell.spriteId);
         if (!sp) continue;
         const sx = Math.round(camScreenX + cell.x * zoom);
         const sy = Math.round(camScreenY + cell.y * zoom);
@@ -6501,36 +6419,8 @@
       return highestTopWorldY;
     }
 
-    function renderLightEffect(sx, sy, sw, sh, zoom, subtype) {
-      const cx = sx + sw / 2;
-      const cy = sy + sh / 2;
-      const radius = (subtype === 'Fill Light' ? 90 : (subtype === 'Light Glow' ? 32 : 55)) * zoom;
-
-      worldCtx.save();
-      if (subtype === 'Top Light') {
-        worldCtx.beginPath();
-        worldCtx.moveTo(cx - sw * 0.4, cy);
-        worldCtx.lineTo(cx - radius * 0.7, cy + radius * 1.3);
-        worldCtx.lineTo(cx + radius * 0.7, cy + radius * 1.3);
-        worldCtx.lineTo(cx + sw * 0.4, cy);
-        worldCtx.closePath();
-        const g = worldCtx.createLinearGradient(cx, cy, cx, cy + radius * 1.3);
-        g.addColorStop(0, 'rgba(255, 245, 190, 0.30)');
-        g.addColorStop(1, 'rgba(255, 245, 190, 0)');
-        worldCtx.fillStyle = g;
-        worldCtx.fill();
-      } else {
-        const g = worldCtx.createRadialGradient(cx, cy, 2, cx, cy, radius);
-        g.addColorStop(0, 'rgba(255, 245, 190, 0.28)');
-        g.addColorStop(1, 'rgba(255, 245, 190, 0)');
-        worldCtx.fillStyle = g;
-        worldCtx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
-      }
-      worldCtx.restore();
-    }
-
     function renderWorldBrushPreview(camScreenX, camScreenY, zoom) {
-      const brushSp = state.sprites.find(s => s.id === state.activeBrushId);
+      const brushSp = getSpriteById(state.activeBrushId);
       const gridW = TILE_SIZE;
       const gridH = TILE_SIZE;
       const drawW = brushSp ? brushSp.w : TILE_SIZE;
@@ -6673,18 +6563,6 @@
     /********************************************************************
      * WORLD CONTROLS, ASEPRITE-STYLE LEVEL BUILDING & CAMERA PANNING
      ********************************************************************/
-    const mouseWorld = {
-      wx: 0,
-      wy: 0,
-      inside: false,
-      downButton: null,
-      isPanning: false,
-      panStartScreen: { x: 0, y: 0 },
-      panStartCam: { x: 0, y: 0 },
-      dragStart: null,
-      pendingHoldGrab: null
-    };
-
     function clearPendingHoldGrab() {
       if (mouseWorld.pendingHoldGrab) {
         if (mouseWorld.pendingHoldGrab.timer) {
@@ -6697,7 +6575,7 @@
     function startHoldingWorldBlock(targetCell, mode) {
       if (!targetCell) return;
       clearPendingHoldGrab();
-      const sp = state.sprites.find(s => s.id === targetCell.spriteId) || null;
+      const sp = getSpriteById(targetCell.spriteId);
       const isEntity = state.dynamicEntities.includes(targetCell);
 
       if (mode === 'move') {
@@ -6828,9 +6706,9 @@
         return;
       }
 
-      // 2. Holding Ctrl over a placed creation picks it up to move (or select)
+      // 2. Holding Shift or Ctrl over a placed creation shows grab cursor to pick it up & move it
       const hoveredCell = mouseWorld.inside ? getHoveredWorldCell(mouseWorld.wx, mouseWorld.wy) : null;
-      if (e?.ctrlKey && hoveredCell) {
+      if ((e?.ctrlKey || e?.metaKey || e?.shiftKey) && hoveredCell) {
         worldCanvas.style.cursor = 'grab';
         return;
       }
@@ -6856,7 +6734,7 @@
       }
 
       // 5. Play Mode Situational Cursors
-      const heldSp = state.sprites.find(s => s.id === state.activeHoldableId);
+      const heldSp = getSpriteById(state.activeHoldableId);
       if (!state.activeBrushId && heldSp && (heldSp.subtype === 'Aimable' || heldSp.subtype === 'Swing Line')) {
         worldCanvas.style.cursor = 'crosshair';
         return;
@@ -6868,7 +6746,7 @@
       }
 
       if (hoveredCell) {
-        const hSp = state.sprites.find(s => s.id === hoveredCell.spriteId);
+        const hSp = getSpriteById(hoveredCell.spriteId);
         const isInteractiveCell =
           ['interacting', 'textual', 'viewable', 'activator', 'transporting', 'holder'].includes(hoveredCell.type) ||
           (hSp && (hSp.poseType === 'sit' || hSp.poseType === 'lay'));
@@ -6883,7 +6761,7 @@
 
     function getLayerForSprite(sp) {
       if (sp.type === 'dynamic') {
-        const attrs = parseDynamicAttributes(sp.code);
+        const attrs = getCachedDynamicAttributes(sp);
         if (attrs.has('IN FRONT')) return 'front';
         if (attrs.has('BACK')) return 'back';
       }
@@ -7080,8 +6958,9 @@
 
       const hoveredItem = getHoveredWorldCell(mouseWorld.wx, mouseWorld.wy);
 
-      // Ctrl + Left Click & Drag picks up and holds the singular block to move it (with Apple-style shake)
-      if (e.button === 0 && (e.ctrlKey || e.metaKey) && hoveredItem) {
+      // Shift + Left Click & Drag OR Ctrl + Left Click & Drag picks up and holds the singular block to move it (with Apple-style shake)
+      if (e.button === 0 && (e.ctrlKey || e.metaKey || e.shiftKey) && hoveredItem) {
+        e.preventDefault();
         mouseWorld.downButton = 0;
         startHoldingWorldBlock(hoveredItem, 'move');
         return;
@@ -7156,7 +7035,7 @@
         if (hoveredItem && activeTool === 'stamp') {
           clearPendingHoldGrab();
           const hasDifferentBrush = Boolean(brushSp && brushSp.id !== hoveredItem.spriteId);
-          const holdDelay = hasDifferentBrush ? 175 : 115;
+          const holdDelay = hasDifferentBrush ? 140 : 95;
           mouseWorld.pendingHoldGrab = {
             targetCell: hoveredItem,
             startX: e.clientX,
@@ -7210,20 +7089,20 @@
         updateMouseWorldCoords(e);
         const pGrab = mouseWorld.pendingHoldGrab;
         const distPx = Math.hypot(e.clientX - pGrab.startX, e.clientY - pGrab.startY);
-        if (!pGrab.hasDifferentBrush && distPx >= 5) {
-          // If no different brush is competing, dragging immediately starts holding the clone
-          startHoldingWorldBlock(pGrab.targetCell, 'clone');
-          return;
-        }
-        const curSnapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
-        const curSnapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
-        if (pGrab.hasDifferentBrush && (curSnapX !== pGrab.snapX || curSnapY !== pGrab.snapY)) {
-          // User swept quickly across tiles with a different active brush -> stamp normally
-          clearPendingHoldGrab();
-          const brushSp = state.sprites.find(s => s.id === state.activeBrushId);
-          pushWorldUndo();
-          placeSpriteAtWorld(brushSp, pGrab.snapX, pGrab.snapY);
-          placeSpriteAtWorld(brushSp, curSnapX, curSnapY);
+        if (distPx >= 4) {
+          if (pGrab.hasDifferentBrush) {
+            // User has a different brush active and immediately dragged before the hold timer: replace blocks with active brush
+            const brushSp = getSpriteById(state.activeBrushId);
+            clearPendingHoldGrab();
+            pushWorldUndo();
+            placeSpriteAtWorld(brushSp, pGrab.snapX, pGrab.snapY);
+            const curSnapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
+            const curSnapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
+            placeSpriteAtWorld(brushSp, curSnapX, curSnapY);
+          } else {
+            // Dragging a clicked placed object immediately lifts a shaking clone
+            startHoldingWorldBlock(pGrab.targetCell, 'clone');
+          }
           return;
         }
         return;
@@ -7236,7 +7115,7 @@
       if (mouseWorld.downButton === 2 || (mouseWorld.downButton === 0 && activeTool === 'erase' && !mouseWorld.dragStart)) {
         eraseWorldAt(mouseWorld.wx, mouseWorld.wy);
       } else if (mouseWorld.downButton === 0 && activeTool === 'stamp') {
-        const brushSp = state.sprites.find(s => s.id === state.activeBrushId);
+        const brushSp = getSpriteById(state.activeBrushId);
         if ((brushSp && !['pushing', 'moving', 'living'].includes(brushSp.type)) || (!brushSp && state.mode === 'build')) {
           const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
           const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
@@ -7315,6 +7194,78 @@
       e.preventDefault();
       setZoom(state.zoom + (e.deltaY < 0 ? 1 : -1));
     }, { passive: false });
+
+    // Play / Build Mode & Build Toolbar Controls
+    const modePlayBtn = document.getElementById('mode-play-btn');
+    const modeBuildBtn = document.getElementById('mode-build-btn');
+
+    function ensureValidBuildBrush() {
+      const currentBrush = state.sprites.find(s => s.id === state.activeBrushId);
+      if (currentBrush) return currentBrush;
+      for (let i = state.sprites.length - 1; i >= 0; i--) {
+        const s = state.sprites[i];
+        if (!['body', 'wearable', 'holdable', 'mountable'].includes(s.type)) {
+          state.activeBrushId = s.id;
+          updateBrushBar();
+          renderSidebarSprites();
+          return s;
+        }
+      }
+      return null;
+    }
+
+    function updateWorldToolButtonsUI() {
+      document.querySelectorAll('.wtool-btn').forEach(btn => {
+        const isActive = btn.dataset.wtool === state.worldTool;
+        btn.className = isActive
+          ? 'wtool-btn ase-btn active px-2 py-0.5 text-zinc-100 text-[11px]'
+          : 'wtool-btn ase-btn px-2 py-0.5 text-zinc-400 text-[11px]';
+      });
+      updateWorldCursor();
+    }
+
+    function setWorldMode(mode) {
+      resetAllHeldKeys();
+      clearPendingHoldGrab();
+      if (state.heldWorldBlock) {
+        commitHeldWorldBlock(true);
+      }
+      state.mode = mode === 'build' ? 'build' : 'play';
+      if (state.mode === 'build') {
+        modeBuildBtn.className = 'ase-btn-primary px-2.5 py-0.5 font-medium text-[10px]';
+        modePlayBtn.className = 'ase-btn px-2.5 py-0.5 text-zinc-300 text-[10px]';
+        builderToolsGroup.classList.remove('hidden');
+        builderToolsGroup.classList.add('flex');
+        state.player.motionBarOpen = false;
+        updateWorldMotionBarUI();
+        if (['stamp', 'line', 'rect'].includes(state.worldTool)) {
+          ensureValidBuildBrush();
+        }
+      } else {
+        modePlayBtn.className = 'ase-btn-primary px-2.5 py-0.5 font-medium text-[10px]';
+        modeBuildBtn.className = 'ase-btn px-2.5 py-0.5 text-zinc-300 text-[10px]';
+        builderToolsGroup.classList.add('hidden');
+        builderToolsGroup.classList.remove('flex');
+      }
+      updateWorldToolButtonsUI();
+      updateWorldCursor();
+    }
+
+    modePlayBtn.addEventListener('click', () => setWorldMode('play'));
+    modeBuildBtn.addEventListener('click', () => setWorldMode('build'));
+
+    document.querySelectorAll('.wtool-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.worldTool = btn.dataset.wtool;
+        if (['stamp', 'line', 'rect'].includes(state.worldTool)) {
+          ensureValidBuildBrush();
+        }
+        updateWorldToolButtonsUI();
+      });
+    });
+
+    document.getElementById('world-undo-btn').addEventListener('click', undoWorldAction);
+    document.getElementById('world-redo-btn').addEventListener('click', redoWorldAction);
 
     toggleGridBtn.addEventListener('click', () => {
       state.showGrid = !state.showGrid;
@@ -7414,6 +7365,7 @@
 
       if (e.key === 'Enter') {
         if (!state.chatOpen) {
+          resetAllHeldKeys();
           state.chatOpen = true;
           chatInput.classList.remove('hidden');
           chatInput.value = '';
@@ -7588,13 +7540,13 @@
         document.querySelectorAll('.filter-tab').forEach(b => {
           const active = b.dataset.filter === state.filter;
           b.className = active
-            ? 'filter-tab py-2 text-center border-b-2 border-blue-500 text-zinc-100 font-medium'
-            : 'filter-tab py-2 text-center border-b-2 border-transparent text-zinc-400 hover:text-zinc-200';
+            ? 'filter-tab py-1.5 text-center border-b-2 border-blue-500 text-zinc-100 font-medium'
+            : 'filter-tab py-1.5 text-center border-b-2 border-transparent text-zinc-400 hover:text-zinc-200';
         });
         renderSidebarSprites();
       });
     });
-      clearWornBtn.addEventListener('click', () => {
+    clearWornBtn.addEventListener('click', () => {
       state.activeBodyId = null;
       state.activeWearableId = null;
       state.activeHoldableId = null;
@@ -7615,18 +7567,18 @@
     clearWorldBtn.addEventListener('click', () => {
       if (clearWorldBtn.dataset.confirming !== 'true') {
         clearWorldBtn.dataset.confirming = 'true';
-        clearWorldBtn.textContent = 'Confirm Clear?';
+        clearWorldBtn.textContent = 'Confirm?';
         clearWorldBtn.classList.add('text-red-400');
         clearTimeout(clearWorldConfirmTimer);
         clearWorldConfirmTimer = setTimeout(() => {
           clearWorldBtn.dataset.confirming = 'false';
-          clearWorldBtn.textContent = 'Clear World';
+          clearWorldBtn.textContent = 'Clear';
           clearWorldBtn.classList.remove('text-red-400');
         }, 3000);
         return;
       }
       clearWorldBtn.dataset.confirming = 'false';
-      clearWorldBtn.textContent = 'Clear World';
+      clearWorldBtn.textContent = 'Clear';
       clearWorldBtn.classList.remove('text-red-400');
       pushWorldUndo();
       state.worldCells.clear();
@@ -7806,6 +7758,7 @@
     function deleteSprite(id) {
       sfx.erase();
       state.sprites = state.sprites.filter(s => s.id !== id);
+      rebuildSpriteLookup();
       if (state.activeBodyId === id) state.activeBodyId = null;
       if (state.activeWearableId === id) state.activeWearableId = null;
       if (state.activeHoldableId === id) state.activeHoldableId = null;
@@ -7857,6 +7810,11 @@
     });
 
     function openSpriteEditor(spriteId = null, asClone = false) {
+      resetAllHeldKeys();
+      clearPendingHoldGrab();
+      if (state.heldWorldBlock) {
+        commitHeldWorldBlock(true);
+      }
       closeColorFxPopover(false);
       editor.isOpen = true;
       editor.undoStack = [];
@@ -8857,6 +8815,11 @@
     document.getElementById('paste-cel-btn').addEventListener('click', pasteMarqueeOrCel);
     window.addEventListener('blur', () => {
       editor.preferInternalClipboard = false;
+      resetAllHeldKeys();
+      clearPendingHoldGrab();
+      if (state.heldWorldBlock) {
+        commitHeldWorldBlock(true);
+      }
     });
 
     function getPixelCoordFromEvent(e) {
@@ -9873,7 +9836,7 @@
       const expectedLen = w * h * 4;
       let safeArr;
       if (buf instanceof Uint8ClampedArray && buf.length === expectedLen) {
-        safeArr = new Uint8ClampedArray(buf);
+        safeArr = buf;
       } else {
         safeArr = new Uint8ClampedArray(expectedLen);
         if (buf.length) {
@@ -11030,6 +10993,8 @@
 
     document.getElementById('copy-png-clipboard-btn').addEventListener('click', async (e) => {
       const btn = e.currentTarget;
+      const origHtml = btn.dataset.origHtml || btn.innerHTML;
+      btn.dataset.origHtml = origHtml;
       const celCanvas = buildEditorCurrentCelCanvas();
       // Also copy into internal LoomBit clipboard
       copyMarqueeOrCel();
@@ -11038,16 +11003,15 @@
         const blob = await new Promise(resolve => celCanvas.toBlob(resolve, 'image/png'));
         if (blob && navigator.clipboard && window.ClipboardItem) {
           await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-          btn.textContent = 'Copied PNG!';
-        } else {
-          btn.textContent = 'Copied Cel!';
         }
-      } catch (err) {
-        btn.textContent = 'Copied Cel!';
-      }
+      } catch (err) {}
+
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+      btn.classList.add('active');
       setTimeout(() => {
-        btn.textContent = 'Copy PNG';
-      }, 1400);
+        btn.innerHTML = origHtml;
+        btn.classList.remove('active');
+      }, 1200);
     });
 
     function handleeditorAltAndCtrlKeys(e, isDown) {
@@ -11278,9 +11242,11 @@
           thumbnail
         };
         state.sprites.push(newSprite);
+        rebuildSpriteLookup();
         equipOrSelectCreation(newSprite);
       }
 
+      rebuildSpriteLookup();
       updateBrushBar();
       renderSidebarSprites();
       saveAutoBackup();
@@ -11373,6 +11339,7 @@
           spriteCanvasCache.clear();
           state.sprites = incomingSprites;
         }
+        rebuildSpriteLookup();
       }
       if (!mergeSpritesOnly) {
         if (Array.isArray(data.worldCells)) {
@@ -11549,6 +11516,17 @@
       persistSavedWorlds();
       saveAutoBackup();
       renderSavedWorldsList();
+    });
+
+    document.getElementById('modal-reset-world-btn').addEventListener('click', () => {
+      pushWorldUndo();
+      state.worldCells.clear();
+      state.dynamicEntities = [];
+      state.spawnPoint = { x: 0, y: -38 };
+      createStarterPlatform();
+      respawnPlayer(false);
+      saveAutoBackup();
+      closeWorldsModal();
     });
 
     // Export Sprite Asset Pack Only (.json)

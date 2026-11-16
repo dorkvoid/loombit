@@ -8652,16 +8652,16 @@
         return;
       }
 
-      // 2. Holding Shift or Ctrl over a placed creation shows grab cursor to pick it up & move it
-      const hoveredCell = mouseWorld.inside ? getHoveredWorldCell(mouseWorld.wx, mouseWorld.wy) : null;
-      if ((e?.ctrlKey || e?.metaKey || e?.shiftKey) && hoveredCell) {
-        worldCanvas.style.cursor = 'grab';
+      // 2. Right-Click Dragging to Erase (including Ctrl + Right-Click)
+      if (mouseWorld.downButton === 2) {
+        worldCanvas.style.cursor = ERASER_CURSOR;
         return;
       }
 
-      // 3. Right-Click Dragging to Erase
-      if (mouseWorld.downButton === 2) {
-        worldCanvas.style.cursor = ERASER_CURSOR;
+      // 3. Holding Shift or Ctrl over a placed creation shows grab cursor to pick it up & move it
+      const hoveredCell = mouseWorld.inside ? getHoveredWorldCell(mouseWorld.wx, mouseWorld.wy) : null;
+      if ((e?.ctrlKey || e?.metaKey || e?.shiftKey) && hoveredCell) {
+        worldCanvas.style.cursor = 'grab';
         return;
       }
 
@@ -9078,6 +9078,27 @@
       const activeTool = state.mode === 'build' ? state.worldTool : 'stamp';
 
       if (e.button === 2) {
+        // Holding Ctrl + Right-Click always erases in the viewport (even when an object brush is selected)
+        if (e.ctrlKey || e.metaKey) {
+          clearPendingHoldGrab();
+          if (state.heldWorldBlock) {
+            const held = state.heldWorldBlock;
+            state.heldWorldBlock = null;
+            const createBtn = document.getElementById('open-create-btn');
+            if (createBtn) {
+              createBtn.textContent = '+ Create';
+              createBtn.classList.remove('ring-2', 'ring-amber-300', 'scale-105');
+            }
+            if (held.mode === 'move') {
+              sfx.erase();
+              scheduleWorldAutoBackup();
+            }
+          }
+          pushWorldUndo();
+          eraseWorldAt(mouseWorld.wx, mouseWorld.wy);
+          updateWorldCursor(e);
+          return;
+        }
         // Right-clicking in Wire tool mode disconnects wires attached to the clicked Activater or target block
         if (state.mode === 'build' && activeTool === 'wire' && hoveredItem) {
           pushWorldUndo();

@@ -1549,7 +1549,7 @@
       },
       {
         id: 'body', name: 'BODY', category: 'avatar', defaultW: 29, defaultH: 29,
-        frames: ['Stand', 'Walk', 'Jump', 'Fall', 'Climb', 'Create', 'Sit', 'Blink', 'Talk'],
+        frames: ['Stand', 'Walk', 'Jump', 'Fall', 'Climb', 'Sit', 'Blink', 'Talk'],
         subtypes: ['Body', 'Motion']
       },
       {
@@ -1962,12 +1962,13 @@
         Jump: 8,
         Fall: 8,
         Climb: 6,
-        Create: 6,
         Sit: 4,
         Blink: 6,
         Talk: 10
       },
       previewTick: 0,
+      previewPhase: 0,
+      previewElapsedSec: 0,
       lastPastedImage: null,
       isDrawing: false,
       lineStart: null,
@@ -1990,7 +1991,6 @@
       Jump: 8,
       Fall: 8,
       Climb: 6,
-      Create: 6,
       Sit: 4,
       Blink: 6,
       Talk: 10
@@ -3511,13 +3511,37 @@
     /********************************************************************
      * SMART STATE-GROUPED CELS HELPER FUNCTIONS
      ********************************************************************/
+    const STATE_BADGE_COLORS = {
+      'Stand':        { bg: 'rgba(30, 58, 138, 0.55)',  text: '#93c5fd', border: '#3b82f6', dot: '#60a5fa' },
+      'Walk':         { bg: 'rgba(6, 78, 59, 0.60)',    text: '#6ee7b7', border: '#10b981', dot: '#34d399' },
+      'Stand / Walk': { bg: 'rgba(6, 78, 59, 0.60)',    text: '#6ee7b7', border: '#10b981', dot: '#34d399' },
+      'Jump':         { bg: 'rgba(120, 53, 15, 0.60)',  text: '#fcd34d', border: '#f59e0b', dot: '#fbbf24' },
+      'Fall':         { bg: 'rgba(124, 45, 18, 0.60)',  text: '#fdba74', border: '#f97316', dot: '#fb923c' },
+      'Climb':        { bg: 'rgba(88, 28, 135, 0.60)',  text: '#d8b4fe', border: '#a855f7', dot: '#c084fc' },
+      'Sit':          { bg: 'rgba(49, 46, 129, 0.60)',  text: '#a5b4fc', border: '#6366f1', dot: '#818cf8' },
+      'Blink':        { bg: 'rgba(131, 24, 67, 0.60)',  text: '#f9a8d4', border: '#ec4899', dot: '#f472b6' },
+      'Talk':         { bg: 'rgba(54, 83, 20, 0.60)',   text: '#bef264', border: '#84cc16', dot: '#a3e635' },
+      'Off Cell':     { bg: 'rgba(39, 39, 42, 0.70)',   text: '#a1a1aa', border: '#52525b', dot: '#a1a1aa' },
+      'On Cell':      { bg: 'rgba(20, 83, 45, 0.60)',   text: '#86efac', border: '#22c55e', dot: '#4ade80' },
+      'Back Cell':    { bg: 'rgba(30, 41, 59, 0.65)',   text: '#cbd5e1', border: '#64748b', dot: '#94a3b8' },
+      'Front Cell':   { bg: 'rgba(49, 46, 129, 0.55)',  text: '#c7d2fe', border: '#6366f1', dot: '#818cf8' }
+    };
+
+    function getStateBadgeStyle(stateName) {
+      if (!stateName) return null;
+      if (STATE_BADGE_COLORS[stateName]) return STATE_BADGE_COLORS[stateName];
+      const key = Object.keys(STATE_BADGE_COLORS).find(k => k.toLowerCase() === String(stateName).toLowerCase());
+      return key ? STATE_BADGE_COLORS[key] : null;
+    }
+
     function getStateFrameIndices(spriteOrEditor, stateName) {
       const states = spriteOrEditor.frameStates;
       const frames = spriteOrEditor.frames;
-      if (!states || states.length !== frames.length) return [];
+      if (!states || states.length !== frames.length || !stateName) return [];
+      const targetLower = String(stateName).toLowerCase();
       const out = [];
       for (let i = 0; i < states.length; i++) {
-        if (states[i] === stateName) out.push(i);
+        if (String(states[i] || '').toLowerCase() === targetLower) out.push(i);
       }
       return out;
     }
@@ -4021,22 +4045,26 @@
         }
         return out;
       }
-      const base = getDimensionsForSubtype(typeId, subtype);
-      return Array.from({ length: frameCount }, () => ({ w: base.w, h: base.h }));
+      return Array.from({ length: frameCount }, () => getDimensionsForSubtype(typeId, subtype));
     }
 
-    function syncActiveFrameDimensions() {
-      if (!editor.frameDims || !editor.frameDims[editor.activeFrame]) {
-        const d = getDimensionsForSubtype(editor.type, editor.subtype);
-        editor.w = d.w;
-        editor.h = d.h;
-      } else {
-        editor.w = editor.frameDims[editor.activeFrame].w;
-        editor.h = editor.frameDims[editor.activeFrame].h;
-      }
-      canvasWInput.value = editor.w;
-      canvasHInput.value = editor.h;
-      setupPaintCanvasSize();
+    function isSingleCelLockedType(typeId) {
+      return typeId === 'thing';
+    }
+
+    function syncCelAddRemoveButtonsUI() {
+      const addBtn = document.getElementById('add-frame-btn');
+      const delBtn = document.getElementById('del-frame-btn');
+      const moveLBtn = document.getElementById('move-cel-left-btn');
+      const moveRBtn = document.getElementById('move-cel-right-btn');
+      const sortBtn = document.getElementById('sort-cels-state-btn');
+      const locked = isSingleCelLockedType(editor.type);
+      [addBtn, delBtn, moveLBtn, moveRBtn, sortBtn].forEach((btn) => {
+        if (!btn) return;
+        btn.disabled = locked;
+        btn.classList.toggle('opacity-40', locked);
+        btn.classList.toggle('pointer-events-none', locked);
+      });
     }
 
     function applyEditorCreationType(typeId, preserveFrames = false, adaptToTypeDims = false) {
@@ -4087,15 +4115,17 @@
       commitMarqueeSelection();
 
       const labels = getFrameLabelsForSubtype(spec.id, editor.subtype);
+      const isLockedSingleCel = isSingleCelLockedType(spec.id);
       if (!preserveFrames || !editor.frames || editor.frames.length === 0) {
-        editor.frameDims = getFrameDimsForSubtype(spec.id, editor.subtype, labels.length);
+        const count = isLockedSingleCel ? 1 : labels.length;
+        editor.frameDims = getFrameDimsForSubtype(spec.id, editor.subtype, count);
         editor.frames = editor.frameDims.map(d => new Uint8ClampedArray(d.w * d.h * 4));
-        editor.frameStates = [...labels];
+        editor.frameStates = labels.slice(0, count);
         editor.activeFrame = 0;
         syncActiveFrameDimensions();
       } else if (adaptToTypeDims) {
-        // Preserve all drawn pixels when switching creation object types!
-        const targetCount = Math.max(labels.length, editor.frames.length);
+        // Preserve drawn pixels when switching creation object types (and clamp to 1 cel if switching to THING)
+        const targetCount = isLockedSingleCel ? 1 : Math.max(labels.length, editor.frames.length);
         const targetDims = getFrameDimsForSubtype(spec.id, editor.subtype, targetCount);
         const nextFrames = [];
         const nextDims = [];
@@ -4128,6 +4158,12 @@
         }
         syncActiveFrameDimensions();
       } else {
+        if (isLockedSingleCel && editor.frames.length > 1) {
+          editor.frames = [editor.frames[0]];
+          editor.frameDims = [editor.frameDims && editor.frameDims[0] ? editor.frameDims[0] : { w: editor.w, h: editor.h }];
+          editor.frameStates = ['Cell 1'];
+          editor.activeFrame = 0;
+        }
         if (!editor.frameDims || editor.frameDims.length !== editor.frames.length) {
           editor.frameDims = editor.frames.map(() => ({ w: editor.w, h: editor.h }));
         }
@@ -4136,6 +4172,7 @@
         }
         syncActiveFrameDimensions();
       }
+      syncCelAddRemoveButtonsUI();
       populateCelStateDropdown();
       renderPreviewControlsForType();
       renderFrameTabs();
@@ -4155,15 +4192,35 @@
         const opt = document.createElement('option');
         opt.value = st;
         opt.textContent = st;
+        const stColor = getStateBadgeStyle(st);
+        if (stColor) {
+          opt.style.backgroundColor = '#18181f';
+          opt.style.color = stColor.text;
+        }
         celStateSelect.appendChild(opt);
       });
       const currentSt = (editor.frameStates && editor.frameStates[editor.activeFrame]) || baseStates[0];
       celStateSelect.value = baseStates.includes(currentSt) ? currentSt : baseStates[0];
+      const activeColor = getStateBadgeStyle(celStateSelect.value);
+      if (activeColor) {
+        celStateSelect.style.color = activeColor.text;
+        celStateSelect.style.borderColor = activeColor.border;
+        celStateSelect.style.backgroundColor = activeColor.bg;
+      } else {
+        celStateSelect.style.color = '';
+        celStateSelect.style.borderColor = '';
+        celStateSelect.style.backgroundColor = '';
+      }
     }
 
     celStateSelect.addEventListener('change', (e) => {
       if (!editor.frameStates) return;
       editor.frameStates[editor.activeFrame] = e.target.value;
+      if ((editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable') {
+        editor.previewMode = e.target.value;
+      }
+      populateCelStateDropdown();
+      renderPreviewControlsForType();
       renderFrameTabs();
     });
 
@@ -4274,8 +4331,8 @@
       if (typeId === 'body' && subtype === 'Motion') {
         return ['Motion 1', 'Motion 2', 'Motion 3', 'Motion 4'];
       }
-      if (typeId === 'thing' && (subtype === 'Furry' || subtype === 'Drifty')) {
-        return ['Cell 1', 'Cell 2'];
+      if (typeId === 'thing') {
+        return ['Cell 1'];
       }
       if (typeId === 'light') {
         if (subtype === 'Light Glow') return ['Source (19x19)', 'Glow (38x38)'];
@@ -4326,7 +4383,8 @@
       }
 
       const labels = getFrameLabelsForSubtype(editor.type, editor.subtype);
-      const targetCount = Math.max(labels.length, editor.frames.length);
+      const isLockedSingleCel = isSingleCelLockedType(editor.type);
+      const targetCount = isLockedSingleCel ? 1 : Math.max(labels.length, editor.frames.length);
       const targetFrameDims = getFrameDimsForSubtype(editor.type, editor.subtype, targetCount);
       const hasNamedStates = (editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable';
 
@@ -4349,6 +4407,7 @@
       editor.frameDims = targetFrameDims;
       editor.frameStates = newStates;
       if (editor.activeFrame >= editor.frames.length) editor.activeFrame = 0;
+      syncCelAddRemoveButtonsUI();
       syncActiveFrameDimensions();
       populateCelStateDropdown();
       renderPreviewControlsForType();
@@ -9501,12 +9560,9 @@
 
       let bodyStateName = 'Stand';
       let fallbackCellIdx = 0;
-      if (editor.isOpen) {
-        bodyStateName = 'Create';
-        fallbackCellIdx = 5;
-      } else if (p.sitting || p.deadTimer > 0) {
+      if (p.sitting || p.deadTimer > 0) {
         bodyStateName = 'Sit';
-        fallbackCellIdx = 6;
+        fallbackCellIdx = 5;
       } else if (p.onLadder) {
         bodyStateName = 'Climb';
         fallbackCellIdx = 4;
@@ -11626,13 +11682,14 @@
         }
 
         // Open-Mouse Single-Block Hold & Drag to Clone (or Shift + Hold/Drag to Move) in both Play and Build modes!
+        // Clicking without holding or dragging will NOT grab the block.
         if (!brushSp && hoveredItem && activeTool === 'stamp') {
           const isInteractiveActivator =
             state.mode === 'play' &&
             hoveredItem.type === 'activator' &&
             (hoveredItem.subtype === 'Activater' || hoveredItem.subtype === 'Sound Block');
           const grabMode = e.shiftKey ? 'move' : 'clone';
-          const holdDelay = isInteractiveActivator ? 150 : 75;
+          const holdDelay = 200;
           clearPendingHoldGrab();
           mouseWorld.pendingHoldGrab = {
             targetCell: hoveredItem,
@@ -11745,7 +11802,7 @@
           return;
         }
         const dist = Math.hypot(e.clientX - mouseWorld.pendingHoldGrab.startX, e.clientY - mouseWorld.pendingHoldGrab.startY);
-        if (dist >= 4) {
+        if (dist >= 5) {
           const target = mouseWorld.pendingHoldGrab.targetCell;
           const mode = mouseWorld.pendingHoldGrab.mode;
           clearPendingHoldGrab();
@@ -11842,8 +11899,7 @@
 
       // If releasing Left-Click while holding a cloned/moved single block:
       // - If dragged to a new grid cell inside the viewport, place/clone it immediately!
-      // - If released over the Vault or outside the canvas, cancel the field grab so it never places under the Vault!
-      // - If released on the exact same origin cell, keep it attached to the cursor so the next Left-Click places it!
+      // - If released on the exact same origin cell (or over the Vault / outside the canvas), cancel the grab cleanly instead of sticking to the cursor!
       if (state.heldWorldBlock && e.button === 0 && !state.heldWorldBlock.awaitingClickToPlace) {
         updateMouseWorldCoords(e);
         const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
@@ -11858,7 +11914,7 @@
         } else if (snapX !== state.heldWorldBlock.originX || snapY !== state.heldWorldBlock.originY) {
           commitHeldWorldBlock(false, e);
         } else {
-          state.heldWorldBlock.awaitingClickToPlace = true;
+          commitHeldWorldBlock(true);
         }
         mouseWorld.downButton = null;
         updateWorldCursor(e);
@@ -12722,14 +12778,50 @@
         }
       }
 
-      // Onion Skin of previous cel
-      if (editor.onionSkin && editor.activeFrame > 0 && editor.frames[editor.activeFrame - 1]) {
-        const prevDim = editor.frameDims[editor.activeFrame - 1] || { w: W, h: H };
-        const prevBuf = editor.frames[editor.activeFrame - 1];
-        paintCtx.save();
-        paintCtx.globalAlpha = 0.24;
-        blitBufferToCtx(paintCtx, prevBuf, prevDim.w, prevDim.h, 0, 0, prevDim.w * scale, prevDim.h * scale);
-        paintCtx.restore();
+      // State-Aware Onion Skinning:
+      // - For Blink & Talk: onion-skins the Stand (idle) cel (or previous Blink/Talk cel on multi-cel Blink/Talk)
+      // - For other Body/Wearable states: onion-skins the previous cel within that same state (or Stand idle on the first cel of a state)
+      // - For standard multi-cel creations: onion-skins the previous cel
+      if (editor.onionSkin) {
+        let onionIdx = -1;
+        const hasNamedStates = (editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable';
+        if (hasNamedStates && Array.isArray(editor.frameStates)) {
+          const curState = editor.frameStates[editor.activeFrame] || 'Stand';
+          const sameStateCels = getStateFrameIndices(editor, curState);
+          const posInState = sameStateCels.indexOf(editor.activeFrame);
+          const standCels = getStateFrameIndices(editor, editor.type === 'wearable' ? 'Stand / Walk' : 'Stand');
+          const primaryIdleIdx = standCels.find(i => i !== editor.activeFrame && isBufferNonEmpty(editor.frames[i])) ??
+                                 standCels.find(i => i !== editor.activeFrame) ?? -1;
+
+          if (curState === 'Blink' || curState === 'Talk') {
+            if (posInState > 0) {
+              onionIdx = sameStateCels[posInState - 1];
+            } else {
+              onionIdx = primaryIdleIdx;
+            }
+          } else if (curState === 'Stand' || curState === 'Stand / Walk') {
+            if (posInState > 0) {
+              onionIdx = sameStateCels[posInState - 1];
+            }
+          } else {
+            if (posInState > 0) {
+              onionIdx = sameStateCels[posInState - 1];
+            } else {
+              onionIdx = primaryIdleIdx;
+            }
+          }
+        } else if (editor.activeFrame > 0) {
+          onionIdx = editor.activeFrame - 1;
+        }
+
+        if (onionIdx >= 0 && onionIdx !== editor.activeFrame && editor.frames[onionIdx]) {
+          const prevDim = editor.frameDims[onionIdx] || { w: W, h: H };
+          const prevBuf = editor.frames[onionIdx];
+          paintCtx.save();
+          paintCtx.globalAlpha = 0.24;
+          blitBufferToCtx(paintCtx, prevBuf, prevDim.w, prevDim.h, 0, 0, prevDim.w * scale, prevDim.h * scale);
+          paintCtx.restore();
+        }
       }
 
       // Current active cel buffer
@@ -12912,13 +13004,21 @@
         col.className = `ase-cel-col ${idx === editor.activeFrame ? 'active' : ''}`;
         const stLabel = (editor.frameStates && editor.frameStates[idx]) || labels[Math.min(idx, labels.length - 1)] || `Cell ${idx + 1}`;
         const filled = isBufferNonEmpty(buf);
+        const stStyle = getStateBadgeStyle(stLabel);
+
+        const pillStyle = stStyle
+          ? `background:${stStyle.bg};color:${stStyle.text};border-bottom:1px solid ${stStyle.border};`
+          : '';
+        const dotStyle = (filled && stStyle)
+          ? `background:${stStyle.dot};border-color:${stStyle.text};`
+          : '';
 
         col.innerHTML = `
-          <div class="ase-cel-num">
+          <div class="ase-cel-num" style="${idx === editor.activeFrame && stStyle ? `background:${stStyle.border};color:#ffffff;` : ''}">
             <span>${idx + 1}</span>
-            <span class="ase-dot ${filled ? 'filled' : ''}"></span>
+            <span class="ase-dot ${filled ? 'filled' : ''}" style="${dotStyle}"></span>
           </div>
-          <div class="ase-cel-state-pill text-zinc-300">${stLabel}</div>
+          <div class="ase-cel-state-pill text-zinc-300 font-medium" style="${pillStyle}">${stLabel}</div>
           <div class="ase-cel-dot-box">
             <canvas width="22" height="22" class="w-5 h-5 object-contain"></canvas>
           </div>
@@ -12936,6 +13036,17 @@
           }
           commitMarqueeSelection();
           editor.activeFrame = idx;
+          if ((editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable') {
+            const clickedState = editor.frameStates && editor.frameStates[idx];
+            if (clickedState) {
+              editor.previewMode = clickedState;
+              if (editor.type === 'body' && editor.stateFps && editor.stateFps[clickedState]) {
+                editor.previewFps = editor.stateFps[clickedState];
+                document.getElementById('preview-fps-input').value = editor.previewFps;
+              }
+              renderPreviewControlsForType();
+            }
+          }
           syncActiveFrameDimensions();
           populateCelStateDropdown();
           renderFrameTabs();
@@ -12949,12 +13060,28 @@
       previewControlsBar.innerHTML = '';
       const stateLabel = document.getElementById('preview-state-label');
       const makeBtn = (label, modeKey) => {
+        const isCurrent = String(editor.previewMode || '').toLowerCase() === String(modeKey).toLowerCase();
+        const stStyle = getStateBadgeStyle(label);
         const btn = document.createElement('button');
-        btn.className = `ase-btn px-2 py-0.5 text-[9px] ${editor.previewMode === modeKey ? 'active text-blue-300' : 'text-zinc-400'}`;
+        btn.className = `ase-btn px-2 py-0.5 text-[9px] font-medium ${isCurrent ? 'active' : 'text-zinc-400'}`;
+        if (stStyle) {
+          if (isCurrent) {
+            btn.style.background = stStyle.bg;
+            btn.style.color = '#ffffff';
+            btn.style.borderColor = stStyle.border;
+            btn.style.boxShadow = `inset 0 0 0 1px ${stStyle.border}`;
+          } else {
+            btn.style.color = stStyle.text;
+            btn.style.borderColor = 'rgba(63, 63, 74, 0.65)';
+          }
+        }
         btn.textContent = label;
         btn.addEventListener('click', () => {
           editor.previewMode = modeKey;
-          if (stateLabel) stateLabel.textContent = label;
+          if (stateLabel) {
+            stateLabel.textContent = label;
+            stateLabel.style.color = stStyle ? stStyle.text : '';
+          }
           if (editor.type === 'body' && editor.subtype === 'Body' && editor.stateFps && editor.stateFps[label]) {
             editor.previewFps = editor.stateFps[label];
             document.getElementById('preview-fps-input').value = editor.previewFps;
@@ -12965,15 +13092,34 @@
       };
 
       if (editor.type === 'body' && editor.subtype === 'Body') {
-        ['Stand', 'Walk', 'Jump', 'Fall', 'Climb', 'Sit', 'Blink', 'Talk'].forEach((st) => {
+        const bodyStates = ['Stand', 'Walk', 'Jump', 'Fall', 'Climb', 'Sit', 'Blink', 'Talk'];
+        const matchSt = bodyStates.find(s => s.toLowerCase() === String(editor.previewMode || '').toLowerCase());
+        editor.previewMode = matchSt || 'Walk';
+        if (stateLabel) {
+          stateLabel.textContent = editor.previewMode;
+          const stStyle = getStateBadgeStyle(editor.previewMode);
+          stateLabel.style.color = stStyle ? stStyle.text : '';
+        }
+        bodyStates.forEach((st) => {
           previewControlsBar.appendChild(makeBtn(st, st));
         });
       } else if (editor.type === 'wearable') {
-        ['Stand / Walk', 'Climb'].forEach((st) => {
+        const wearStates = ['Stand / Walk', 'Climb'];
+        const matchSt = wearStates.find(s => s.toLowerCase() === String(editor.previewMode || '').toLowerCase());
+        editor.previewMode = matchSt || 'Stand / Walk';
+        if (stateLabel) {
+          stateLabel.textContent = editor.previewMode;
+          const stStyle = getStateBadgeStyle(editor.previewMode);
+          stateLabel.style.color = stStyle ? stStyle.text : '';
+        }
+        wearStates.forEach((st) => {
           previewControlsBar.appendChild(makeBtn(st, st));
         });
       } else {
-        if (stateLabel) stateLabel.textContent = 'Loop';
+        if (stateLabel) {
+          stateLabel.textContent = 'Loop';
+          stateLabel.style.color = '';
+        }
         const loopBtn = document.createElement('button');
         loopBtn.className = `ase-btn px-2 py-0.5 text-[9px] ${editor.previewLoopMode === 'loop' ? 'active text-blue-300' : 'text-zinc-400'}`;
         loopBtn.textContent = 'Cycle';
@@ -12993,10 +13139,13 @@
       }
     }
 
-    function renderEditorLivePreview() {
+    function renderEditorLivePreview(dtMs = 16.667) {
       if (!editor.isOpen) return;
+      const fps = Math.max(1, editor.previewFps || 8);
       if (editor.previewPlaying) {
-        editor.previewTick++;
+        const dtSec = Math.max(0, Math.min(0.1, dtMs / 1000));
+        editor.previewElapsedSec = (editor.previewElapsedSec || 0) + dtSec;
+        editor.previewPhase = ((editor.previewPhase || 0) + dtSec * fps) % 4096;
       }
       const W = previewCanvas.width;
       const H = previewCanvas.height;
@@ -13021,7 +13170,7 @@
           frames: editor.frames,
           frameDims: editor.frameDims
         };
-        const transforms = evaluateDynamicCellTransforms(tempSp, editor.previewTick / 60, 'start');
+        const transforms = evaluateDynamicCellTransforms(tempSp, editor.previewElapsedSec || 0, 'start');
         for (const tr of transforms) {
           if (!tr.show || tr.opacity <= 0.01) continue;
           const dim = (editor.frameDims && editor.frameDims[tr.index]) || { w: editor.w, h: editor.h };
@@ -13044,25 +13193,90 @@
         return;
       }
 
-      const fps = Math.max(1, editor.previewFps || 8);
-      const step = Math.floor(editor.previewTick / Math.max(1, Math.round(60 / fps)));
+      const step = Math.floor(editor.previewPhase || 0);
       let fIdx = editor.activeFrame;
+      let flipPreviewX = false;
 
-      if (editor.previewPlaying && count > 1) {
-        if ((editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable') {
-          const stName = editor.previewMode || (editor.type === 'wearable' ? 'Stand / Walk' : 'Walk');
-          const cels = getStateFrameIndices(editor, stName).filter(i => isBufferNonEmpty(editor.frames[i]));
-          if (cels.length > 0) {
-            fIdx = cels[step % cels.length];
+      if (editor.previewPlaying) {
+        if (editor.type === 'body' && editor.subtype === 'Body') {
+          const stName = editor.previewMode || 'Walk';
+          const allStateCels = getStateFrameIndices(editor, stName);
+          const nonEmptyStateCels = allStateCels.filter(i => isBufferNonEmpty(editor.frames[i]));
+          const standCels = getStateFrameIndices(editor, 'Stand').filter(i => isBufferNonEmpty(editor.frames[i]));
+
+          if (stName === 'Walk') {
+            if (nonEmptyStateCels.length > 1) {
+              fIdx = nonEmptyStateCels[step % nonEmptyStateCels.length];
+            } else if (nonEmptyStateCels.length === 1) {
+              const walkCel = nonEmptyStateCels[0];
+              const standCel = standCels[0] ?? walkCel;
+              fIdx = (step % 2 === 0) ? walkCel : standCel;
+            } else {
+              fIdx = allStateCels[0] ?? editor.activeFrame;
+            }
+          } else if (stName === 'Climb') {
+            if (nonEmptyStateCels.length > 1) {
+              fIdx = nonEmptyStateCels[step % nonEmptyStateCels.length];
+            } else if (nonEmptyStateCels.length === 1) {
+              fIdx = nonEmptyStateCels[0];
+              flipPreviewX = (step % 2 === 1);
+            } else {
+              fIdx = allStateCels[0] ?? editor.activeFrame;
+            }
+          } else if (stName === 'Blink') {
+            if (nonEmptyStateCels.length > 0) {
+              if (standCels.length > 0) {
+                const cycleLen = nonEmptyStateCels.length + 3;
+                const pos = step % cycleLen;
+                fIdx = pos < 3 ? standCels[0] : nonEmptyStateCels[pos - 3];
+              } else {
+                fIdx = nonEmptyStateCels[step % nonEmptyStateCels.length];
+              }
+            } else {
+              fIdx = allStateCels[0] ?? editor.activeFrame;
+            }
+          } else if (stName === 'Talk') {
+            if (nonEmptyStateCels.length > 1) {
+              fIdx = nonEmptyStateCels[step % nonEmptyStateCels.length];
+            } else if (nonEmptyStateCels.length === 1) {
+              const talkCel = nonEmptyStateCels[0];
+              const standCel = standCels[0] ?? talkCel;
+              fIdx = (step % 2 === 0) ? talkCel : standCel;
+            } else {
+              fIdx = allStateCels[0] ?? editor.activeFrame;
+            }
           } else {
-            fIdx = step % count;
+            // Stand, Jump, Fall, Create, Sit: only cycle the cels assigned to this state
+            if (nonEmptyStateCels.length > 0) {
+              fIdx = nonEmptyStateCels[step % nonEmptyStateCels.length];
+            } else {
+              fIdx = allStateCels[0] ?? editor.activeFrame;
+            }
           }
-        } else if (editor.previewLoopMode === 'pingpong' && count > 2) {
-          const cycle = count * 2 - 2;
-          const pos = step % cycle;
-          fIdx = pos < count ? pos : cycle - pos;
-        } else {
-          fIdx = step % count;
+        } else if (editor.type === 'wearable') {
+          const stName = editor.previewMode || 'Stand / Walk';
+          const allStateCels = getStateFrameIndices(editor, stName);
+          const nonEmptyStateCels = allStateCels.filter(i => isBufferNonEmpty(editor.frames[i]));
+          if (nonEmptyStateCels.length > 0) {
+            fIdx = nonEmptyStateCels[step % nonEmptyStateCels.length];
+            if (stName === 'Climb' && nonEmptyStateCels.length === 1) {
+              flipPreviewX = (step % 2 === 1);
+            }
+          } else {
+            fIdx = allStateCels[0] ?? editor.activeFrame;
+          }
+        } else if (count > 1) {
+          const nonEmptyIndices = editor.frames
+            .map((b, i) => (isBufferNonEmpty(b) ? i : -1))
+            .filter(i => i !== -1);
+          const pool = nonEmptyIndices.length > 0 ? nonEmptyIndices : [editor.activeFrame];
+          if (editor.previewLoopMode === 'pingpong' && pool.length > 2) {
+            const cycle = pool.length * 2 - 2;
+            const pos = step % cycle;
+            fIdx = pool[pos < pool.length ? pos : cycle - pos];
+          } else {
+            fIdx = pool[step % pool.length];
+          }
         }
       }
 
@@ -13073,7 +13287,17 @@
       const scale = Math.max(1, Math.min(Math.floor((W - 8) / dim.w), Math.floor((H - 8) / dim.h)));
       const dw = dim.w * scale;
       const dh = dim.h * scale;
-      blitBufferToCtx(previewCtx, buf, dim.w, dim.h, Math.round((W - dw) / 2), Math.round((H - dh) / 2), dw, dh);
+      const dx = Math.round((W - dw) / 2);
+      const dy = Math.round((H - dh) / 2);
+      if (flipPreviewX) {
+        previewCtx.save();
+        previewCtx.translate(dx + dw, dy);
+        previewCtx.scale(-1, 1);
+        blitBufferToCtx(previewCtx, buf, dim.w, dim.h, 0, 0, dw, dh);
+        previewCtx.restore();
+      } else {
+        blitBufferToCtx(previewCtx, buf, dim.w, dim.h, dx, dy, dw, dh);
+      }
     }
 
     function openSpriteEditor(spriteId = null, duplicate = false) {
@@ -13088,6 +13312,8 @@
       editor.panX = 0;
       editor.panY = 0;
       editor.canvasZoom = 0;
+      editor.previewPhase = 0;
+      editor.previewElapsedSec = 0;
 
       if (existing) {
         editor.editingId = duplicate ? null : existing.id;
@@ -13120,6 +13346,17 @@
         editor.frameStates = existing.frameStates
           ? [...existing.frameStates]
           : editor.frames.map((_, i) => defaultLabels[Math.min(i, defaultLabels.length - 1)] || `Cell ${i + 1}`);
+        // Strip legacy 'Create' cels if opening an older Body creation
+        if (editor.type === 'body' && editor.subtype === 'Body' && editor.frames.length > 1) {
+          const filteredIndices = editor.frameStates
+            .map((st, idx) => (String(st).toLowerCase() === 'create' ? -1 : idx))
+            .filter(idx => idx !== -1);
+          if (filteredIndices.length > 0 && filteredIndices.length < editor.frames.length) {
+            editor.frames = filteredIndices.map(i => editor.frames[i]);
+            editor.frameDims = filteredIndices.map(i => editor.frameDims[i]);
+            editor.frameStates = filteredIndices.map(i => editor.frameStates[i]);
+          }
+        }
         editor.activeFrame = 0;
         editor.previewFps = existing.animFps || 8;
         editor.previewLoopMode = existing.loopMode || 'loop';
@@ -14027,15 +14264,37 @@
 
     // Cel Strip Frame Management Buttons
     document.getElementById('add-frame-btn').addEventListener('click', () => {
+      if (isSingleCelLockedType(editor.type)) {
+        sfx.buzzer();
+        return;
+      }
       commitMarqueeSelection();
       pushEditorUndo();
-      const curBuf = editor.frames[editor.activeFrame];
-      const nextBuf = curBuf ? new Uint8ClampedArray(curBuf) : new Uint8ClampedArray(editor.w * editor.h * 4);
+      const nextBuf = new Uint8ClampedArray(editor.w * editor.h * 4);
       const curState = (editor.frameStates && editor.frameStates[editor.activeFrame]) || `Cell ${editor.frames.length + 1}`;
       editor.frames.splice(editor.activeFrame + 1, 0, nextBuf);
       editor.frameDims.splice(editor.activeFrame + 1, 0, { w: editor.w, h: editor.h });
       editor.frameStates.splice(editor.activeFrame + 1, 0, curState);
       editor.activeFrame++;
+      populateCelStateDropdown();
+      renderFrameTabs();
+      renderPaintCanvas();
+    });
+
+    document.getElementById('del-frame-btn').addEventListener('click', () => {
+      if (isSingleCelLockedType(editor.type)) {
+        sfx.buzzer();
+        return;
+      }
+      commitMarqueeSelection();
+      pushEditorUndo();
+      const nextBuf = new Uint8ClampedArray(editor.w * editor.h * 4);
+      const curState = (editor.frameStates && editor.frameStates[editor.activeFrame]) || `Cell ${editor.frames.length + 1}`;
+      editor.frames.splice(editor.activeFrame + 1, 0, nextBuf);
+      editor.frameDims.splice(editor.activeFrame + 1, 0, { w: editor.w, h: editor.h });
+      editor.frameStates.splice(editor.activeFrame + 1, 0, curState);
+      editor.activeFrame++;
+      populateCelStateDropdown();
       renderFrameTabs();
       renderPaintCanvas();
     });
@@ -14046,14 +14305,14 @@
       if (editor.frames.length <= 1) {
         editor.frames[0].fill(0);
       } else {
-        editor.frames.splice(editor.activeFrame, 1);
-        editor.frameDims.splice(editor.activeFrame, 1);
-        editor.frameStates.splice(editor.activeFrame, 1);
-        if (editor.activeFrame >= editor.frames.length) {
-          editor.activeFrame = editor.frames.length - 1;
-        }
+        const deletedIndex = editor.activeFrame;
+        editor.frames.splice(deletedIndex, 1);
+        editor.frameDims.splice(deletedIndex, 1);
+        editor.frameStates.splice(deletedIndex, 1);
+        editor.activeFrame = Math.max(0, deletedIndex - 1);
       }
       syncActiveFrameDimensions();
+      populateCelStateDropdown();
       renderFrameTabs();
       renderPaintCanvas();
     });
@@ -14239,11 +14498,11 @@
       pushEditorUndo();
 
       const fitPaste = document.getElementById('auto-resize-paste')?.checked;
-      // Check if this is a multi-frame horizontal spritesheet strip
+      // Check if this is a multi-frame horizontal spritesheet strip (disabled for single-cel locked types like THING)
       const isMultipleOfW = img.width > editor.w && (img.width % editor.w === 0) && img.height === editor.h;
       const isSquareStrip = img.width >= img.height * 2 && (img.width % img.height === 0);
 
-      if (isMultipleOfW || isSquareStrip) {
+      if (!isSingleCelLockedType(editor.type) && (isMultipleOfW || isSquareStrip)) {
         editor.lastPastedImage = img;
         const frameW = isMultipleOfW ? editor.w : img.height;
         const count = Math.floor(img.width / frameW);
@@ -15058,24 +15317,41 @@
       const w = raw.w || 19;
       const h = raw.h || 19;
       const rawFrames = Array.isArray(raw.frames) ? raw.frames : [];
-      const frameDims = Array.isArray(raw.frameDims) && raw.frameDims.length === rawFrames.length
+      const effectiveRawFrames = isSingleCelLockedType(type) && rawFrames.length > 1
+        ? [rawFrames[0]]
+        : rawFrames;
+      const frameDims = Array.isArray(raw.frameDims) && raw.frameDims.length === effectiveRawFrames.length
         ? raw.frameDims.map(d => ({ w: d.w || w, h: d.h || h }))
-        : Array.from({ length: Math.max(1, rawFrames.length) }, () => ({ w, h }));
-      const frames = rawFrames.length > 0
-        ? rawFrames.map((f, idx) => {
+        : Array.from({ length: Math.max(1, effectiveRawFrames.length) }, () => ({ w, h }));
+      const frames = effectiveRawFrames.length > 0
+        ? effectiveRawFrames.map((f, idx) => {
             const d = frameDims[idx] || { w, h };
             return decodeFrameFromSerialized(f, d.w * d.h * 4);
           })
         : [new Uint8ClampedArray(w * h * 4)];
-      const thumb = raw.thumbnail || createThumbnailDataUrl(frames, w, h, frameDims);
+      let finalFrames = frames;
+      let finalDims = frameDims;
+      let finalStates = Array.isArray(raw.frameStates) ? [...raw.frameStates] : undefined;
+      if (type === 'body' && subtype === 'Body' && Array.isArray(finalStates) && finalFrames.length > 1) {
+        const keep = finalStates
+          .map((st, idx) => (String(st).toLowerCase() === 'create' ? -1 : idx))
+          .filter(idx => idx !== -1);
+        if (keep.length > 0 && keep.length < finalFrames.length) {
+          finalFrames = keep.map(i => finalFrames[i]);
+          finalDims = keep.map(i => finalDims[i]);
+          finalStates = keep.map(i => finalStates[i]);
+        }
+      }
+      const thumb = raw.thumbnail || createThumbnailDataUrl(finalFrames, w, h, finalDims);
       return {
         ...raw,
         type,
         subtype,
         w,
         h,
-        frames,
-        frameDims,
+        frames: finalFrames,
+        frameDims: finalDims,
+        frameStates: finalStates,
         thumbnail: thumb
       };
     }
@@ -16246,7 +16522,7 @@
 
       renderWorld();
       if (editor.isOpen) {
-        renderEditorLivePreview();
+        renderEditorLivePreview(dt);
       }
       requestAnimationFrame(engineLoop);
     }

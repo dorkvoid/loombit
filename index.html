@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" oncontextmenu="return false;">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -36,6 +36,11 @@
     .text-\[10px\] { font-size: 14px !important; line-height: 1.3 !important; }
     .text-\[11px\] { font-size: 15px !important; line-height: 1.35 !important; }
     .text-xs { font-size: 16px !important; line-height: 1.4 !important; }
+
+    /* Prevent Perfect DOS VGA 437 from rendering U+2026 ellipsis as 'à' */
+    .truncate {
+      text-overflow: clip !important;
+    }
 
     .mono {
       font-family: 'Perfect DOS VGA 437', 'VT323', 'Consolas', monospace;
@@ -354,7 +359,7 @@
     }
   </style>
 </head>
-<body class="flex h-screen w-screen overflow-hidden">
+<body class="flex h-screen w-screen overflow-hidden" oncontextmenu="return false;">
 
   <!-- STARTUP LOADING SCREEN OVERLAY (Fades out smoothly on open/refresh) -->
   <div id="boot-loading-screen" class="fixed inset-0 z-[100] bg-[#0e0f13] flex flex-col items-center justify-center select-none">
@@ -1287,119 +1292,146 @@
 
   <!-- SAVED WORLDS MODAL -->
   <div id="worlds-vault-modal" class="smooth-modal fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-    <div class="smooth-modal-box studio-panel rounded-sm w-full max-w-3xl overflow-hidden flex flex-col max-h-[88vh]">
-      <!-- Header -->
-      <div class="px-4 py-2.5 bg-[#111217] border-b border-[#262834] flex items-center justify-between shrink-0">
-        <div class="flex items-center gap-3">
-          <img
-            src="loombit_logo.png"
-            alt="LoomBit"
-            width="470"
-            height="100"
-            class="h-4 w-auto block select-none"
-            style="image-rendering: pixelated;"
-            onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 47 10%22 width=%22470%22 height=%22100%22 shape-rendering=%22crispEdges%22><rect width=%2247%22 height=%2210%22 fill=%22%23000000%22/><path fill=%22%23ffffff%22 d=%22M1,1h2v6H1z M1,7h4v2H1z M8,1h4v1H8z M7,2h6v1H7z M7,3h2v3H7z M10,3h3v3h-3z M7,6h6v2H7z M8,8h4v1H8z M15,1h4v1h-4z M14,2h6v1h-6z M14,3h2v3h-2z M17,3h3v3h-3z M14,6h6v2h-6z M15,8h4v1h-4z M21,1h6v2h-6z M21,3h2v6h-2z M24,3h1v4h-1z M26,3h2v6h-2z M29,1h5v1h-5z M29,2h2v7h-2z M33,2h2v2h-2z M31,4h3v1h-3z M33,5h2v3h-2z M31,8h3v1h-3z M36,4h2v5h-2z M39,1h6v2h-6z M41,3h2v6h-2z%22/><rect x=%2236%22 y=%221%22 width=%222%22 height=%222%22 fill=%22%23639bff%22/><rect x=%2236%22 y=%223%22 width=%222%22 height=%221%22 fill=%22%23c7dcff%22/></svg>';"
+    <div class="smooth-modal-box studio-panel rounded-sm w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <!-- Clean Header with Primary Actions -->
+      <div class="px-4 py-2.5 bg-[#111217] border-b border-[#262834] flex items-center justify-between gap-2 shrink-0">
+        <div class="flex items-center gap-2.5">
+          <span class="text-xs font-bold text-zinc-100 tracking-wider">WORLDS</span>
+          <input
+            id="worlds-search-input"
+            type="text"
+            placeholder="Search..."
+            class="bg-[#0c0d11] border border-[#282a36] rounded-sm px-2 py-0.5 text-[10px] text-zinc-100 placeholder-zinc-500 w-32 focus:outline-none focus:border-blue-500"
           />
-          <span class="text-xs font-bold text-zinc-200 tracking-wider">WORLDS</span>
-          <span id="autosave-status-badge" class="text-[9px] text-emerald-400 bg-emerald-950/60 border border-emerald-700/50 px-2 py-0.5 rounded-sm flex items-center gap-1.5">
-            <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            <span>Auto-Syncing</span>
-          </span>
         </div>
-        <button id="close-worlds-modal-btn" class="ase-btn px-2.5 py-0.5 text-xs">X</button>
+        <div class="flex items-center gap-1.5">
+          <button id="modal-reset-world-btn" class="ase-btn-primary px-3 py-1 text-[10px] font-semibold">
+            + New World
+          </button>
+          <label class="ase-btn px-2.5 py-1 text-[10px] text-zinc-300 cursor-pointer">
+            Import
+            <input id="import-world-slot-input" type="file" accept=".json" class="hidden" />
+          </label>
+          <button id="close-worlds-modal-btn" class="ase-btn px-2.5 py-1 text-xs ml-1">X</button>
+        </div>
       </div>
 
-      <!-- Body: Active World Banner, Saved Worlds Grid & Sprite Pack Exchange -->
-      <div class="p-4 overflow-y-auto space-y-4 text-xs flex-1">
-        <!-- Current Active World Banner + Quick New World Actions -->
-        <div class="bg-[#12141c] border border-blue-500/35 p-3 rounded-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
-          <div class="flex items-center gap-3 flex-1 min-w-0">
-            <div id="active-world-mini-preview" class="shrink-0"></div>
-            <div class="flex flex-col gap-1 flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <span id="active-world-status-pill" class="px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider bg-blue-600/30 text-blue-300 border border-blue-500/40 rounded-xs">ACTIVE WORLD</span>
-                <span id="active-world-stats-label" class="text-[9px] text-zinc-400 truncate">0 tiles</span>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <input
-                  id="save-world-name-input"
-                  type="text"
-                  placeholder="World Name..."
-                  value="World 1"
-                  title="Rename current world (auto-saves immediately)"
-                  class="bg-[#0b0c10] border border-[#2e3244] focus:border-blue-500 rounded-sm px-2.5 py-1 text-xs text-zinc-100 font-semibold flex-1 min-w-0 focus:outline-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-1.5 shrink-0">
-            <button id="modal-reset-world-btn" title="Auto-saves your current world and starts a fresh New World" class="ase-btn-primary px-3 py-1.5 text-[10px] font-semibold flex items-center gap-1">
-              <span>+ New World</span>
-            </button>
-            <button id="clone-current-world-btn" title="Duplicate the current world into a new slot" class="ase-btn px-2.5 py-1.5 text-[10px] text-sky-300">
-              Clone
-            </button>
-            <button id="save-world-slot-btn" title="Save a separate snapshot copy of this world" class="ase-btn px-2.5 py-1.5 text-[10px] text-zinc-300">
-              + Snapshot
-            </button>
-          </div>
+      <!-- Visual Worlds Grid -->
+      <div class="p-3.5 overflow-y-auto flex-1 bg-[#0e0f14]">
+        <div id="saved-worlds-list" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <!-- Populated dynamically -->
         </div>
+      </div>
 
-        <!-- Saved Worlds Search, Sort & Import Bar -->
-        <div class="space-y-2">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
-              <span class="text-[10px] uppercase text-zinc-300 font-semibold tracking-wider">Your Worlds</span>
-              <span id="saved-worlds-count" class="text-[9px] text-zinc-400 bg-[#181922] border border-[#2a2c3a] px-1.5 py-0.5 rounded-xs">0 worlds</span>
-            </div>
-            <div class="flex flex-wrap items-center gap-1.5">
-              <input
-                id="worlds-search-input"
-                type="text"
-                placeholder="Filter worlds..."
-                class="bg-[#0c0d11] border border-[#282a36] rounded-sm px-2 py-0.5 text-[10px] text-zinc-100 placeholder-zinc-500 w-36 focus:outline-none focus:border-blue-500"
-              />
-              <select
-                id="worlds-sort-select"
-                title="Sort Worlds"
-                class="bg-[#16171f] border border-[#2e303e] rounded-sm px-2 py-0.5 text-[10px] text-zinc-300 focus:outline-none focus:border-blue-500"
-              >
-                <option value="recent">Sort: Recent</option>
-                <option value="name">Sort: Name A-Z</option>
-                <option value="tiles">Sort: Largest</option>
-              </select>
-              <label title="Import a .loombit.json world file into your Worlds list" class="ase-btn px-2 py-0.5 text-[10px] text-emerald-300 cursor-pointer">
-                + Import World
-                <input id="import-world-slot-input" type="file" accept=".json" class="hidden" />
-              </label>
-            </div>
-          </div>
-
-          <!-- Saved Worlds Grid -->
-          <div id="saved-worlds-list" class="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-[310px] overflow-y-auto p-1 bg-[#0e0f14] border border-[#252734] rounded-sm">
-            <!-- Populated dynamically -->
-          </div>
+      <!-- Compact Footer for Creation Pack Backup -->
+      <div class="px-4 py-2 bg-[#111217] border-t border-[#262834] flex items-center justify-between gap-2 text-[10px] shrink-0">
+        <span class="text-zinc-500">Creations Backup</span>
+        <div class="flex items-center gap-1.5">
+          <button id="export-assets-only-btn" class="ase-btn px-2 py-0.5 text-[9px] text-zinc-300">Export Pack</button>
+          <label class="ase-btn px-2 py-0.5 text-[9px] text-zinc-300 cursor-pointer">
+            Import Pack
+            <input id="import-assets-merge-input" type="file" accept=".json" class="hidden" />
+          </label>
+          <button id="export-all-strips-btn" class="ase-btn px-2 py-0.5 text-[9px] text-zinc-400">PNG Strips</button>
         </div>
+      </div>
 
-        <!-- Sprite Pack & PNG Strip Exchange -->
-        <div class="bg-[#121318] border border-[#262834] p-3 rounded-sm flex flex-wrap items-center justify-between gap-2">
-          <div class="text-zinc-300 font-semibold text-[10px]">CREATION PACKS & BACKUP</div>
-          <div class="flex flex-wrap items-center gap-1.5">
-            <button id="export-assets-only-btn" class="ase-btn px-2 py-1 text-[9px] text-emerald-300">Export Creations (.json)</button>
-            <label class="ase-btn px-2 py-1 text-[9px] text-blue-300 cursor-pointer">
-              Import Creations
-              <input id="import-assets-merge-input" type="file" accept=".json" class="hidden" />
-            </label>
-            <button id="export-all-strips-btn" class="ase-btn px-2 py-1 text-[9px] text-amber-200">Export All PNG Strips</button>
-            <button id="restore-autosave-btn" class="ase-btn px-2 py-1 text-[9px] text-zinc-400">Reload Backup</button>
-          </div>
-        </div>
+      <!-- Hidden Legacy Hooks -->
+      <div class="hidden">
+        <span id="autosave-status-badge"></span>
+        <div id="active-world-mini-preview"></div>
+        <span id="active-world-status-pill"></span>
+        <span id="active-world-stats-label"></span>
+        <input id="save-world-name-input" type="text" value="World 1" />
+        <button id="clone-current-world-btn"></button>
+        <button id="save-world-slot-btn"></button>
+        <span id="saved-worlds-count"></span>
+        <select id="worlds-sort-select"><option value="recent">Recent</option></select>
+        <button id="restore-autosave-btn"></button>
       </div>
     </div>
   </div>
 
   <script>
+    /********************************************************************
+     * GLOBAL NATIVE CONTEXT MENU & FIREFOX TOOLTIP BAR SUPPRESSION
+     ********************************************************************/
+    (function disableNativeContextMenusAndTooltips() {
+      const blockNativeContext = (e) => {
+        try {
+          Object.defineProperty(e, 'shiftKey', { get: () => false, configurable: true });
+        } catch (_) {}
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof e.stopImmediatePropagation === 'function') {
+          e.stopImmediatePropagation();
+        }
+        return false;
+      };
+
+      const preventRightButtonDefault = (e) => {
+        if (e.button === 2 || e.which === 3 || (e.buttons & 2) === 2) {
+          try {
+            Object.defineProperty(e, 'shiftKey', { get: () => false, configurable: true });
+          } catch (_) {}
+          e.preventDefault();
+          if (window.getSelection) {
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) sel.removeAllRanges();
+          }
+        }
+      };
+
+      const targets = [window, document, document.documentElement, document.body].filter(Boolean);
+      for (const t of targets) {
+        t.addEventListener('contextmenu', blockNativeContext, { capture: true, passive: false });
+        t.addEventListener('contextmenu', blockNativeContext, { capture: false, passive: false });
+        t.addEventListener('auxclick', (e) => {
+          if (e.button === 2 || e.which === 3) blockNativeContext(e);
+        }, { capture: true, passive: false });
+        t.addEventListener('pointerdown', preventRightButtonDefault, { capture: true, passive: false });
+        t.addEventListener('mousedown', preventRightButtonDefault, { capture: true, passive: false });
+        t.addEventListener('pointerup', preventRightButtonDefault, { capture: true, passive: false });
+        t.addEventListener('mouseup', preventRightButtonDefault, { capture: true, passive: false });
+      }
+      window.oncontextmenu = blockNativeContext;
+      document.oncontextmenu = blockNativeContext;
+
+      // Strip native browser `title` attributes everywhere so Firefox's default tooltip bar never appears
+      const stripNativeTitles = (root) => {
+        if (!root) return;
+        if (root.nodeType === 1 && root.hasAttribute && root.hasAttribute('title')) {
+          root.removeAttribute('title');
+        }
+        if (root.querySelectorAll) {
+          const titled = root.querySelectorAll('[title]');
+          for (let i = 0; i < titled.length; i++) {
+            titled[i].removeAttribute('title');
+          }
+        }
+      };
+
+      stripNativeTitles(document.documentElement);
+      const titleObserver = new MutationObserver((mutations) => {
+        for (let i = 0; i < mutations.length; i++) {
+          const m = mutations[i];
+          if (m.type === 'attributes' && m.attributeName === 'title' && m.target) {
+            m.target.removeAttribute('title');
+          } else if (m.type === 'childList' && m.addedNodes.length > 0) {
+            for (let j = 0; j < m.addedNodes.length; j++) {
+              stripNativeTitles(m.addedNodes[j]);
+            }
+          }
+        }
+      });
+      titleObserver.observe(document.documentElement, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['title']
+      });
+    })();
+
     /********************************************************************
      * AUTHENTIC MANYLAND CREATION TYPES SPECIFICATION
      * (Excluded MUSIC, MIFT, INSTRUMENT, AUTOMATION per user request)
@@ -3730,6 +3762,14 @@
         ? 'ase-btn active px-2 py-0.5 text-[10px] text-amber-300 font-medium'
         : 'ase-btn px-2 py-0.5 text-[10px] text-cyan-200 font-medium';
     }
+
+    if (liquidViscosityBtn) {
+      liquidViscosityBtn.addEventListener('click', () => {
+        editor.liquidViscosity = editor.liquidViscosity === 'thick' ? 'normal' : 'thick';
+        syncLiquidViscosityUI();
+      });
+    }
+
     function isFurrySpriteOrCell(obj) {
       if (!obj) return false;
       if (obj.type === 'furry') return true;
@@ -4307,6 +4347,9 @@
     const tickFurryCells = [];
     const tickDriftyCells = [];
     const tickWindCells = [];
+    const tickSolidCandidates = [];
+    const tickSlopeCells = [];
+    const tickLiquidCells = [];
 
     // Returns the lowest Y coordinate of any placed world block (or spawn point / Y=0 floor), ignoring falling entities or the player
     function getLowestStaticWorldY() {
@@ -4330,13 +4373,18 @@
       if (state.hardFloorY0 && y < 0) return true;
       const left = x - 4;
       const right = x + w + 4;
-      for (const [, cell] of state.worldCells.entries()) {
-        if (!hasSpriteId(cell.spriteId)) continue;
-        if (cell.y + cell.h < y) continue;
-        if (cell.x + cell.w < left || cell.x > right) continue;
-        if (isCellSolid(cell) || cell.type === 'slope' || cell.type === 'liquid') {
-          return true;
-        }
+      for (let i = 0; i < tickSolidCandidates.length; i++) {
+        const cell = tickSolidCandidates[i];
+        if (cell.y + cell.h < y || cell.x + cell.w < left || cell.x > right) continue;
+        if (isCellSolid(cell)) return true;
+      }
+      for (let i = 0; i < tickSlopeCells.length; i++) {
+        const cell = tickSlopeCells[i];
+        if (cell.y + cell.h >= y && cell.x + cell.w >= left && cell.x <= right) return true;
+      }
+      for (let i = 0; i < tickLiquidCells.length; i++) {
+        const cell = tickLiquidCells[i];
+        if (cell.y + cell.h >= y && cell.x + cell.w >= left && cell.x <= right) return true;
       }
       return false;
     }
@@ -5089,6 +5137,9 @@
       tickFurryCells.length = 0;
       tickDriftyCells.length = 0;
       tickWindCells.length = 0;
+      tickSolidCandidates.length = 0;
+      tickSlopeCells.length = 0;
+      tickLiquidCells.length = 0;
 
       let lowestY = state.spawnPoint.y + TILE_SIZE;
       if (state.hardFloorY0 && 0 > lowestY) lowestY = 0;
@@ -5107,12 +5158,31 @@
           wiredSources.push(cell);
         }
 
-        if (cell.type === 'activator') {
+        const cType = cell.type;
+        if (cType === 'activator') {
           tickActivatorCells.push(cell);
-        } else if (cell.type === 'pushing') {
+          if (cell.subtype === 'Open on Activate') tickSolidCandidates.push(cell);
+        } else if (cType === 'pushing') {
           tickPushingCells.push(cell);
-        } else if (cell.type === 'environment' && cell.subtype === 'Environmental Wind') {
+        } else if (cType === 'environment' && cell.subtype === 'Environmental Wind') {
           tickWindCells.push(cell);
+        } else if (cType === 'slope') {
+          tickSlopeCells.push(cell);
+        } else if (cType === 'liquid') {
+          tickLiquidCells.push(cell);
+        }
+
+        if (
+          cType === 'solid' ||
+          cType === 'crumbling' ||
+          cType === 'bouncy' ||
+          cType === 'slidey' ||
+          cType === 'climbable' ||
+          cType === 'moving' ||
+          cType === 'dynamic' ||
+          (cType === 'back' && cell.subtype === 'Walkable')
+        ) {
+          tickSolidCandidates.push(cell);
         }
 
         if (isFurrySpriteOrCell(cell)) {
@@ -5661,8 +5731,8 @@
         const isKeyScrolling =
           !state.chatOpen &&
           !editor.isOpen &&
-          document.activeElement.tagName !== 'INPUT' &&
-          document.activeElement.tagName !== 'TEXTAREA' &&
+          !worldsVaultModal.classList.contains('open') &&
+          !isTypingInInput() &&
           (state.keys.left || state.keys.right || state.keys.up || state.keys.down);
         if (isKeyScrolling) {
           const panSpeed = 4.5 / Math.max(1, state.renderZoom * 0.4);
@@ -6209,8 +6279,8 @@
         let inLiquid = false;
         let isThickWater = false;
         let liquidTopY = null;
-        for (const [, cell] of state.worldCells.entries()) {
-          if (cell.type !== 'liquid' || !hasSpriteId(cell.spriteId)) continue;
+        for (let lIdx = 0; lIdx < tickLiquidCells.length; lIdx++) {
+          const cell = tickLiquidCells[lIdx];
           if (pr.x < cell.x + cell.w && pr.x + pr.w > cell.x && pr.y < cell.y + cell.h && pr.y + pr.h > cell.y) {
             inLiquid = true;
             const lSp = getSpriteById(cell.spriteId);
@@ -6245,8 +6315,8 @@
 
         // 1. Horizontal step & wall collisions
         pr.x += pr.vx;
-        for (const [, cell] of state.worldCells.entries()) {
-          if (!hasSpriteId(cell.spriteId)) continue;
+        for (let sIdx = 0; sIdx < tickSolidCandidates.length; sIdx++) {
+          const cell = tickSolidCandidates[sIdx];
           if (pr.x >= cell.x + cell.w || pr.x + pr.w <= cell.x || pr.y >= cell.y + cell.h || pr.y + pr.h <= cell.y) continue;
 
           if (cell.type === 'crumbling' && cell.subtype !== 'Flexible' && cell.crumbleState === 0) {
@@ -6294,33 +6364,34 @@
         let onSlideySurface = false;
         let grounded = false;
 
-        for (const [, cell] of state.worldCells.entries()) {
-          if (!hasSpriteId(cell.spriteId)) continue;
+        for (let slIdx = 0; slIdx < tickSlopeCells.length; slIdx++) {
+          const cell = tickSlopeCells[slIdx];
           if (pr.x >= cell.x + cell.w || pr.x + pr.w <= cell.x || pr.y >= cell.y + cell.h || pr.y + pr.h <= cell.y) continue;
-
-          if (cell.type === 'slope') {
-            const { targetY, isUpsideDown, downhillDir } = computeSlopeSurfaceForBox(cell, pr.x, pr.w, pr.h);
-            if (!isUpsideDown && pr.y >= targetY - 2 && pr.vy >= -0.5) {
-              pr.y = targetY;
-              if (Math.abs(pr.vy) > 1.2) {
-                sfx.step(resolveCellSurfaceMaterial(cell));
-                pr.vx += downhillDir * Math.abs(pr.vy) * 0.42;
-                pr.vy = -pr.vy * bounciness;
-              } else {
-                pr.vy = 0;
-                pr.vx += downhillDir * 0.12;
-                grounded = true;
-              }
-              if (cell.subtype === 'Slidey Slope') onSlideySurface = true;
-              break;
-            } else if (isUpsideDown && pr.y <= targetY + 2 && pr.vy < 0) {
-              pr.y = targetY;
-              pr.vy = -pr.vy * 0.4;
-              pr.vx += downhillDir * 0.3;
-              break;
+          const { targetY, isUpsideDown, downhillDir } = computeSlopeSurfaceForBox(cell, pr.x, pr.w, pr.h);
+          if (!isUpsideDown && pr.y >= targetY - 2 && pr.vy >= -0.5) {
+            pr.y = targetY;
+            if (Math.abs(pr.vy) > 1.2) {
+              sfx.step(resolveCellSurfaceMaterial(cell));
+              pr.vx += downhillDir * Math.abs(pr.vy) * 0.42;
+              pr.vy = -pr.vy * bounciness;
+            } else {
+              pr.vy = 0;
+              pr.vx += downhillDir * 0.12;
+              grounded = true;
             }
-            continue;
+            if (cell.subtype === 'Slidey Slope') onSlideySurface = true;
+            break;
+          } else if (isUpsideDown && pr.y <= targetY + 2 && pr.vy < 0) {
+            pr.y = targetY;
+            pr.vy = -pr.vy * 0.4;
+            pr.vx += downhillDir * 0.3;
+            break;
           }
+        }
+
+        for (let sIdx = 0; sIdx < tickSolidCandidates.length; sIdx++) {
+          const cell = tickSolidCandidates[sIdx];
+          if (pr.x >= cell.x + cell.w || pr.x + pr.w <= cell.x || pr.y >= cell.y + cell.h || pr.y + pr.h <= cell.y) continue;
 
           if (cell.type === 'crumbling' && cell.subtype !== 'Flexible' && cell.crumbleState === 0) {
             cell.crumbleState = 1;
@@ -6974,12 +7045,8 @@
 
       // Pass 1: Resolve all overlapping SLOPE tiles first (supports both upright floor slopes and upside-down ceiling slopes)
       let onSlopeThisStep = false;
-      for (const [key, cell] of state.worldCells.entries()) {
-        if (!hasSpriteId(cell.spriteId)) {
-          state.worldCells.delete(key);
-          continue;
-        }
-        if (cell.type !== 'slope') continue;
+      for (let slIdx = 0; slIdx < tickSlopeCells.length; slIdx++) {
+        const cell = tickSlopeCells[slIdx];
         const bw = cell.w, bh = cell.h, bx = cell.x, by = cell.y;
         if (p.x >= bx + bw || p.x + p.w <= bx || p.y >= by + bh || p.y + p.h <= by) continue;
 
@@ -7001,9 +7068,8 @@
       }
 
       // Pass 2: Resolve SOLID and ONE-WAY collisions (including upside-down & sideways rotated objects)
-      for (const [key, cell] of state.worldCells.entries()) {
-        if (!hasSpriteId(cell.spriteId) || cell.type === 'slope') continue;
-
+      for (let sIdx = 0; sIdx < tickSolidCandidates.length; sIdx++) {
+        const cell = tickSolidCandidates[sIdx];
         const solidType = isCellSolid(cell);
         if (!solidType) continue;
 
@@ -7360,8 +7426,8 @@
           let inLiquid = false;
           let isThickWater = false;
           let liquidTopY = null;
-          for (const [, cell] of state.worldCells.entries()) {
-            if (cell.type !== 'liquid' || !hasSpriteId(cell.spriteId)) continue;
+          for (let lIdx = 0; lIdx < tickLiquidCells.length; lIdx++) {
+            const cell = tickLiquidCells[lIdx];
             if (ent.x < cell.x + cell.w && ent.x + ent.w > cell.x && ent.y < cell.y + cell.h && ent.y + ent.h > cell.y) {
               inLiquid = true;
               const lSp = getSpriteById(cell.spriteId);
@@ -7406,8 +7472,8 @@
           // 1. Horizontal movement & collisions (including slope climb & step-up onto solids)
           ent.x += ent.vx;
           let entOnSlope = false;
-          for (const [, cell] of state.worldCells.entries()) {
-            if (cell.type !== 'slope' || !hasSpriteId(cell.spriteId)) continue;
+          for (let slIdx = 0; slIdx < tickSlopeCells.length; slIdx++) {
+            const cell = tickSlopeCells[slIdx];
             if (ent.x >= cell.x + cell.w || ent.x + ent.w <= cell.x || ent.y >= cell.y + cell.h || ent.y + ent.h <= cell.y) continue;
             const { targetY, isUpsideDown } = computeSlopeSurfaceForBox(cell, ent.x, ent.w, ent.h);
             if (!isUpsideDown && ent.y >= targetY - 2 && ent.vy >= -0.5) {
@@ -7416,7 +7482,8 @@
             }
           }
 
-          for (const [, cell] of state.worldCells.entries()) {
+          for (let sIdx = 0; sIdx < tickSolidCandidates.length; sIdx++) {
+            const cell = tickSolidCandidates[sIdx];
             if (isCellSolid(cell) !== true) continue;
             if (ent.x < cell.x + cell.w && ent.x + ent.w > cell.x && ent.y < cell.y + cell.h && ent.y + ent.h > cell.y) {
               // Allow physics objects sliding up a slope to step smoothly onto an adjacent solid block
@@ -7455,8 +7522,8 @@
           let onSlidey = false;
 
           // Resolve Slope collisions for Falling / Physics Solids & Bouncy Spheres
-          for (const [, cell] of state.worldCells.entries()) {
-            if (cell.type !== 'slope' || !hasSpriteId(cell.spriteId)) continue;
+          for (let slIdx = 0; slIdx < tickSlopeCells.length; slIdx++) {
+            const cell = tickSlopeCells[slIdx];
             if (ent.x >= cell.x + cell.w || ent.x + ent.w <= cell.x || ent.y >= cell.y + cell.h || ent.y + ent.h <= cell.y) continue;
             const { targetY, isUpsideDown, downhillDir } = computeSlopeSurfaceForBox(cell, ent.x, ent.w, ent.h);
             if (!isUpsideDown && ent.y >= targetY - 2 && ent.vy >= -0.5) {
@@ -7488,7 +7555,8 @@
             }
           }
 
-          for (const [, cell] of state.worldCells.entries()) {
+          for (let sIdx = 0; sIdx < tickSolidCandidates.length; sIdx++) {
+            const cell = tickSolidCandidates[sIdx];
             const solidKind = isCellSolid(cell);
             if (!solidKind) continue;
             if (ent.x < cell.x + cell.w && ent.x + ent.w > cell.x && ent.y < cell.y + cell.h && ent.y + ent.h > cell.y) {
@@ -10886,14 +10954,14 @@
 
       // 2. Right-Click Dragging (when erasing) or Holding Ctrl while an item is selected for mass placement shows the Eraser icon
       const isCtrlDown = Boolean(e?.ctrlKey || e?.metaKey || editor.ctrlHeld);
-      if (mouseWorld.downButton === 2 || (Boolean(state.activeBrushId) && isCtrlDown)) {
+      if ((state.mode === 'build' && mouseWorld.downButton === 2) || (Boolean(state.activeBrushId) && isCtrlDown)) {
         worldCanvas.style.cursor = ERASER_CURSOR;
         return;
       }
 
-      // 3. Holding Shift over a placed creation shows grab cursor to pick it up & move it
+      // 3. Holding Shift/Ctrl over a placed creation in Build Mode shows grab cursor to pick it up & move it
       const hoveredCell = mouseWorld.inside ? getHoveredWorldCell(mouseWorld.wx, mouseWorld.wy) : null;
-      if ((e?.shiftKey || editor.shiftHeld || isCtrlDown) && hoveredCell && !state.activeBrushId) {
+      if (state.mode === 'build' && (e?.shiftKey || editor.shiftHeld || isCtrlDown) && hoveredCell && !state.activeBrushId) {
         worldCanvas.style.cursor = 'grab';
         return;
       }
@@ -11254,22 +11322,6 @@
       // Do not clear mouseWorld.downButton or dragStart on mouseleave so rectangle/line drags near HUD edges never abort
     });
 
-    // Block Shift + Right-Click and standard Right-Click from opening Firefox's tooltip/context menu bar
-    const suppressContextMenu = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
-    };
-    window.addEventListener('contextmenu', suppressContextMenu, { capture: true });
-    document.addEventListener('contextmenu', suppressContextMenu, { capture: true });
-    worldCanvas.addEventListener('contextmenu', suppressContextMenu, { capture: true });
-    window.addEventListener('auxclick', (e) => {
-      if (e.button === 2) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }, { capture: true });
-
     worldCanvas.addEventListener('mousedown', (e) => {
       if (editor.isOpen) return;
       // Prevent native browser drag/selection on the canvas so picking up and placing blocks never locks up
@@ -11337,8 +11389,8 @@
         return;
       }
 
-      // Shift + Left Click & Drag OR Ctrl + Left Click & Drag on a placed block picks it up to move it
-      if (e.button === 0 && (e.ctrlKey || e.metaKey || e.shiftKey) && hoveredItem && activeTool !== 'wire') {
+      // Shift + Left Click & Drag OR Ctrl + Left Click & Drag on a placed block in Build Mode picks it up to move it
+      if (state.mode === 'build' && e.button === 0 && (e.ctrlKey || e.metaKey || e.shiftKey) && hoveredItem && activeTool !== 'wire') {
         e.preventDefault();
         mouseWorld.downButton = 0;
         startHoldingWorldBlock(hoveredItem, 'move', false);
@@ -11430,16 +11482,20 @@
           updateBrushBar();
           return;
         }
-        // 3. Otherwise (no object selected or Erase tool active), Right-Click erases blocks
-        clearPendingHoldGrab();
-        pushWorldUndo();
-        eraseWorldAt(mouseWorld.wx, mouseWorld.wy);
+        // 3. Otherwise in Build Mode (no object selected or Erase tool active), Right-Click erases blocks
+        if (state.mode === 'build') {
+          clearPendingHoldGrab();
+          pushWorldUndo();
+          eraseWorldAt(mouseWorld.wx, mouseWorld.wy);
+        } else {
+          mouseWorld.downButton = null;
+        }
         updateWorldCursor(e);
         return;
       }
 
       if (e.button === 0) {
-        if (activeTool === 'spawn') {
+        if (state.mode === 'build' && activeTool === 'spawn') {
           pushWorldUndo();
           state.spawnPoint = { x: snapX, y: snapY };
           respawnPlayer(false);
@@ -11460,7 +11516,7 @@
           return;
         }
 
-        if (activeTool === 'erase') {
+        if (state.mode === 'build' && activeTool === 'erase') {
           pushWorldUndo();
           mouseWorld.dragStart = { x: snapX, y: snapY };
           mouseWorld.isSelectingBlocks = false;
@@ -11468,7 +11524,7 @@
           return;
         }
 
-        if (activeTool === 'line' || activeTool === 'rect') {
+        if (state.mode === 'build' && (activeTool === 'line' || activeTool === 'rect')) {
           if (brushSp) {
             pushWorldUndo();
             mouseWorld.dragStart = { x: snapX, y: snapY };
@@ -11486,8 +11542,8 @@
         if (brushSp) {
           clearPendingHoldGrab();
           if (isWorldSpaceOccupiedForSprite(brushSp, snapX, snapY)) {
-            // Clicking & holding/dragging on an already-occupied cell lets you grab a clone of that placed block!
-            if (hoveredItem) {
+            // In Build Mode, clicking & holding/dragging on an already-occupied cell lets you grab a clone of that placed block!
+            if (state.mode === 'build' && hoveredItem) {
               mouseWorld.pendingHoldGrab = {
                 targetCell: hoveredItem,
                 startX: e.clientX,
@@ -11511,8 +11567,8 @@
           return;
         }
 
-        // Click, Hold & Drag on a placed block in the viewport (when no brush is active) clones it!
-        if (hoveredItem && activeTool === 'stamp') {
+        // Click, Hold & Drag on a placed block in Build Mode (when no brush is active) clones it!
+        if (state.mode === 'build' && hoveredItem && activeTool === 'stamp') {
           clearPendingHoldGrab();
           mouseWorld.pendingHoldGrab = {
             targetCell: hoveredItem,
@@ -11539,9 +11595,9 @@
       }
     });
 
-    // Double-clicking a placed item in the viewport equips it onto the mouse for mass placement!
+    // Double-clicking a placed item in Build Mode equips it onto the mouse for mass placement!
     worldCanvas.addEventListener('dblclick', (e) => {
-      if (editor.isOpen) return;
+      if (editor.isOpen || state.mode !== 'build') return;
       e.preventDefault();
       updateMouseWorldCoords(e);
       clearPendingHoldGrab();
@@ -11656,7 +11712,10 @@
         return;
       }
 
-      if (mouseWorld.downButton === 2 || (mouseWorld.downButton === 0 && activeTool === 'erase' && !mouseWorld.dragStart)) {
+      if (
+        (mouseWorld.downButton === 2 && (state.mode === 'build' || (state.activeBrushId && (e.ctrlKey || e.metaKey)))) ||
+        (state.mode === 'build' && mouseWorld.downButton === 0 && activeTool === 'erase' && !mouseWorld.dragStart)
+      ) {
         eraseWorldAt(mouseWorld.wx, mouseWorld.wy);
       } else if (mouseWorld.downButton === 0 && activeTool === 'stamp') {
         const brushSp = getSpriteById(state.activeBrushId);
@@ -11869,6 +11928,9 @@
 
     document.querySelectorAll('.wtool-btn').forEach(btn => {
       btn.addEventListener('click', () => {
+        if (state.heldWorldBlock) {
+          commitHeldWorldBlock(true);
+        }
         state.worldTool = btn.dataset.wtool;
         updateWorldToolButtonsUI();
       });
@@ -11887,21 +11949,37 @@
     toggleBoxBtn.addEventListener('click', () => {
       state.showHitbox = !state.showHitbox;
       toggleBoxBtn.className = state.showHitbox
-        ? 'ase-btn active p-1 text-zinc-300 flex items-center justify-center'
+        ? 'ase-btn active p-1 text-blue-400 flex items-center justify-center'
         : 'ase-btn p-1 text-zinc-500 flex items-center justify-center';
     });
 
     worldAnimFpsInput.addEventListener('change', (e) => {
-      const val = parseInt(e.target.value, 10);
-      if (!isNaN(val) && val >= 1 && val <= 60) {
-        state.walkFps = val;
-        // Also sync the currently equipped Body's animFps so changing the top-bar FPS immediately changes avatar speed
-        const activeBodySp = getSpriteById(state.activeBodyId);
-        if (activeBodySp) {
-          activeBodySp.animFps = val;
-          saveAutoBackup();
-        }
+      state.walkFps = Math.max(2, Math.min(24, parseInt(e.target.value, 10) || 8));
+      e.target.value = state.walkFps;
+    });
+
+    // Returns true if the user is currently typing in an input, textarea, or select element
+    function isTypingInInput() {
+      const el = document.activeElement;
+      if (!el) return false;
+      const tag = el.tagName;
+      if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+      if (tag === 'INPUT') {
+        const type = (el.type || 'text').toLowerCase();
+        return ['text', 'number', 'search', 'password', 'url', 'email'].includes(type);
       }
+      return Boolean(el.isContentEditable);
+    }
+
+    // Clear all held keys and drag states if the browser window loses focus (e.g. Alt-Tab)
+    window.addEventListener('blur', () => {
+      resetAllHeldKeys();
+      mouseWorld.isPanning = false;
+      mouseWorld.downButton = null;
+      mouseWorld.dragStart = null;
+      mouseWorld.isSelectingBlocks = false;
+      mouseWorld.wireDragSource = null;
+      clearPendingHoldGrab();
     });
 
     // Keyboard Input, Shortcuts & Chat
@@ -11917,13 +11995,21 @@
         return;
       }
 
+      if (worldsVaultModal.classList.contains('open')) {
+        if (e.key === 'Escape' && !e.repeat) {
+          e.preventDefault();
+          closeWorldsModal();
+        }
+        return;
+      }
+
       if (editor.isOpen) {
         handleEditorShortcuts(e);
         return;
       }
 
       // World Viewport Undo / Redo (Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z)
-      if (!state.chatOpen && document.activeElement.tagName !== 'INPUT') {
+      if (!state.chatOpen && !isTypingInInput()) {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
           e.preventDefault();
           if (e.repeat) return;
@@ -11940,7 +12026,7 @@
       }
 
       // Tab collapses/expands the right sidebar drawer (ignore key auto-repeat when held)
-      if (e.key === 'Tab' && !state.chatOpen && document.activeElement.tagName !== 'INPUT') {
+      if (e.key === 'Tab' && !state.chatOpen && !isTypingInInput()) {
         e.preventDefault();
         if (!e.repeat) {
           toggleRightDrawer();
@@ -11949,7 +12035,7 @@
       }
 
       // Keyboard Navigation when the In-World Motion Bar is Open (Arrow keys, Enter/Space, Up, and Esc)
-      if (state.mode === 'play' && state.player.motionBarOpen && !state.chatOpen && document.activeElement.tagName !== 'INPUT') {
+      if (state.mode === 'play' && state.player.motionBarOpen && !state.chatOpen && !isTypingInInput()) {
         const p = state.player;
         const entries = getAllMotionBarEntries();
         if (e.key === 'Escape' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
@@ -11995,7 +12081,7 @@
         }
       }
 
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' && (!isTypingInInput() || document.activeElement === chatInput)) {
         if (e.repeat) return;
         if (!state.chatOpen) {
           resetAllHeldKeys();
@@ -12046,7 +12132,7 @@
         return;
       }
 
-      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+      if (isTypingInInput()) {
         return;
       }
 
@@ -12056,6 +12142,49 @@
         if (e.repeat) return;
         deselectMouseItemWithFeedback();
         return;
+      }
+
+      // Ignore Ctrl/Cmd/Alt shortcuts for movement keys so Ctrl+A / Ctrl+S / Ctrl+D / Ctrl+W never stick movement
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        return;
+      }
+
+      // Keyboard R (Rotate 90°) and F (Flip Horizontal) when holding a block or brush in the world
+      if (!e.repeat && (state.heldWorldBlock || state.activeBrushId)) {
+        if (e.key === 'r' || e.key === 'R') {
+          e.preventDefault();
+          if (state.heldWorldBlock) {
+            const cur = state.heldWorldBlock.item.orient || 0;
+            const next = (cur & 4) | ((cur + 1) & 3);
+            state.heldWorldBlock.item.orient = next;
+            if (state.heldWorldBlock.items && state.heldWorldBlock.items[0]) {
+              state.heldWorldBlock.items[0].cellData.orient = next;
+            }
+            state.brushOrient = next;
+          } else {
+            state.brushOrient = ((state.brushOrient & 4) | ((state.brushOrient + 1) & 3));
+          }
+          sfx.ui(540 + (state.brushOrient || 0) * 32);
+          updateBrushBar();
+          return;
+        }
+        if (e.key === 'f' || e.key === 'F') {
+          e.preventDefault();
+          if (state.heldWorldBlock) {
+            const cur = state.heldWorldBlock.item.orient || 0;
+            const next = cur ^ 4;
+            state.heldWorldBlock.item.orient = next;
+            if (state.heldWorldBlock.items && state.heldWorldBlock.items[0]) {
+              state.heldWorldBlock.items[0].cellData.orient = next;
+            }
+            state.brushOrient = next;
+          } else {
+            state.brushOrient = (state.brushOrient || 0) ^ 4;
+          }
+          sfx.ui(540 + (state.brushOrient || 0) * 32);
+          updateBrushBar();
+          return;
+        }
       }
 
       if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') state.keys.left = true;
@@ -12087,18 +12216,18 @@
       if (e.key === ' ') {
         state.keys.space = false;
         state.keys.spaceLatch = false;
+        editor.spaceHeld = false;
+        if (editor.isOpen) {
+          updateMoveVisualFeedback();
+        }
       }
       if (e.key === 'e' || e.key === 'E') {
         state.keys.eLatch = false;
       }
-    });
-
-    window.addEventListener('keyup', (e) => {
-      if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') state.keys.left = false;
-      if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') state.keys.right = false;
-      if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') state.keys.up = false;
-      if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') state.keys.down = false;
-      if (e.key === ' ') state.keys.space = false;
+      if (e.key === 'Control' || e.key === 'Meta' || e.key === 'Alt' || e.key === 'Shift') {
+        handleeditorAltAndCtrlKeys(e, false);
+        if (!editor.isOpen) updateWorldCursor(e);
+      }
     });
 
     function deselectMouseItemWithFeedback() {
@@ -12535,7 +12664,13 @@
       } else {
         const selecting = state.activeBrushId !== sp.id;
         state.activeBrushId = selecting ? sp.id : null;
-        if (selecting) state.brushOrient = 0;
+        if (selecting) {
+          state.brushOrient = 0;
+          if (state.mode === 'build' && ['erase', 'wire', 'spawn'].includes(state.worldTool)) {
+            state.worldTool = 'stamp';
+            updateWorldToolButtonsUI();
+          }
+        }
       }
       updateBrushBar();
       renderSidebarSprites();
@@ -13496,7 +13631,8 @@
         Boolean(editor.celMoveDrag) ||
         editor.marqueeAction === 'moving' ||
         isHoveringInsideMarquee;
-      const isPickerActive = editor.tool === 'picker' || editor.shiftHeld;
+      const isShapeOrLineTool = editor.tool === 'line' || editor.tool === 'rect' || editor.tool === 'ellipse' || editor.tool === 'marquee';
+      const isPickerActive = editor.tool === 'picker' || (editor.shiftHeld && !editor.isDrawing && !isShapeOrLineTool);
       const isFillActive = editor.tool === 'fill' || editor.altHeld;
       const isEraserActive = editor.tool === 'eraser' || (editor.isDrawing && editor.drawButton === 2);
       const pill = document.getElementById('move-mode-pill');
@@ -13978,6 +14114,21 @@
       }
     }
 
+    function snapLineEndpoint(x0, y0, x1, y1) {
+      const dx = x1 - x0;
+      const dy = y1 - y0;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      if (absDx === 0 && absDy === 0) return { x: x1, y: y1 };
+      if (absDx > absDy * 2) return { x: x1, y: y0 };
+      if (absDy > absDx * 2) return { x: x0, y: y1 };
+      const diag = Math.max(absDx, absDy);
+      return {
+        x: x0 + (dx >= 0 ? diag : -diag),
+        y: y0 + (dy >= 0 ? diag : -diag)
+      };
+    }
+
     function drawPixelLine(buf, x0, y0, x1, y1, rgba) {
       let dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
       let dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
@@ -14004,7 +14155,6 @@
       if (filled) {
         for (let py = minY; py <= maxY; py++) {
           for (let px = minX; px <= maxX; px++) {
-            if (editor.brushShape === 'dither' && ((px + py) & 1) !== 0) continue;
             const symPoints = getSymmetricPoints(px, py);
             for (const [sx, sy] of symPoints) {
               setSinglePixel(buf, sx, sy, rgba);
@@ -14043,7 +14193,6 @@
       if (filled) {
         for (let py = minY; py <= maxY; py++) {
           for (let px = minX; px <= maxX; px++) {
-            if (editor.brushShape === 'dither' && ((px + py) & 1) !== 0) continue;
             const nx = rx > 0.5 ? (px - cx) / rx : 0;
             const ny = ry > 0.5 ? (py - cy) / ry : 0;
             if (nx * nx + ny * ny <= 1.05) {
@@ -14595,8 +14744,16 @@
       updateMoveVisualFeedback();
       const { x, y } = getPixelCoordFromEvent(e);
 
-      // Hold Shift = Instant Eyedropper pick without triggering marquee/line/undo
-      if (e.shiftKey || editor.shiftHeld) {
+      // Right-clicking in Marquee or Move tool dismisses active selection rather than erasing pixels
+      if (e.button === 2 && (editor.tool === 'marquee' || editor.tool === 'move')) {
+        commitMarqueeSelection();
+        editor.isDrawing = false;
+        updateMoveVisualFeedback();
+        return;
+      }
+
+      // Hold Shift = Instant Eyedropper pick on brush/fill tools (while Line/Rect/Ellipse/Marquee use Shift for angle-snap / 1:1 lock)
+      if ((e.shiftKey || editor.shiftHeld) && !['line', 'rect', 'ellipse', 'marquee'].includes(editor.tool)) {
         applyToolAt(x, y, e.button, e);
         editor.isDrawing = false;
         return;
@@ -14719,12 +14876,16 @@
         const buf = editor.frames[editor.activeFrame];
         buf.set(editor.lineStart.snapshot);
         const rgba = editor.drawButton === 2 ? [0, 0, 0, 0] : hexToRgba(editor.color);
+        const lockEqual = editor.shapeEqualAspect || Boolean(e.shiftKey || editor.shiftHeld);
         if (editor.tool === 'rect') {
-          drawPixelRect(buf, editor.lineStart.x, editor.lineStart.y, x, y, rgba, editor.shapeFilled, editor.shapeEqualAspect);
+          drawPixelRect(buf, editor.lineStart.x, editor.lineStart.y, x, y, rgba, editor.shapeFilled, lockEqual);
         } else if (editor.tool === 'ellipse') {
-          drawPixelEllipse(buf, editor.lineStart.x, editor.lineStart.y, x, y, rgba, editor.shapeFilled, editor.shapeEqualAspect);
+          drawPixelEllipse(buf, editor.lineStart.x, editor.lineStart.y, x, y, rgba, editor.shapeFilled, lockEqual);
         } else {
-          drawPixelLine(buf, editor.lineStart.x, editor.lineStart.y, x, y, rgba);
+          const endPt = (e.shiftKey || editor.shiftHeld)
+            ? snapLineEndpoint(editor.lineStart.x, editor.lineStart.y, x, y)
+            : { x, y };
+          drawPixelLine(buf, editor.lineStart.x, editor.lineStart.y, endPt.x, endPt.y, rgba);
         }
         renderPaintCanvas();
         return;
@@ -14779,8 +14940,13 @@
       if (editor.marqueeAction && editor.marquee) {
         const { x, y } = getPixelCoordFromEvent(e);
         if (editor.marqueeAction === 'selecting') {
-          const cx = Math.max(0, Math.min(editor.w - 1, x));
-          const cy = Math.max(0, Math.min(editor.h - 1, y));
+          let cx = Math.max(0, Math.min(editor.w - 1, x));
+          let cy = Math.max(0, Math.min(editor.h - 1, y));
+          if (e.shiftKey || editor.shiftHeld) {
+            const side = Math.max(Math.abs(cx - editor.marqueeDragOrigin.x), Math.abs(cy - editor.marqueeDragOrigin.y));
+            cx = Math.max(0, Math.min(editor.w - 1, editor.marqueeDragOrigin.x + (cx >= editor.marqueeDragOrigin.x ? side : -side)));
+            cy = Math.max(0, Math.min(editor.h - 1, editor.marqueeDragOrigin.y + (cy >= editor.marqueeDragOrigin.y ? side : -side)));
+          }
           const x0 = Math.min(editor.marqueeDragOrigin.x, cx);
           const y0 = Math.min(editor.marqueeDragOrigin.y, cy);
           const x1 = Math.max(editor.marqueeDragOrigin.x, cx);
@@ -16620,6 +16786,29 @@
           copyMarqueeOrCel();
           return;
         }
+        if (k === 'x') {
+          e.preventDefault();
+          if (e.repeat) return;
+          copyMarqueeOrCel();
+          document.getElementById('clear-canvas-btn').click();
+          return;
+        }
+        if (k === 'a') {
+          e.preventDefault();
+          if (e.repeat) return;
+          commitMarqueeSelection();
+          selectTool('marquee');
+          editor.marquee = {
+            x: 0,
+            y: 0,
+            w: editor.w,
+            h: editor.h,
+            mask: null,
+            floatingData: null
+          };
+          renderPaintCanvas();
+          return;
+        }
       }
 
       // Arrow keys nudge active Marquee selection or whole cel when Move/Ctrl is active
@@ -16683,19 +16872,6 @@
         document.getElementById('clear-canvas-btn').click();
       }
     }
-
-    window.addEventListener('keyup', (e) => {
-      if (e.key === 'Control' || e.key === 'Meta' || e.key === 'Alt' || e.key === 'Shift') {
-        handleeditorAltAndCtrlKeys(e, false);
-        if (!editor.isOpen) updateWorldCursor(e);
-      }
-      if (e.key === ' ') {
-        editor.spaceHeld = false;
-        if (editor.isOpen) {
-          updateMoveVisualFeedback();
-        }
-      }
-    });
 
     /********************************************************************
      * SAVING CREATIONS & PROJECT JSON EXPORT/IMPORT
@@ -17600,34 +17776,21 @@
     function renderSavedWorldsList() {
       updateActiveWorldBannerUI();
       savedWorldsList.innerHTML = '';
-      savedWorldsCount.textContent = `${state.savedWorlds.length} world${state.savedWorlds.length === 1 ? '' : 's'}`;
 
       const q = (state.worldsSearchQuery || '').trim().toLowerCase();
       let filtered = state.savedWorlds.filter(w => !q || (w.name || '').toLowerCase().includes(q));
 
-      if (state.worldsSortBy === 'name') {
-        filtered = filtered.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      } else if (state.worldsSortBy === 'tiles') {
-        filtered = filtered.slice().sort((a, b) => {
-          const ta = Array.isArray(a.data?.worldCells) ? a.data.worldCells.length : 0;
-          const tb = Array.isArray(b.data?.worldCells) ? b.data.worldCells.length : 0;
-          return tb - ta;
-        });
-      } else {
-        // Put the currently active world first, then most recently updated
-        filtered = filtered.slice().sort((a, b) => {
-          if (a.id === state.activeWorldId) return -1;
-          if (b.id === state.activeWorldId) return 1;
-          return (b.updatedAt || 0) - (a.updatedAt || 0);
-        });
-      }
+      // Keep the active world first, then sort by most recently used
+      filtered = filtered.slice().sort((a, b) => {
+        if (a.id === state.activeWorldId) return -1;
+        if (b.id === state.activeWorldId) return 1;
+        return (b.updatedAt || 0) - (a.updatedAt || 0);
+      });
 
       if (filtered.length === 0) {
         const empty = document.createElement('div');
-        empty.className = 'col-span-full p-6 text-center text-zinc-500 text-[10px]';
-        empty.textContent = q
-          ? 'No worlds match your search.'
-          : 'No saved worlds yet. Click "+ New World" or "+ Snapshot" above.';
+        empty.className = 'col-span-full py-8 text-center text-zinc-500 text-xs';
+        empty.textContent = q ? 'No matching worlds.' : 'No worlds yet.';
         savedWorldsList.appendChild(empty);
         return;
       }
@@ -17635,48 +17798,55 @@
       filtered.forEach((wSlot) => {
         const isCurrentActive = wSlot.id === state.activeWorldId;
         const card = document.createElement('div');
-        card.className = `p-2.5 rounded-sm border transition-all flex flex-col justify-between gap-2.5 ${
+        card.className = `rounded-sm border transition-all flex flex-col overflow-hidden ${
           isCurrentActive
-            ? 'bg-[#151c2c] border-blue-500/80 shadow-[0_0_0_1px_rgba(59,130,246,0.3)]'
-            : 'bg-[#13141c] border-[#262836] hover:border-[#3e4258] hover:bg-[#171822]'
+            ? 'bg-[#161f33] border-blue-500 shadow-[0_0_0_1px_rgba(59,130,246,0.35)]'
+            : 'bg-[#14151e] border-[#262836] hover:border-[#434760]'
         }`;
 
-        const topRow = document.createElement('div');
-        topRow.className = 'flex items-start gap-2.5 min-w-0';
-
-        // Mini World Preview Canvas (clicking it switches to that world)
+        // Top Visual Minimap Preview (Clicking switches straight into the world)
         const previewWrap = document.createElement('div');
-        previewWrap.className = 'relative shrink-0 cursor-pointer group';
-        previewWrap.title = isCurrentActive ? 'Currently Active World' : `Click to switch to "${wSlot.name}"`;
-        const previewCanvasEl = createSavedWorldPreviewCanvas(wSlot, 96, 60);
+        previewWrap.className = 'relative w-full h-24 bg-[#101117] cursor-pointer overflow-hidden flex items-center justify-center border-b border-[#222432] group';
+        const previewCanvasEl = createSavedWorldPreviewCanvas(wSlot, 192, 96);
+        previewCanvasEl.style.width = '100%';
+        previewCanvasEl.style.height = '100%';
+        previewCanvasEl.className = 'block w-full h-full object-cover';
         previewWrap.appendChild(previewCanvasEl);
+
         if (isCurrentActive) {
-          const activeDot = document.createElement('span');
-          activeDot.className = 'absolute top-1 left-1 px-1 py-0.2 bg-blue-600/95 text-[7px] text-white font-bold rounded-xs shadow';
-          activeDot.textContent = 'ACTIVE';
-          previewWrap.appendChild(activeDot);
+          const activeBadge = document.createElement('span');
+          activeBadge.className = 'absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-blue-600 text-[8px] text-white font-bold rounded-xs shadow';
+          activeBadge.textContent = 'ACTIVE';
+          previewWrap.appendChild(activeBadge);
+        } else {
+          const playOverlay = document.createElement('div');
+          playOverlay.className = 'absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center';
+          playOverlay.innerHTML = '<span class="ase-btn-primary px-3 py-1 text-[10px] font-semibold shadow-lg">Play</span>';
+          previewWrap.appendChild(playOverlay);
         }
+
         previewWrap.addEventListener('click', () => {
           if (!isCurrentActive) switchToSavedWorldSlot(wSlot);
           else closeWorldsModal();
         });
-        topRow.appendChild(previewWrap);
+        card.appendChild(previewWrap);
 
-        const info = document.createElement('div');
-        info.className = 'flex flex-col gap-1 flex-1 min-w-0';
-        const tileCount = Array.isArray(wSlot.data?.worldCells) ? wSlot.data.worldCells.length : 0;
+        // Bottom Bar: Editable Name + Compact Icon Controls
+        const bottomRow = document.createElement('div');
+        bottomRow.className = 'p-2 flex items-center justify-between gap-1';
 
-        // Editable World Name Input right on the card
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
-        nameInput.value = wSlot.name || 'Untitled World';
-        nameInput.title = 'Click to rename world';
-        nameInput.className = 'bg-transparent hover:bg-[#0e1017] focus:bg-[#090a0f] border border-transparent hover:border-[#2e303e] focus:border-blue-500 rounded-xs px-1.5 py-0.5 text-zinc-100 font-semibold text-[11px] w-full focus:outline-none truncate';
+        nameInput.value = wSlot.name || 'Untitled';
+        nameInput.className = 'bg-transparent hover:bg-[#0c0d12] focus:bg-[#090a0f] border border-transparent hover:border-[#2c2e3e] focus:border-blue-500 rounded-xs px-1.5 py-0.5 text-zinc-100 font-semibold text-[10px] flex-1 min-w-0 focus:outline-none';
         const commitWorldRename = () => {
-          const trimmed = nameInput.value.trim() || 'Untitled World';
+          const trimmed = nameInput.value.trim() || 'Untitled';
           nameInput.value = trimmed;
           if (wSlot.name !== trimmed) {
             wSlot.name = trimmed;
+            if (isCurrentActive && saveWorldNameInput) {
+              saveWorldNameInput.value = trimmed;
+            }
             persistSavedWorlds();
             updateTopWorldNameUI();
           }
@@ -17690,47 +17860,15 @@
           }
         });
 
-        const metaLine = document.createElement('div');
-        metaLine.className = 'text-[9px] text-zinc-400 px-1.5 truncate';
-        metaLine.textContent = `${tileCount} tiles | ${wSlot.date || 'Saved'}`;
+        const actions = document.createElement('div');
+        actions.className = 'flex items-center gap-1 shrink-0';
 
-        const syncNote = document.createElement('div');
-        syncNote.className = `text-[8px] px-1.5 ${isCurrentActive ? 'text-emerald-400' : 'text-zinc-500'}`;
-        syncNote.textContent = isCurrentActive ? '● Auto-syncing live changes' : 'Click Switch to play/build';
-
-        info.appendChild(nameInput);
-        info.appendChild(metaLine);
-        info.appendChild(syncNote);
-        topRow.appendChild(info);
-
-        // Bottom Card Actions Bar
-        const btns = document.createElement('div');
-        btns.className = 'flex items-center justify-between gap-1.5 pt-1.5 border-t border-[#222432]';
-
-        const leftBtns = document.createElement('div');
-        leftBtns.className = 'flex items-center gap-1';
-
-        if (isCurrentActive) {
-          const playingBtn = document.createElement('button');
-          playingBtn.className = 'ase-btn active px-2.5 py-0.5 text-[9px] text-emerald-300 font-semibold';
-          playingBtn.textContent = '✓ Playing';
-          playingBtn.title = 'Return to world';
-          playingBtn.addEventListener('click', closeWorldsModal);
-          leftBtns.appendChild(playingBtn);
-        } else {
-          const switchBtn = document.createElement('button');
-          switchBtn.className = 'ase-btn-primary px-2.5 py-0.5 text-[9px] font-semibold';
-          switchBtn.textContent = 'Switch';
-          switchBtn.title = 'Auto-saves your current world and switches to this world';
-          switchBtn.addEventListener('click', () => switchToSavedWorldSlot(wSlot));
-          leftBtns.appendChild(switchBtn);
-        }
-
+        // Clone Icon Button
         const cloneBtn = document.createElement('button');
-        cloneBtn.className = 'ase-btn px-2 py-0.5 text-[9px] text-zinc-300';
-        cloneBtn.textContent = 'Clone';
-        cloneBtn.title = 'Duplicate this world into a new slot';
-        cloneBtn.addEventListener('click', () => {
+        cloneBtn.className = 'ase-btn p-1 text-zinc-400 hover:text-white flex items-center justify-center';
+        cloneBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+        cloneBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
           const clonedData = JSON.parse(JSON.stringify(wSlot.data));
           const clonedSlot = {
             id: 'w_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
@@ -17744,16 +17882,13 @@
           sfx.createSuccess();
           renderSavedWorldsList();
         });
-        leftBtns.appendChild(cloneBtn);
 
-        const rightBtns = document.createElement('div');
-        rightBtns.className = 'flex items-center gap-1';
-
+        // Export JSON Icon Button
         const exportBtn = document.createElement('button');
-        exportBtn.className = 'ase-btn px-2 py-0.5 text-[9px] text-emerald-300';
-        exportBtn.textContent = 'JSON';
-        exportBtn.title = 'Download world file (.loombit.json)';
-        exportBtn.addEventListener('click', () => {
+        exportBtn.className = 'ase-btn p-1 text-zinc-400 hover:text-emerald-300 flex items-center justify-center';
+        exportBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+        exportBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
           const safe = (wSlot.name || 'world').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
           const blob = new Blob([JSON.stringify(wSlot.data)], { type: 'application/json' });
           const url = URL.createObjectURL(blob);
@@ -17764,15 +17899,16 @@
           URL.revokeObjectURL(url);
         });
 
+        // Delete Button (2-click confirm)
         const delBtn = document.createElement('button');
-        delBtn.className = 'ase-btn px-2 py-0.5 text-[9px] text-red-400';
+        delBtn.className = 'ase-btn px-1.5 py-0.5 text-[9px] text-red-400 hover:text-red-200';
         delBtn.textContent = 'X';
-        delBtn.title = 'Delete World (Click twice to confirm)';
         let delConfirmTimer = null;
-        delBtn.addEventListener('click', () => {
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
           if (delBtn.dataset.confirming !== 'true') {
             delBtn.dataset.confirming = 'true';
-            delBtn.textContent = 'Delete?';
+            delBtn.textContent = 'Sure?';
             delBtn.classList.add('bg-red-950/80', 'text-red-200');
             clearTimeout(delConfirmTimer);
             delConfirmTimer = setTimeout(() => {
@@ -17792,14 +17928,13 @@
           renderSavedWorldsList();
         });
 
-        rightBtns.appendChild(exportBtn);
-        rightBtns.appendChild(delBtn);
+        actions.appendChild(cloneBtn);
+        actions.appendChild(exportBtn);
+        actions.appendChild(delBtn);
 
-        btns.appendChild(leftBtns);
-        btns.appendChild(rightBtns);
-
-        card.appendChild(topRow);
-        card.appendChild(btns);
+        bottomRow.appendChild(nameInput);
+        bottomRow.appendChild(actions);
+        card.appendChild(bottomRow);
         savedWorldsList.appendChild(card);
       });
     }

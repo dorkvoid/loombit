@@ -357,9 +357,35 @@
       opacity: 0;
       pointer-events: none;
     }
+
+    /* Custom LoomBit Pixel Tooltip */
+    #loombit-tooltip {
+      position: fixed;
+      z-index: 250;
+      pointer-events: none;
+      background: rgba(14, 15, 20, 0.96);
+      border: 1px solid #464a5e;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      color: #f4f4f5;
+      font-size: 12px;
+      line-height: 1.25;
+      padding: 4px 8px;
+      border-radius: 2px;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translateY(2px);
+      transition: opacity 0.1s ease-out, transform 0.1s ease-out;
+    }
+    #loombit-tooltip.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
   </style>
 </head>
 <body class="flex h-screen w-screen overflow-hidden" oncontextmenu="return false;">
+
+  <!-- CUSTOM ENGINE TOOLTIP -->
+  <div id="loombit-tooltip" role="tooltip"></div>
 
   <!-- STARTUP LOADING SCREEN OVERLAY (Fades out smoothly on open/refresh) -->
   <div id="boot-loading-screen" class="fixed inset-0 z-[100] bg-[#0e0f13] flex flex-col items-center justify-center select-none">
@@ -479,8 +505,6 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         <span id="top-world-name-label" class="max-w-[115px] truncate">Worlds</span>
       </button>
-
-      <input id="world-anim-fps" type="number" min="2" max="24" value="8" title="Global Walk / World FPS" class="hidden" />
     </div>
 
     <!-- Floating Button to Re-Open Right Drawer when Minimized -->
@@ -565,7 +589,7 @@
       <input
         id="sidebar-search-input"
         type="text"
-        placeholder="Search name or type..."
+        placeholder="Search..."
         class="flex-1 min-w-0 bg-[#0c0d11] border border-[#282a36] rounded-sm px-2 py-0.5 text-[10px] text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-blue-500"
       />
       <button id="sidebar-search-clear" class="hidden text-[10px] text-zinc-400 hover:text-white px-1">X</button>
@@ -589,10 +613,14 @@
 
     <!-- Compact Single-Line Equipped Status Bar (Hidden when nothing custom is selected) -->
     <div id="active-brush-bar" class="px-2.5 py-1 bg-[#1c1c21] border-b border-[#2a2a32] text-[10px] flex items-center justify-between gap-2">
-      <span id="active-worn-label" class="text-zinc-400 truncate">Wireframe</span>
-      <button id="clear-worn-btn" title="Unequip Body/Items" class="hidden text-[9px] text-zinc-400 hover:text-white px-1">X</button>
-      <span id="active-brush-label" class="text-blue-300 truncate"></span>
-      <button id="clear-brush-btn" title="Unequip Brush" class="hidden text-[9px] text-zinc-400 hover:text-white px-1">X</button>
+      <div class="flex items-center gap-1 min-w-0">
+        <span id="active-worn-label" class="text-zinc-400 truncate">Wireframe</span>
+        <button id="clear-worn-btn" title="Unequip Body/Items" class="hidden text-[9px] text-zinc-400 hover:text-white px-1 shrink-0 leading-none">X</button>
+      </div>
+      <div class="flex items-center gap-1 min-w-0">
+        <span id="active-brush-label" class="text-blue-300 truncate"></span>
+        <button id="clear-brush-btn" title="Unequip Brush" class="hidden text-[9px] text-zinc-400 hover:text-white px-1 shrink-0 leading-none">X</button>
+      </div>
     </div>
 
     <!-- Saved Sprites Grid (Starts Completely Empty) -->
@@ -815,7 +843,6 @@
               <input id="canvas-h-input" type="number" min="4" max="128" value="19" class="w-9 bg-transparent px-1 py-0.5 text-center mono text-zinc-100 focus:outline-none" />
               <button id="canvas-h-inc-btn" type="button" title="Increase Height (+1, Shift: +5)" class="ase-btn px-1.5 py-0.5 text-[11px] mono leading-none border-0 border-l border-[#34343e]">+</button>
             </div>
-            <button id="resize-canvas-btn" class="hidden">Resize</button>
           </div>
         </div>
 
@@ -1026,7 +1053,6 @@
               <input id="spray-radius-slider" type="range" min="2" max="16" value="5" class="w-14 accent-blue-500 h-1 bg-[#101116] rounded" />
               <span id="spray-radius-label" class="mono text-zinc-100">5px</span>
             </div>
-            <span id="active-tool-readout" class="hidden"></span>
             <!-- Move Mode Active Indicator Pill -->
             <div id="move-mode-pill" class="hidden items-center gap-1.5 bg-blue-600/95 border border-blue-300 text-white px-2 py-0.5 rounded-sm text-[9px] shadow-md">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>
@@ -1174,7 +1200,6 @@
             <!-- Dynamically populated state-badged cel columns -->
           </div>
           <div class="flex items-center gap-1.5 pl-1 shrink-0">
-            <span id="active-cel-name-badge" class="hidden"></span>
             <!-- Smart State Assignment Dropdown for Multi-State Types (e.g. Body, Wearable) -->
             <select
               id="cel-state-select"
@@ -1308,14 +1333,14 @@
           />
         </div>
         <div class="flex items-center gap-2">
-          <button id="modal-reset-world-btn" class="ase-btn-primary px-3.5 py-1 text-[11px] font-semibold">
+          <button id="modal-reset-world-btn" data-tooltip="Create a new starter world in your list" class="ase-btn-primary px-3.5 py-1 text-[11px] font-semibold">
             + New World
           </button>
-          <label class="ase-btn px-3 py-1 text-[11px] text-zinc-300 cursor-pointer">
+          <label data-tooltip="Import a saved world file (.json)" class="ase-btn px-3 py-1 text-[11px] text-zinc-300 cursor-pointer">
             Import
             <input id="import-world-slot-input" type="file" accept=".json" class="hidden" />
           </label>
-          <button id="close-worlds-modal-btn" class="ase-btn px-3 py-1 text-xs ml-1">X</button>
+          <button id="close-worlds-modal-btn" data-tooltip="Close Worlds Menu (Esc)" class="ase-btn px-3 py-1 text-xs ml-1">X</button>
         </div>
       </div>
 
@@ -1330,27 +1355,13 @@
       <div class="px-4 py-2.5 bg-[#111217] border-t border-[#262834] flex items-center justify-between gap-2 text-[10px] shrink-0">
         <span class="text-zinc-400">Creations Backup</span>
         <div class="flex items-center gap-2">
-          <button id="export-assets-only-btn" class="ase-btn px-2.5 py-1 text-[10px] text-zinc-200">Export Pack</button>
-          <label class="ase-btn px-2.5 py-1 text-[10px] text-zinc-200 cursor-pointer">
+          <button id="export-assets-only-btn" data-tooltip="Download all creations in your Vault as a .json pack" class="ase-btn px-2.5 py-1 text-[10px] text-zinc-200">Export Pack</button>
+          <label data-tooltip="Import and merge a creations pack (.json) into your Vault" class="ase-btn px-2.5 py-1 text-[10px] text-zinc-200 cursor-pointer">
             Import Pack
             <input id="import-assets-merge-input" type="file" accept=".json" class="hidden" />
           </label>
-          <button id="export-all-strips-btn" class="ase-btn px-2.5 py-1 text-[10px] text-zinc-300">PNG Strips</button>
+          <button id="export-all-strips-btn" data-tooltip="Download all creations as horizontal PNG spritesheet strips" class="ase-btn px-2.5 py-1 text-[10px] text-zinc-300">PNG Strips</button>
         </div>
-      </div>
-
-      <!-- Hidden Legacy Hooks -->
-      <div class="hidden">
-        <span id="autosave-status-badge"></span>
-        <div id="active-world-mini-preview"></div>
-        <span id="active-world-status-pill"></span>
-        <span id="active-world-stats-label"></span>
-        <input id="save-world-name-input" type="text" value="World 1" />
-        <button id="clone-current-world-btn"></button>
-        <button id="save-world-slot-btn"></button>
-        <span id="saved-worlds-count"></span>
-        <select id="worlds-sort-select"><option value="recent">Recent</option></select>
-        <button id="restore-autosave-btn"></button>
       </div>
     </div>
   </div>
@@ -1392,29 +1403,41 @@
         window.addEventListener(gEvt, (e) => e.preventDefault(), { capture: true, passive: false });
       }
 
-      // Strip native browser `title` attributes everywhere so Firefox's default tooltip bar never appears
-      const stripNativeTitles = (root) => {
+      // Convert native browser `title` attributes into `data-tooltip` so Firefox's default tooltip bar never appears,
+      // while powering our custom in-engine pixel tooltip (#loombit-tooltip)
+      const convertNativeTitles = (root) => {
         if (!root) return;
         if (root.nodeType === 1 && root.hasAttribute && root.hasAttribute('title')) {
+          const val = root.getAttribute('title');
+          if (val && !root.hasAttribute('data-tooltip')) {
+            root.setAttribute('data-tooltip', val);
+          }
           root.removeAttribute('title');
         }
         if (root.querySelectorAll) {
           const titled = root.querySelectorAll('[title]');
           for (let i = 0; i < titled.length; i++) {
-            titled[i].removeAttribute('title');
+            const el = titled[i];
+            const val = el.getAttribute('title');
+            if (val && !el.hasAttribute('data-tooltip')) {
+              el.setAttribute('data-tooltip', val);
+            }
+            el.removeAttribute('title');
           }
         }
       };
 
-      stripNativeTitles(document.documentElement);
+      convertNativeTitles(document.documentElement);
       const titleObserver = new MutationObserver((mutations) => {
         for (let i = 0; i < mutations.length; i++) {
           const m = mutations[i];
           if (m.type === 'attributes' && m.attributeName === 'title' && m.target) {
+            const val = m.target.getAttribute('title');
+            if (val) m.target.setAttribute('data-tooltip', val);
             m.target.removeAttribute('title');
           } else if (m.type === 'childList' && m.addedNodes.length > 0) {
             for (let j = 0; j < m.addedNodes.length; j++) {
-              stripNativeTitles(m.addedNodes[j]);
+              convertNativeTitles(m.addedNodes[j]);
             }
           }
         }
@@ -1425,6 +1448,93 @@
         attributes: true,
         attributeFilter: ['title']
       });
+
+      // Custom LoomBit Tooltip Controller
+      const tooltipEl = document.getElementById('loombit-tooltip');
+      let activeTooltipTarget = null;
+      let tooltipTimer = null;
+
+      const positionTooltipForElement = (el) => {
+        if (!tooltipEl || !el) return;
+        const rect = el.getBoundingClientRect();
+        const tipRect = tooltipEl.getBoundingClientRect();
+        const pad = 8;
+
+        let left = 0;
+        let top = 0;
+
+        // Place to the right for Left Tool Strip buttons in The Forge
+        if (el.classList && el.classList.contains('tool-btn')) {
+          left = rect.right + 8;
+          top = rect.top + (rect.height - tipRect.height) / 2;
+        } else {
+          left = rect.left + (rect.width - tipRect.width) / 2;
+          top = rect.bottom + 7;
+          // Flip above the element if too close to the bottom of the screen
+          if (top + tipRect.height > window.innerHeight - pad) {
+            top = rect.top - tipRect.height - 7;
+          }
+        }
+
+        left = Math.max(pad, Math.min(window.innerWidth - tipRect.width - pad, left));
+        top = Math.max(pad, Math.min(window.innerHeight - tipRect.height - pad, top));
+
+        tooltipEl.style.left = `${Math.round(left)}px`;
+        tooltipEl.style.top = `${Math.round(top)}px`;
+      };
+
+      const showTooltipForElement = (el) => {
+        if (!tooltipEl || !el) return;
+        const text = el.getAttribute('data-tooltip');
+        if (!text) return;
+        tooltipEl.textContent = text;
+        tooltipEl.classList.add('visible');
+        positionTooltipForElement(el);
+      };
+
+      const hideTooltip = () => {
+        if (tooltipTimer) {
+          clearTimeout(tooltipTimer);
+          tooltipTimer = null;
+        }
+        activeTooltipTarget = null;
+        if (tooltipEl) {
+          tooltipEl.classList.remove('visible');
+        }
+      };
+
+      document.addEventListener('mouseover', (e) => {
+        if (e.buttons !== 0) {
+          hideTooltip();
+          return;
+        }
+        const target = e.target.closest ? e.target.closest('[data-tooltip]') : null;
+        if (target === activeTooltipTarget) return;
+
+        if (tooltipTimer) {
+          clearTimeout(tooltipTimer);
+          tooltipTimer = null;
+        }
+
+        if (!target) {
+          hideTooltip();
+          return;
+        }
+
+        const wasAlreadyVisible = tooltipEl && tooltipEl.classList.contains('visible');
+        activeTooltipTarget = target;
+        const delay = wasAlreadyVisible ? 25 : 140;
+        tooltipTimer = setTimeout(() => {
+          if (activeTooltipTarget && activeTooltipTarget.isConnected) {
+            showTooltipForElement(activeTooltipTarget);
+          }
+        }, delay);
+      }, { passive: true });
+
+      document.addEventListener('mousedown', hideTooltip, { capture: true, passive: true });
+      document.addEventListener('wheel', hideTooltip, { capture: true, passive: true });
+      window.addEventListener('keydown', hideTooltip, { capture: true, passive: true });
+      window.addEventListener('blur', hideTooltip, { passive: true });
     })();
 
     /********************************************************************
@@ -1644,7 +1754,6 @@
       savedWorlds: [],
       activeWorldId: null,
       worldsSearchQuery: '',
-      worldsSortBy: 'recent',
 
       // Placed World Instances: key "x,y,layer" -> instance object
       // Layers: 'farback', 'back', 'main', 'front'
@@ -1653,7 +1762,7 @@
       worldRedoStack: [],
       placementCounter: 1,    // Tracks most recently placed Fill Light
       dynamicEntities: [],    // Push blocks, Moving platforms, Living NPCs
-      heldWorldBlock: null,   // Active block held via Click-Hold-Drag (clone) or Ctrl+Click-Drag (move)
+      heldWorldBlock: null,   // Active block held via Click-Hold-Drag (clone) or Shift+Click-Drag (move)
       deleteAnimations: [],   // Smooth shrink/dissolve animations when erasing blocks
       floatingTexts: [],      // Damage numbers / status popups in viewport
       projectiles: [],        // Thrown Holdables, Emitter shots, Item Thrower particles
@@ -1676,11 +1785,6 @@
       activatorTimer: 0,      // Timed activation from Activater blocks
       DrawerCollapsed: false,
       wireBlueprintFade: 0,   // Smooth fade (0..1) for loose blueprint schematic view when Wire tool is active
-
-      // Smoothly interpolated ambient light state for Light objects
-      smoothLight: {
-        r: 18, g: 18, b: 21, a: 0
-      },
 
       // Physical World Wind State (Driven by placed 'Environmental Wind' blocks)
       wind: {
@@ -1815,8 +1919,6 @@
       activeFrame: 0,
       tool: 'pencil',
       brushSize: 1,
-      brushAnimSize: 1,       // Smoothly interpolated brush size shown directly on canvas
-      brushPulseAlpha: 0,     // Highlights the brush footprint on canvas when resizing
       brushShape: 'square',   // 'square' | 'circle'
       shapeFilled: false,     // false = Lined (Stroke), true = Filled for 'rect' & 'ellipse'
       shapeEqualAspect: false,// 1:1 square/circle lock
@@ -1850,7 +1952,6 @@
       onionSkin: true,
       undoStack: [],
       redoStack: [],
-      undoTransition: null,   // Smooth crossfade buffer when undoing/redoing in the editor
       previewMode: 'walk',
       previewPlaying: true,
       previewLoopMode: 'loop', // 'loop' | 'pingpong'
@@ -1910,7 +2011,6 @@
     const toggleFloorBtn = document.getElementById('toggle-floor-btn');
     const toggleBoxBtn = document.getElementById('toggle-box-btn');
     const toggleSoundBtn = document.getElementById('toggle-sound-btn');
-    const worldAnimFpsInput = document.getElementById('world-anim-fps');
     const chatInput = document.getElementById('chat-input');
     const worldCoordsReadout = document.getElementById('world-coords-readout');
     const builderToolsGroup = document.getElementById('builder-tools-group');
@@ -1977,7 +2077,6 @@
     const shapeSubbar = document.getElementById('shape-subbar');
     const fillSubbar = document.getElementById('fill-subbar');
     const spraySubbar = document.getElementById('spray-subbar');
-    const activeToolReadout = document.getElementById('active-tool-readout');
     const symmetryPopover = document.getElementById('symmetry-popover');
     const svCanvas = document.getElementById('sv-spectrum-canvas');
     const svCtx = svCanvas.getContext('2d');
@@ -1994,8 +2093,29 @@
     const previewCtx = previewCanvas.getContext('2d');
     const previewControlsBar = document.getElementById('preview-controls-bar');
     const framesContainer = document.getElementById('frames-container');
-    const activeCelNameBadge = document.getElementById('active-cel-name-badge');
     const celStateSelect = document.getElementById('cel-state-select');
+
+    // Shared scratch canvas for zero-allocation buffer blitting in The Forge
+    const sharedScratchCanvas = document.createElement('canvas');
+    const sharedScratchCtx = sharedScratchCanvas.getContext('2d');
+
+    function blitBufferToCtx(targetCtx, buf, srcW, srcH, dx, dy, dw, dh) {
+      if (!buf || srcW <= 0 || srcH <= 0) return;
+      if (sharedScratchCanvas.width !== srcW || sharedScratchCanvas.height !== srcH) {
+        sharedScratchCanvas.width = srcW;
+        sharedScratchCanvas.height = srcH;
+      }
+      const expectedLen = srcW * srcH * 4;
+      const clamped = buf.length === expectedLen
+        ? new Uint8ClampedArray(buf.buffer, buf.byteOffset, expectedLen)
+        : (() => {
+            const tmp = new Uint8ClampedArray(expectedLen);
+            tmp.set(buf.subarray(0, expectedLen));
+            return tmp;
+          })();
+      sharedScratchCtx.putImageData(new ImageData(clamped, srcW, srcH), 0, 0);
+      targetCtx.drawImage(sharedScratchCanvas, 0, 0, srcW, srcH, dx, dy, dw, dh);
+    }
 
     // Hoisted Loop & Mouse State (Initialized before ResizeObserver / renderWorld calls)
     const FIXED_DT = 1000 / 60;
@@ -2020,8 +2140,6 @@
       panStartScreen: { x: 0, y: 0 },
       panStartCam: { x: 0, y: 0 },
       dragStart: null,
-      isSelectingBlocks: false,
-      selectMoveMode: false,
       pendingHoldGrab: null,
       wireDragSource: null
     };
@@ -4199,14 +4317,13 @@
       populateFurryControls();
       updatePoseAndMotionDropdowns();
 
-      if (['dynamic', 'interacting', 'textual', 'places'].includes(editor.type) || (specIdOrEditorType() === 'body' && editor.subtype === 'Motion')) {
+      if (['dynamic', 'interacting', 'textual', 'places'].includes(editor.type) || (editor.type === 'body' && editor.subtype === 'Motion')) {
         openCodePopupBtn.classList.remove('hidden');
         openCodePopupBtn.classList.add('flex');
       } else {
         openCodePopupBtn.classList.add('hidden');
         openCodePopupBtn.classList.remove('flex');
       }
-      function specIdOrEditorType() { return editor.type; }
 
       const labels = getFrameLabelsForSubtype(editor.type, editor.subtype);
       const targetCount = Math.max(labels.length, editor.frames.length);
@@ -4594,7 +4711,7 @@
       p.deadTimer = 0;
       p.deathRot = 0;
       p.deathVr = 0;
-      p.respawnAnim = 0.05;
+      p.respawnAnim = state.mode === 'build' ? 1 : 0.05;
       p.grappleTarget = null;
       p.sitting = false;
       p.lying = false;
@@ -5534,6 +5651,10 @@
             sb.floatOffset += 0.14;
             if (sb.age >= sb.maxAge) p.speechBubbles.splice(i, 1);
           }
+        }
+
+        if (p.respawnAnim < 1) {
+          p.respawnAnim = Math.min(1, p.respawnAnim + 0.15);
         }
 
         const isKeyScrolling =
@@ -7095,8 +7216,9 @@
     }
 
     function doesPlayerRectOverlapSolid(rx, ry, rw, rh, ignoreCell = null) {
-      for (const [, c] of state.worldCells.entries()) {
-        if (c === ignoreCell || !hasSpriteId(c.spriteId)) continue;
+      for (let i = 0; i < tickSolidCandidates.length; i++) {
+        const c = tickSolidCandidates[i];
+        if (c === ignoreCell) continue;
         if (isCellSolid(c) !== true) continue;
         if (rx < c.x + c.w - 0.1 && rx + rw > c.x + 0.1 && ry < c.y + c.h - 0.1 && ry + rh > c.y + 0.1) {
           return true;
@@ -8731,7 +8853,6 @@
       // Smart Auto-Back Fill: When 2 or more BACK tiles are placed around an object (such as a SOLID, THING, CLIMBABLE, ACTIVATOR, etc.)
       // that doesn't already have an explicit BACK tile directly behind it, automatically render the surrounding BACK behind that object!
       if (backCells.length > 0 || farBackCells.length > 0) {
-        const autoSurroundBackCells = [];
         const neighborOffsets = [
           [-TILE_SIZE, 0],
           [TILE_SIZE, 0],
@@ -8746,28 +8867,27 @@
           if (cell.layer === 'back' || cell.layer === 'farback' || cell.type === 'back' || cell.type === 'environment' || cell.type === 'light') {
             continue;
           }
-          // Skip if there is already an explicit BACK tile at this exact coordinate
           if (state.worldCells.has(`${cell.x},${cell.y},back`) || state.worldCells.has(`${cell.x},${cell.y},farback`)) {
             continue;
           }
-          let backNeighborCount = 0;
+          let backNeighborScore = 0;
           let bestBackNeighbor = null;
-          const countsBySprite = new Map();
+          let bestWeight = 0;
           for (let i = 0; i < neighborOffsets.length; i++) {
             const [ox, oy] = neighborOffsets[i];
             const nBack = state.worldCells.get(`${cell.x + ox},${cell.y + oy},back`) ||
                           state.worldCells.get(`${cell.x + ox},${cell.y + oy},farback`);
             if (nBack && nBack.type === 'back' && hasSpriteId(nBack.spriteId)) {
-              backNeighborCount += (i < 4) ? 1 : 0.6;
-              const c = (countsBySprite.get(nBack.spriteId) || 0) + (i < 4 ? 2 : 1);
-              countsBySprite.set(nBack.spriteId, c);
-              if (!bestBackNeighbor || c > (countsBySprite.get(bestBackNeighbor.spriteId) || 0)) {
+              const w = i < 4 ? 1 : 0.6;
+              backNeighborScore += w;
+              if (!bestBackNeighbor || w > bestWeight) {
                 bestBackNeighbor = nBack;
+                bestWeight = w;
               }
             }
           }
-          if (backNeighborCount >= 1.5 && bestBackNeighbor) {
-            autoSurroundBackCells.push({
+          if (backNeighborScore >= 1.5 && bestBackNeighbor) {
+            const autoCell = {
               spriteId: bestBackNeighbor.spriteId,
               x: cell.x,
               y: cell.y,
@@ -8780,12 +8900,10 @@
               rotation: bestBackNeighbor.rotation || 0,
               frameIdx: bestBackNeighbor.frameIdx || 0,
               placeAnim: cell.placeAnim !== undefined ? cell.placeAnim : 1
-            });
+            };
+            if (autoCell.layer === 'farback') farBackCells.push(autoCell);
+            else backCells.push(autoCell);
           }
-        }
-        for (const autoCell of autoSurroundBackCells) {
-          if (autoCell.layer === 'farback') farBackCells.push(autoCell);
-          else backCells.push(autoCell);
         }
       }
 
@@ -10564,43 +10682,7 @@
 
       const activeTool = state.mode === 'build' ? state.worldTool : 'stamp';
 
-      if (state.mode === 'build' && mouseWorld.dragStart && (activeTool === 'rect' || activeTool === 'line' || activeTool === 'erase' || mouseWorld.isSelectingBlocks)) {
-        if (mouseWorld.isSelectingBlocks) {
-          // Multi-block grab selection marquee preview
-          const x0 = Math.min(mouseWorld.dragStart.x, snapX);
-          const y0 = Math.min(mouseWorld.dragStart.y, snapY);
-          const x1 = Math.max(mouseWorld.dragStart.x, snapX) + TILE_SIZE;
-          const y1 = Math.max(mouseWorld.dragStart.y, snapY) + TILE_SIZE;
-          const sx = Math.round(camScreenX + x0 * zoom);
-          const sy = Math.round(camScreenY + y0 * zoom);
-          const sw = Math.round((x1 - x0) * zoom);
-          const sh = Math.round((y1 - y0) * zoom);
-
-          worldCtx.save();
-          worldCtx.fillStyle = mouseWorld.selectMoveMode
-            ? 'rgba(56, 189, 248, 0.16)'
-            : 'rgba(74, 222, 128, 0.16)';
-          worldCtx.fillRect(sx, sy, sw, sh);
-          worldCtx.strokeStyle = mouseWorld.selectMoveMode ? '#38bdf8' : '#4ade80';
-          worldCtx.setLineDash([4, 3]);
-          worldCtx.lineWidth = 1.5;
-          worldCtx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
-          worldCtx.setLineDash([]);
-
-          // Highlight each block inside the selection rectangle that will be grabbed
-          const grabbed = collectWorldBlocksInRect(x0, y0, x1, y1);
-          for (const g of grabbed) {
-            const bx = Math.round(camScreenX + g.x * zoom);
-            const by = Math.round(camScreenY + g.y * zoom);
-            const bw = Math.round(g.w * zoom);
-            const bh = Math.round(g.h * zoom);
-            worldCtx.strokeStyle = mouseWorld.selectMoveMode ? '#7dd3fc' : '#86efac';
-            worldCtx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
-          }
-          worldCtx.restore();
-          return;
-        }
-
+      if (state.mode === 'build' && mouseWorld.dragStart && (activeTool === 'rect' || activeTool === 'line' || activeTool === 'erase')) {
         const sW = activeTool === 'erase' ? TILE_SIZE : stepW;
         const sH = activeTool === 'erase' ? TILE_SIZE : stepH;
         const cells = getShapeCells(mouseWorld.dragStart.x, mouseWorld.dragStart.y, snapX, snapY, sW, sH, activeTool);
@@ -10716,100 +10798,10 @@
       }
     }
 
-    function collectWorldBlocksInRect(minX, minY, maxX, maxY) {
-      const results = [];
-      for (const [key, cell] of state.worldCells.entries()) {
-        if (!hasSpriteId(cell.spriteId)) continue;
-        const cx = cell.x + (cell.w || TILE_SIZE) * 0.5;
-        const cy = cell.y + (cell.h || TILE_SIZE) * 0.5;
-        if (cx >= minX && cx < maxX && cy >= minY && cy < maxY) {
-          results.push({ cell, key, isEntity: false, x: cell.x, y: cell.y, w: cell.w || TILE_SIZE, h: cell.h || TILE_SIZE });
-        }
-      }
-      for (const ent of state.dynamicEntities) {
-        if (!hasSpriteId(ent.spriteId)) continue;
-        const cx = ent.x + (ent.w || TILE_SIZE) * 0.5;
-        const cy = ent.y + (ent.h || TILE_SIZE) * 0.5;
-        if (cx >= minX && cx < maxX && cy >= minY && cy < maxY) {
-          results.push({ cell: ent, key: null, isEntity: true, x: ent.x, y: ent.y, w: ent.w || TILE_SIZE, h: ent.h || TILE_SIZE });
-        }
-      }
-      return results;
-    }
-
-    function startHoldingMultiWorldBlocks(foundList, mode = 'clone') {
-      if (!Array.isArray(foundList) || foundList.length === 0) return false;
-      if (foundList.length === 1) {
-        startHoldingWorldBlock(foundList[0].cell, mode, true);
-        return true;
-      }
-
-      clearPendingHoldGrab();
-      mouseWorld.dragStart = null;
-      mouseWorld.isSelectingBlocks = false;
-
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const f of foundList) {
-        if (f.x < minX) minX = f.x;
-        if (f.y < minY) minY = f.y;
-        if (f.x + f.w > maxX) maxX = f.x + f.w;
-        if (f.y + f.h > maxY) maxY = f.y + f.h;
-      }
-
-      if (mode === 'move') {
-        pushWorldUndo();
-      }
-
-      const items = [];
-      for (const f of foundList) {
-        const targetCell = f.cell;
-        const sp = getSpriteById(targetCell.spriteId);
-        const itemOrient = (targetCell.orient ?? targetCell.rotation ?? 0) % 8;
-        const preservedWires = Array.isArray(targetCell.wires) ? targetCell.wires.map(w => ({ ...w })) : undefined;
-
-        if (mode === 'move') {
-          if (f.isEntity) {
-            const idx = state.dynamicEntities.indexOf(targetCell);
-            if (idx !== -1) state.dynamicEntities.splice(idx, 1);
-          } else if (f.key) {
-            state.worldCells.delete(f.key);
-          }
-        }
-
-        items.push({
-          cellData: { ...targetCell, orient: itemOrient, wires: preservedWires },
-          sprite: sp,
-          dx: f.x - minX,
-          dy: f.y - minY,
-          originX: f.x,
-          originY: f.y,
-          isEntity: f.isEntity
-        });
-      }
-
-      sfx.ui(mode === 'move' ? 540 : 620);
-      state.heldWorldBlock = {
-        mode,
-        items,
-        item: items[0].cellData,
-        sprite: items[0].sprite,
-        originX: minX,
-        originY: minY,
-        boundsW: maxX - minX,
-        boundsH: maxY - minY,
-        isEntity: items[0].isEntity,
-        holdTicks: 0,
-        awaitingClickToPlace: true
-      };
-      updateWorldCursor();
-      return true;
-    }
-
     function startHoldingWorldBlock(targetCell, mode, awaitingClickToPlace = false) {
       if (!targetCell) return;
       clearPendingHoldGrab();
       mouseWorld.dragStart = null;
-      mouseWorld.isSelectingBlocks = false;
       const sp = getSpriteById(targetCell.spriteId);
       const isEntity = state.dynamicEntities.includes(targetCell);
       const itemOrient = (targetCell.orient ?? targetCell.rotation ?? 0) % 8;
@@ -11623,7 +11615,6 @@
           pushWorldUndo();
           mouseWorld.hasPushedStrokeUndo = true;
           mouseWorld.dragStart = { x: snapX, y: snapY };
-          mouseWorld.isSelectingBlocks = false;
           eraseWorldAt(mouseWorld.wx, mouseWorld.wy);
           return;
         }
@@ -11633,7 +11624,6 @@
             pushWorldUndo();
             mouseWorld.hasPushedStrokeUndo = true;
             mouseWorld.dragStart = { x: snapX, y: snapY };
-            mouseWorld.isSelectingBlocks = false;
           }
           return;
         }
@@ -11731,7 +11721,6 @@
           mouseWorld.isCtrlLeftErasing = false;
           mouseWorld.hasPushedStrokeUndo = false;
           mouseWorld.dragStart = null;
-          mouseWorld.isSelectingBlocks = false;
           mouseWorld.wireDragSource = null;
           updateWorldCursor(e);
         }
@@ -11924,7 +11913,6 @@
         });
       }
       mouseWorld.dragStart = null;
-      mouseWorld.isSelectingBlocks = false;
       mouseWorld.downButton = null;
       mouseWorld.isRightErasing = false;
       mouseWorld.isCtrlLeftErasing = false;
@@ -12017,46 +12005,56 @@
     document.getElementById('world-undo-btn').addEventListener('click', undoWorldAction);
     document.getElementById('world-redo-btn').addEventListener('click', redoWorldAction);
 
-    // Drag-and-drop creations from the sidebar onto the world canvas or player avatar
-    worldCanvas.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      updateMouseWorldCoords(e);
+    // 1x1 transparent image used to suppress the browser's default DOM card drag ghost
+    const emptyDragGhostCanvas = document.createElement('canvas');
+    emptyDragGhostCanvas.width = 1;
+    emptyDragGhostCanvas.height = 1;
+
+    function resetCreateCloneButtonUI() {
+      const createBtn = document.getElementById('open-create-btn');
+      if (createBtn) {
+        createBtn.textContent = '+ Create';
+        createBtn.classList.remove('ring-2', 'ring-amber-300', 'scale-105');
+      }
+    }
+
+    // Track custom drag preview across the entire window (Vault + Viewport)
+    document.addEventListener('dragover', (e) => {
+      if (!activeDraggedSpriteId) return;
       if (customDragPreview && !customDragPreview.classList.contains('hidden')) {
         customDragPreview.style.left = `${e.clientX}px`;
         customDragPreview.style.top = `${e.clientY}px`;
       }
     });
 
-    worldCanvas.addEventListener('drop', (e) => {
-      e.preventDefault();
-      updateMouseWorldCoords(e);
-      if (customDragPreview) customDragPreview.classList.add('hidden');
-      const spId = e.dataTransfer.getData('text/loombit-sprite-id') || activeDraggedSpriteId;
-      activeDraggedSpriteId = null;
-      const sp = getSpriteById(spId);
-      if (!sp) return;
-
-      if (sp.type === 'body' && sp.subtype === 'Motion') {
-        addMotionToCurrentBody(sp.id);
-        return;
-      }
-      if (['body', 'wearable', 'holdable', 'mountable'].includes(sp.type)) {
-        equipOrSelectSprite(sp);
-        return;
-      }
-
-      const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
-      const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
-      if (canBrushPlaceOrOverwrite(sp, snapX, snapY, state.brushOrient)) {
-        pushWorldUndo();
-        placeSpriteAtWorld(sp, snapX, snapY, 0, true, undefined, true);
-      } else {
-        sfx.buzzer();
-      }
-      state.activeBrushId = sp.id;
-      updateBrushBar();
-      renderSidebarSprites();
-    });
+    // Drag-and-drop onto "+ Create" (which becomes "+ Clone") to clone a creation in the Forge
+    const openCreateBtnEl = document.getElementById('open-create-btn');
+    if (openCreateBtnEl) {
+      openCreateBtnEl.addEventListener('dragover', (e) => {
+        if (!activeDraggedSpriteId) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        openCreateBtnEl.classList.add('scale-105');
+      });
+      openCreateBtnEl.addEventListener('dragleave', () => {
+        openCreateBtnEl.classList.remove('scale-105');
+      });
+      openCreateBtnEl.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (customDragPreview) {
+          customDragPreview.classList.add('hidden');
+          customDragPreview.classList.remove('flex');
+        }
+        const spId = e.dataTransfer.getData('text/loombit-sprite-id') || activeDraggedSpriteId;
+        activeDraggedSpriteId = null;
+        resetCreateCloneButtonUI();
+        if (spId && getSpriteById(spId)) {
+          sfx.ui(640);
+          openSpriteEditor(spId, true);
+        }
+      });
+    }
 
     function isTypingInInput() {
       const el = document.activeElement;
@@ -12698,24 +12696,16 @@
       if (editor.onionSkin && editor.activeFrame > 0 && editor.frames[editor.activeFrame - 1]) {
         const prevDim = editor.frameDims[editor.activeFrame - 1] || { w: W, h: H };
         const prevBuf = editor.frames[editor.activeFrame - 1];
-        const tmp = document.createElement('canvas');
-        tmp.width = prevDim.w;
-        tmp.height = prevDim.h;
-        tmp.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(prevBuf), prevDim.w, prevDim.h), 0, 0);
         paintCtx.save();
         paintCtx.globalAlpha = 0.24;
-        paintCtx.drawImage(tmp, 0, 0, prevDim.w * scale, prevDim.h * scale);
+        blitBufferToCtx(paintCtx, prevBuf, prevDim.w, prevDim.h, 0, 0, prevDim.w * scale, prevDim.h * scale);
         paintCtx.restore();
       }
 
       // Current active cel buffer
       const curBuf = editor.frames[editor.activeFrame];
       if (curBuf) {
-        const tmp = document.createElement('canvas');
-        tmp.width = W;
-        tmp.height = H;
-        tmp.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(curBuf), W, H), 0, 0);
-        paintCtx.drawImage(tmp, 0, 0, cw, ch);
+        blitBufferToCtx(paintCtx, curBuf, W, H, 0, 0, cw, ch);
       }
 
       // Live shape / line drag preview
@@ -12744,13 +12734,9 @@
         else if (editor.tool === 'rect') drawRectPixels(previewBuf, W, H, x0, y0, x1, y1, r, g, b, isEraseShape ? 180 : shapeA, editor.shapeFilled);
         else if (editor.tool === 'ellipse') drawEllipsePixels(previewBuf, W, H, x0, y0, x1, y1, r, g, b, isEraseShape ? 180 : shapeA, editor.shapeFilled);
 
-        const tmp = document.createElement('canvas');
-        tmp.width = W;
-        tmp.height = H;
-        tmp.getContext('2d').putImageData(new ImageData(previewBuf, W, H), 0, 0);
         paintCtx.save();
         if (isEraseShape) paintCtx.globalAlpha = 0.5;
-        paintCtx.drawImage(tmp, 0, 0, cw, ch);
+        blitBufferToCtx(paintCtx, previewBuf, W, H, 0, 0, cw, ch);
         paintCtx.restore();
       }
 
@@ -12758,11 +12744,7 @@
       if (editor.marquee) {
         const m = editor.marquee;
         if (m.floatingData) {
-          const tmp = document.createElement('canvas');
-          tmp.width = m.w;
-          tmp.height = m.h;
-          tmp.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(m.floatingData), m.w, m.h), 0, 0);
-          paintCtx.drawImage(tmp, m.x * scale, m.y * scale, m.w * scale, m.h * scale);
+          blitBufferToCtx(paintCtx, m.floatingData, m.w, m.h, m.x * scale, m.y * scale, m.w * scale, m.h * scale);
         }
         paintCtx.save();
         paintCtx.strokeStyle = '#ffffff';
@@ -12914,15 +12896,9 @@
 
         const miniCanvas = col.querySelector('canvas');
         const dim = (editor.frameDims && editor.frameDims[idx]) || { w: editor.w, h: editor.h };
-        const tmp = document.createElement('canvas');
-        tmp.width = dim.w;
-        tmp.height = dim.h;
-        const safe = new Uint8ClampedArray(dim.w * dim.h * 4);
-        safe.set(buf.subarray(0, safe.length));
-        tmp.getContext('2d').putImageData(new ImageData(safe, dim.w, dim.h), 0, 0);
         const mCtx = miniCanvas.getContext('2d');
         mCtx.imageSmoothingEnabled = false;
-        mCtx.drawImage(tmp, 0, 0, 22, 22);
+        blitBufferToCtx(mCtx, buf, dim.w, dim.h, 0, 0, 22, 22);
 
         col.addEventListener('click', () => {
           commitMarqueeSelection();
@@ -13018,12 +12994,6 @@
           const dim = (editor.frameDims && editor.frameDims[tr.index]) || { w: editor.w, h: editor.h };
           const buf = editor.frames[tr.index];
           if (!buf) continue;
-          const tmp = document.createElement('canvas');
-          tmp.width = dim.w;
-          tmp.height = dim.h;
-          const safe = new Uint8ClampedArray(dim.w * dim.h * 4);
-          safe.set(buf.subarray(0, safe.length));
-          tmp.getContext('2d').putImageData(new ImageData(safe, dim.w, dim.h), 0, 0);
 
           const cw = dim.w * scale;
           const ch = dim.h * scale;
@@ -13035,7 +13005,7 @@
           previewCtx.translate(cx, cy);
           if (tr.rot !== 0) previewCtx.rotate((tr.rot * Math.PI) / 180);
           if (tr.flipH || tr.flipV) previewCtx.scale(tr.flipH ? -1 : 1, tr.flipV ? -1 : 1);
-          previewCtx.drawImage(tmp, -cw / 2 - tr.pivotX * scale, -ch / 2 - tr.pivotY * scale, cw, ch);
+          blitBufferToCtx(previewCtx, buf, dim.w, dim.h, -cw / 2 - tr.pivotX * scale, -ch / 2 - tr.pivotY * scale, cw, ch);
           previewCtx.restore();
         }
         return;
@@ -13067,17 +13037,10 @@
       const buf = editor.frames[fIdx];
       if (!buf) return;
 
-      const tmp = document.createElement('canvas');
-      tmp.width = dim.w;
-      tmp.height = dim.h;
-      const safe = new Uint8ClampedArray(dim.w * dim.h * 4);
-      safe.set(buf.subarray(0, safe.length));
-      tmp.getContext('2d').putImageData(new ImageData(safe, dim.w, dim.h), 0, 0);
-
       const scale = Math.max(1, Math.min(Math.floor((W - 8) / dim.w), Math.floor((H - 8) / dim.h)));
       const dw = dim.w * scale;
       const dh = dim.h * scale;
-      previewCtx.drawImage(tmp, Math.round((W - dw) / 2), Math.round((H - dh) / 2), dw, dh);
+      blitBufferToCtx(previewCtx, buf, dim.w, dim.h, Math.round((W - dw) / 2), Math.round((H - dh) / 2), dw, dh);
     }
 
     function openSpriteEditor(spriteId = null, duplicate = false) {
@@ -13727,6 +13690,20 @@
       btn.addEventListener('click', () => {
         editor.shapeFilled = btn.dataset.sfill === 'filled';
         document.querySelectorAll('.sfill-btn').forEach(b => b.classList.toggle('active', b === btn));
+      });
+    });
+
+    const shapeEqualToggle = document.getElementById('shape-equal-toggle');
+    if (shapeEqualToggle) {
+      shapeEqualToggle.addEventListener('change', (e) => {
+        editor.shapeEqualAspect = e.target.checked;
+      });
+    }
+
+    document.querySelectorAll('.fmode-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        editor.fillMode = btn.dataset.fmode || 'contiguous';
+        document.querySelectorAll('.fmode-btn').forEach(b => b.classList.toggle('active', b === btn));
       });
     });
 
@@ -14775,10 +14752,10 @@
 
         card.innerHTML = `
           <div class="h-20 checkerboard flex items-center justify-center p-2 relative">
-            <img src="${sp.thumbnail}" alt="${sp.name}" class="max-w-full max-h-full object-contain pointer-events-none" style="image-rendering: pixelated;" />
+            <img src="${sp.thumbnail}" alt="${sp.name}" class="w-14 h-14 object-contain pointer-events-none" style="image-rendering: pixelated;" />
             <span class="absolute top-1 right-1 px-1.5 py-0.5 bg-[#111217]/90 border border-[#2c2e3a] rounded-xs text-[7px] text-blue-300 uppercase">${spec.name}</span>
-            <button data-action="edit" class="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-1 left-1 z-10 px-1.5 py-0.5 bg-[#14151b]/95 hover:bg-blue-600 text-zinc-200 hover:text-white text-[8px] rounded-xs border border-[#343746]">Edit</button>
-            <button data-action="delete" class="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-1 right-1 z-10 min-w-[22px] h-[20px] px-1.5 bg-[#14151b]/95 hover:bg-red-600 text-zinc-300 hover:text-white text-[9px] font-bold rounded-xs border border-[#343746] flex items-center justify-center">X</button>
+            <button data-action="edit" data-tooltip="Edit creation in The Forge" class="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-1 left-1 z-10 px-1.5 py-0.5 bg-[#14151b]/95 hover:bg-blue-600 text-zinc-200 hover:text-white text-[8px] rounded-xs border border-[#343746]">Edit</button>
+            <button data-action="delete" data-tooltip="Delete creation" class="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-1 right-1 z-10 min-w-[22px] h-[20px] px-1.5 bg-[#14151b]/95 hover:bg-red-600 text-zinc-300 hover:text-white text-[9px] font-bold rounded-xs border border-[#343746] flex items-center justify-center">X</button>
           </div>
           <div class="px-2 py-1 bg-[#14151b] border-t border-[#262834] text-[9px] text-zinc-200 truncate text-center">${sp.name}</div>
         `;
@@ -14822,8 +14799,19 @@
         card.addEventListener('dragstart', (e) => {
           activeDraggedSpriteId = sp.id;
           e.dataTransfer.setData('text/loombit-sprite-id', sp.id);
+          e.dataTransfer.effectAllowed = 'copyMove';
+          if (e.dataTransfer.setDragImage) {
+            e.dataTransfer.setDragImage(emptyDragGhostCanvas, 0, 0);
+          }
+          const createBtn = document.getElementById('open-create-btn');
+          if (createBtn) {
+            createBtn.textContent = '+ Clone';
+            createBtn.classList.add('ring-2', 'ring-amber-300');
+          }
           if (customDragPreview && customDragPreviewImg) {
             customDragPreviewImg.src = sp.thumbnail;
+            customDragPreview.style.left = `${e.clientX}px`;
+            customDragPreview.style.top = `${e.clientY}px`;
             customDragPreview.classList.remove('hidden');
             customDragPreview.classList.add('flex');
           }
@@ -14831,6 +14819,7 @@
 
         card.addEventListener('dragend', () => {
           activeDraggedSpriteId = null;
+          resetCreateCloneButtonUI();
           if (customDragPreview) {
             customDragPreview.classList.add('hidden');
             customDragPreview.classList.remove('flex');
@@ -15313,6 +15302,7 @@
         // 1. Skylight Minimap Preview
         const previewWrap = document.createElement('div');
         previewWrap.className = 'relative w-full h-28 bg-[#0e0f14] border border-[#252733] rounded-xs overflow-hidden cursor-pointer flex items-center justify-center group';
+        previewWrap.setAttribute('data-tooltip', isCurrent ? 'Click to return to this world' : 'Click to switch to this world');
         const miniCanvas = renderWorldMiniPreviewCanvas(snapshotData, 280, 112);
         miniCanvas.className = 'w-full h-full object-cover';
         previewWrap.appendChild(miniCanvas);
@@ -15339,6 +15329,7 @@
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
         nameInput.value = wSlot.name || 'Untitled World';
+        nameInput.setAttribute('data-tooltip', 'Click to rename this world');
         nameInput.className = 'w-full bg-[#0c0d12] border border-[#2c2e3c] rounded-xs px-2.5 py-1 text-xs font-semibold text-white tracking-wide focus:outline-none focus:border-blue-500';
         nameInput.addEventListener('change', () => {
           wSlot.name = nameInput.value.trim() || 'Untitled World';
@@ -15355,6 +15346,7 @@
           ? 'ase-btn active px-3 py-1 text-[10px] text-blue-300 font-semibold'
           : 'ase-btn-primary px-3 py-1 text-[10px] font-semibold';
         enterBtn.textContent = isCurrent ? 'Playing' : 'Load World';
+        enterBtn.setAttribute('data-tooltip', isCurrent ? 'Currently active world' : 'Switch to this world');
         enterBtn.addEventListener('click', () => {
           if (!isCurrent) switchToWorldSlot(wSlot.id);
           else setEngineMode('play');
@@ -15367,11 +15359,13 @@
         const cloneBtn = document.createElement('button');
         cloneBtn.className = 'ase-btn px-2.5 py-1 text-[10px] text-zinc-200';
         cloneBtn.textContent = 'Clone';
+        cloneBtn.setAttribute('data-tooltip', 'Duplicate this world into a new slot');
         cloneBtn.addEventListener('click', () => cloneWorldSlot(wSlot.id));
 
         const jsonBtn = document.createElement('button');
         jsonBtn.className = 'ase-btn px-2.5 py-1 text-[10px] text-zinc-200';
         jsonBtn.textContent = 'JSON';
+        jsonBtn.setAttribute('data-tooltip', 'Download this world as a .json backup file');
         jsonBtn.addEventListener('click', () => {
           const payload = isCurrent ? serializeCurrentState() : wSlot.data;
           const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -15384,6 +15378,7 @@
         const delBtn = document.createElement('button');
         delBtn.className = 'ase-btn px-2.5 py-1 text-[10px] text-red-400 hover:text-red-300';
         delBtn.textContent = 'Delete';
+        delBtn.setAttribute('data-tooltip', 'Delete this world from your list');
         delBtn.addEventListener('click', () => {
           if (delBtn.dataset.confirm === '1') {
             deleteWorldSlot(wSlot.id);
@@ -15975,7 +15970,6 @@
       mouseWorld.hasPushedStrokeUndo = false;
       mouseWorld.isPanning = false;
       mouseWorld.dragStart = null;
-      mouseWorld.isSelectingBlocks = false;
       mouseWorld.wireDragSource = null;
       if (editor.isOpen) {
         editor.isDrawing = false;

@@ -9763,65 +9763,14 @@
           ? held.items
           : [{ cellData: held.item, sprite: held.sprite, dx: 0, dy: 0, isEntity: held.isEntity }];
 
-        if (mouseWorld.inside) {
-          const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
-          const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
-          const jiggleX = Math.cos(worldTickCount * 0.38) * 0.6 * zoom;
-          const jiggleY = Math.sin(worldTickCount * 0.52) * 0.6 * zoom;
-
-          worldCtx.save();
-          for (const entry of items) {
-            const cData = entry.cellData;
-            const sp = entry.sprite;
-            const tx = snapX + (entry.dx || 0);
-            const ty = snapY + (entry.dy || 0);
-            const sx = Math.round(camScreenX + tx * zoom + jiggleX);
-            const sy = Math.round(camScreenY + ty * zoom + jiggleY);
-            const sw = Math.max(1, Math.round((cData.w || TILE_SIZE) * zoom));
-            const sh = Math.max(1, Math.round((cData.h || TILE_SIZE) * zoom));
-            const blocked = isWorldSpaceOccupiedForSprite(sp, tx, ty);
-
-            worldCtx.save();
-            worldCtx.globalAlpha = blocked ? 0.42 : 0.88;
-            if (cData.spriteId === '__starter_ground__' || !sp) {
-              worldCtx.fillStyle = '#23232b';
-              worldCtx.fillRect(sx, sy, sw, sh);
-              worldCtx.fillStyle = '#343442';
-              worldCtx.fillRect(sx, sy, sw, Math.max(2, Math.round(zoom)));
-            } else {
-              const fc = getCachedFrameCanvas(sp, cData.frameIdx || 0);
-              drawImageWithOrient(worldCtx, fc, sx, sy, sw, sh, cData.orient || 0, 1);
-            }
-            worldCtx.strokeStyle = blocked
-              ? 'rgba(248, 113, 113, 0.9)'
-              : (held.mode === 'move' ? 'rgba(56, 189, 248, 0.9)' : 'rgba(74, 222, 128, 0.9)');
-            worldCtx.lineWidth = 1;
-            worldCtx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
-            worldCtx.restore();
-          }
-
-          // Outer bounding marquee around multi-block group
-          if (items.length > 1) {
-            const bx = Math.round(camScreenX + snapX * zoom);
-            const by = Math.round(camScreenY + snapY * zoom);
-            const bw = Math.max(1, Math.round((held.boundsW || TILE_SIZE) * zoom));
-            const bh = Math.max(1, Math.round((held.boundsH || TILE_SIZE) * zoom));
-            worldCtx.strokeStyle = held.mode === 'move' ? '#38bdf8' : '#4ade80';
-            worldCtx.setLineDash([4, 3]);
-            worldCtx.strokeRect(bx - 1.5, by - 1.5, bw + 3, bh + 3);
-          }
-          worldCtx.restore();
-        }
-
-        // Single-block floating overlay for dragging into the Creation Menu drawer
-        if (items.length === 1 && heldBlockOverlayCanvas && heldBlockOverlayCtx) {
-          const item = held.item;
-          const sp = held.sprite;
-          const hw = Math.max(1, Math.round((item.w || TILE_SIZE) * zoom));
-          const hh = Math.max(1, Math.round((item.h || TILE_SIZE) * zoom));
-          const pad = 28;
-          const reqW = Math.max(96, hw + pad * 2);
-          const reqH = Math.max(96, hh + pad * 2);
+        if (heldBlockOverlayCanvas && heldBlockOverlayCtx) {
+          const bW = Math.max(TILE_SIZE, held.boundsW || held.item?.w || TILE_SIZE);
+          const bH = Math.max(TILE_SIZE, held.boundsH || held.item?.h || TILE_SIZE);
+          const groupScreenW = Math.max(1, Math.round(bW * zoom));
+          const groupScreenH = Math.max(1, Math.round(bH * zoom));
+          const pad = 24;
+          const reqW = Math.max(56, groupScreenW + pad * 2);
+          const reqH = Math.max(56, groupScreenH + pad * 2);
           if (heldBlockOverlayCanvas.width !== reqW || heldBlockOverlayCanvas.height !== reqH) {
             heldBlockOverlayCanvas.width = reqW;
             heldBlockOverlayCanvas.height = reqH;
@@ -9833,25 +9782,43 @@
           heldBlockOverlayCtx.clearRect(0, 0, reqW, reqH);
           heldBlockOverlayCtx.imageSmoothingEnabled = false;
 
-          const jiggleAngle = Math.sin(worldTickCount * 0.54) * 0.065;
-          const liftScale = 1 + Math.min(0.08, held.holdTicks * 0.02);
+          // Moderately paced, smooth shaking & lift scale for the held ghost object in hand
+          const liftProgress = Math.min(1, held.holdTicks / 16);
+          const liftScale = 0.94 + 0.11 * Math.sin(liftProgress * Math.PI * 0.5);
+          const swayT = worldTickCount + (accumulator / FIXED_DT);
+          const shakeX = Math.sin(swayT * 0.06) * 0.95 + Math.cos(swayT * 0.105) * 0.3;
+          const shakeY = Math.cos(swayT * 0.05) * 0.85;
+          const shakeRot = Math.sin(swayT * 0.045) * 0.028;
 
           heldBlockOverlayCtx.save();
-          heldBlockOverlayCtx.globalAlpha = mouseWorld.inside ? 0.35 : 0.92;
-          heldBlockOverlayCtx.translate(reqW / 2, reqH / 2);
-          heldBlockOverlayCtx.rotate(jiggleAngle);
+          heldBlockOverlayCtx.globalAlpha = mouseWorld.inside ? 0.78 : 0.92;
+          heldBlockOverlayCtx.translate(reqW / 2 + shakeX, reqH / 2 + shakeY);
+          heldBlockOverlayCtx.rotate(shakeRot);
           heldBlockOverlayCtx.scale(liftScale, liftScale);
+          heldBlockOverlayCtx.translate(-reqW / 2, -reqH / 2);
 
-          if (item.spriteId === '__starter_ground__' || !sp) {
-            heldBlockOverlayCtx.fillStyle = '#23232b';
-            heldBlockOverlayCtx.fillRect(-hw / 2, -hh / 2, hw, hh);
-          } else {
-            const fc = getCachedFrameCanvas(sp, item.frameIdx || 0);
-            drawImageWithOrient(heldBlockOverlayCtx, fc, -hw / 2, -hh / 2, hw, hh, item.orient || 0, 1);
+          const startX = Math.round((reqW - groupScreenW) / 2);
+          const startY = Math.round((reqH - groupScreenH) / 2);
+
+          for (const entry of items) {
+            const cData = entry.cellData;
+            const sp = entry.sprite;
+            const ix = startX + Math.round((entry.dx || 0) * zoom);
+            const iy = startY + Math.round((entry.dy || 0) * zoom);
+            const iw = Math.max(1, Math.round((cData.w || TILE_SIZE) * zoom));
+            const ih = Math.max(1, Math.round((cData.h || TILE_SIZE) * zoom));
+
+            if (cData.spriteId === '__starter_ground__' || !sp) {
+              heldBlockOverlayCtx.fillStyle = '#23232b';
+              heldBlockOverlayCtx.fillRect(ix, iy, iw, ih);
+              heldBlockOverlayCtx.fillStyle = '#343442';
+              heldBlockOverlayCtx.fillRect(ix, iy, iw, Math.max(2, Math.round(zoom)));
+            } else {
+              const fc = getCachedFrameCanvas(sp, cData.frameIdx || 0);
+              drawImageWithOrient(heldBlockOverlayCtx, fc, ix, iy, iw, ih, cData.orient || 0, 1);
+            }
           }
           heldBlockOverlayCtx.restore();
-        } else if (heldBlockOverlayCanvas) {
-          heldBlockOverlayCanvas.classList.add('hidden');
         }
       } else if (heldBlockOverlayCanvas && !heldBlockOverlayCanvas.classList.contains('hidden')) {
         heldBlockOverlayCanvas.classList.add('hidden');
@@ -10784,8 +10751,14 @@
         return;
       }
 
-      const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
-      const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
+      const bW = Math.max(TILE_SIZE, held.boundsW || TILE_SIZE);
+      const bH = Math.max(TILE_SIZE, held.boundsH || TILE_SIZE);
+      const snapX = items.length > 1
+        ? Math.round((mouseWorld.wx - bW / 2) / TILE_SIZE) * TILE_SIZE
+        : Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
+      const snapY = items.length > 1
+        ? Math.round((mouseWorld.wy - bH / 2) / TILE_SIZE) * TILE_SIZE
+        : Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
 
       // Check how many items in the held selection can be placed at (snapX + dx, snapY + dy)
       const placeableEntries = items.filter(entry =>
@@ -11747,8 +11720,15 @@
       if (state.heldWorldBlock && e.button === 0) {
         updateMouseWorldCoords(e);
         const held = state.heldWorldBlock;
-        const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
-        const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
+        const items = held.items || [];
+        const bW = Math.max(TILE_SIZE, held.boundsW || TILE_SIZE);
+        const bH = Math.max(TILE_SIZE, held.boundsH || TILE_SIZE);
+        const snapX = items.length > 1
+          ? Math.round((mouseWorld.wx - bW / 2) / TILE_SIZE) * TILE_SIZE
+          : Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
+        const snapY = items.length > 1
+          ? Math.round((mouseWorld.wy - bH / 2) / TILE_SIZE) * TILE_SIZE
+          : Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
         if (!held.awaitingClickToPlace && snapX === held.originX && snapY === held.originY) {
           held.awaitingClickToPlace = true;
           mouseWorld.downButton = null;

@@ -1208,9 +1208,12 @@
         <button id="cancel-editor-btn" class="ase-btn px-3.5 py-1.5 text-xs">
           Cancel
         </button>
+        <button id="save-as-new-sprite-btn" class="hidden ase-btn px-3.5 py-1.5 text-xs text-amber-300 font-semibold items-center gap-1">
+          <span>+ Save as New</span>
+        </button>
         <button id="save-sprite-btn" class="ase-btn-primary px-5 py-1.5 text-xs font-semibold flex items-center gap-1.5">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-          <span>Save</span>
+          <span id="save-sprite-btn-label">Save</span>
         </button>
       </div>
     </div>
@@ -1292,47 +1295,47 @@
 
   <!-- SAVED WORLDS MODAL -->
   <div id="worlds-vault-modal" class="smooth-modal fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-    <div class="smooth-modal-box studio-panel rounded-sm w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+    <div class="smooth-modal-box studio-panel rounded-sm w-[92vw] max-w-4xl overflow-hidden flex flex-col max-h-[88vh]">
       <!-- Clean Header with Primary Actions -->
-      <div class="px-4 py-2.5 bg-[#111217] border-b border-[#262834] flex items-center justify-between gap-2 shrink-0">
-        <div class="flex items-center gap-2.5">
+      <div class="px-4 py-3 bg-[#111217] border-b border-[#262834] flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div class="flex items-center gap-3">
           <span class="text-xs font-bold text-zinc-100 tracking-wider">WORLDS</span>
           <input
             id="worlds-search-input"
             type="text"
-            placeholder="Search..."
-            class="bg-[#0c0d11] border border-[#282a36] rounded-sm px-2 py-0.5 text-[10px] text-zinc-100 placeholder-zinc-500 w-32 focus:outline-none focus:border-blue-500"
+            placeholder="Search worlds..."
+            class="bg-[#0c0d11] border border-[#282a36] rounded-sm px-2.5 py-1 text-[11px] text-zinc-100 placeholder-zinc-500 w-48 focus:outline-none focus:border-blue-500"
           />
         </div>
-        <div class="flex items-center gap-1.5">
-          <button id="modal-reset-world-btn" class="ase-btn-primary px-3 py-1 text-[10px] font-semibold">
+        <div class="flex items-center gap-2">
+          <button id="modal-reset-world-btn" class="ase-btn-primary px-3.5 py-1 text-[11px] font-semibold">
             + New World
           </button>
-          <label class="ase-btn px-2.5 py-1 text-[10px] text-zinc-300 cursor-pointer">
+          <label class="ase-btn px-3 py-1 text-[11px] text-zinc-300 cursor-pointer">
             Import
             <input id="import-world-slot-input" type="file" accept=".json" class="hidden" />
           </label>
-          <button id="close-worlds-modal-btn" class="ase-btn px-2.5 py-1 text-xs ml-1">X</button>
+          <button id="close-worlds-modal-btn" class="ase-btn px-3 py-1 text-xs ml-1">X</button>
         </div>
       </div>
 
       <!-- Visual Worlds Grid -->
-      <div class="p-3.5 overflow-y-auto flex-1 bg-[#0e0f14]">
-        <div id="saved-worlds-list" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div class="p-4 overflow-y-auto flex-1 bg-[#0e0f14]">
+        <div id="saved-worlds-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <!-- Populated dynamically -->
         </div>
       </div>
 
       <!-- Compact Footer for Creation Pack Backup -->
-      <div class="px-4 py-2 bg-[#111217] border-t border-[#262834] flex items-center justify-between gap-2 text-[10px] shrink-0">
-        <span class="text-zinc-500">Creations Backup</span>
-        <div class="flex items-center gap-1.5">
-          <button id="export-assets-only-btn" class="ase-btn px-2 py-0.5 text-[9px] text-zinc-300">Export Pack</button>
-          <label class="ase-btn px-2 py-0.5 text-[9px] text-zinc-300 cursor-pointer">
+      <div class="px-4 py-2.5 bg-[#111217] border-t border-[#262834] flex items-center justify-between gap-2 text-[10px] shrink-0">
+        <span class="text-zinc-400">Creations Backup</span>
+        <div class="flex items-center gap-2">
+          <button id="export-assets-only-btn" class="ase-btn px-2.5 py-1 text-[10px] text-zinc-200">Export Pack</button>
+          <label class="ase-btn px-2.5 py-1 text-[10px] text-zinc-200 cursor-pointer">
             Import Pack
             <input id="import-assets-merge-input" type="file" accept=".json" class="hidden" />
           </label>
-          <button id="export-all-strips-btn" class="ase-btn px-2 py-0.5 text-[9px] text-zinc-400">PNG Strips</button>
+          <button id="export-all-strips-btn" class="ase-btn px-2.5 py-1 text-[10px] text-zinc-300">PNG Strips</button>
         </div>
       </div>
 
@@ -1369,6 +1372,25 @@
       }
       window.oncontextmenu = blockNativeContext;
       document.oncontextmenu = blockNativeContext;
+
+      // Prevent browser page zoom everywhere (Ctrl/Cmd + Mousewheel and Ctrl/Cmd + +/-/0)
+      const blockBrowserZoomWheel = (e) => {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+        }
+      };
+      window.addEventListener('wheel', blockBrowserZoomWheel, { capture: true, passive: false });
+      document.addEventListener('wheel', blockBrowserZoomWheel, { capture: true, passive: false });
+
+      window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && ['+', '-', '=', '0'].includes(e.key)) {
+          e.preventDefault();
+        }
+      }, { capture: true, passive: false });
+
+      for (const gEvt of ['gesturestart', 'gesturechange', 'gestureend']) {
+        window.addEventListener(gEvt, (e) => e.preventDefault(), { capture: true, passive: false });
+      }
 
       // Strip native browser `title` attributes everywhere so Firefox's default tooltip bar never appears
       const stripNativeTitles = (root) => {
@@ -4220,16 +4242,34 @@
     /********************************************************************
      * WORLD VIEWPORT UNDO / REDO HISTORY (Ctrl+Z / Ctrl+Y)
      ********************************************************************/
+    function cloneSpriteForHistory(sp) {
+      return {
+        ...sp,
+        frames: sp.frames.map(f => new Uint8ClampedArray(f)),
+        frameDims: sp.frameDims ? sp.frameDims.map(d => ({ ...d })) : [{ w: sp.w, h: sp.h }],
+        frameStates: sp.frameStates ? [...sp.frameStates] : ['Cell 1'],
+        stateFps: sp.stateFps ? { ...sp.stateFps } : undefined,
+        motions: Array.isArray(sp.motions) ? [...sp.motions] : []
+      };
+    }
+
     function cloneWorldSnapshot() {
       const cellsCopy = [];
       for (const [k, v] of state.worldCells.entries()) {
-        cellsCopy.push([k, { ...v }]);
+        cellsCopy.push([k, { ...v, wires: Array.isArray(v.wires) ? v.wires.map(w => ({ ...w })) : undefined }]);
       }
       const entsCopy = state.dynamicEntities.map(e => ({ ...e }));
+      const spritesCopy = state.sprites.map(cloneSpriteForHistory);
       return {
         cells: cellsCopy,
         entities: entsCopy,
-        spawn: { ...state.spawnPoint }
+        sprites: spritesCopy,
+        spawn: { ...state.spawnPoint },
+        activeBrushId: state.activeBrushId,
+        activeBodyId: state.activeBodyId,
+        activeWearableId: state.activeWearableId,
+        activeHoldableId: state.activeHoldableId,
+        activeMountId: state.activeMountId
       };
     }
 
@@ -4240,7 +4280,34 @@
     }
 
     function restoreWorldSnapshot(snap) {
-      const nextCellsMap = new Map(snap.cells.map(([k, v]) => [k, { ...v }]));
+      // Restore sprite library if creations were deleted or edited
+      if (Array.isArray(snap.sprites)) {
+        state.sprites = snap.sprites.map(cloneSpriteForHistory);
+        spriteCanvasCache.clear();
+        rebuildSpriteLookup();
+        try {
+          const delSet = getDeletedSpriteIdsSet();
+          let delChanged = false;
+          for (const sp of state.sprites) {
+            if (delSet.has(sp.id)) {
+              delSet.delete(sp.id);
+              delChanged = true;
+            }
+          }
+          if (delChanged) {
+            localStorage.setItem(STORAGE_KEY_DELETED_SPRITES, JSON.stringify(Array.from(delSet)));
+          }
+        } catch (err) {}
+        if (snap.activeBrushId !== undefined) state.activeBrushId = hasSpriteId(snap.activeBrushId) ? snap.activeBrushId : null;
+        if (snap.activeBodyId !== undefined) state.activeBodyId = hasSpriteId(snap.activeBodyId) ? snap.activeBodyId : null;
+        if (snap.activeWearableId !== undefined) state.activeWearableId = hasSpriteId(snap.activeWearableId) ? snap.activeWearableId : null;
+        if (snap.activeHoldableId !== undefined) state.activeHoldableId = hasSpriteId(snap.activeHoldableId) ? snap.activeHoldableId : null;
+        if (snap.activeMountId !== undefined) state.activeMountId = hasSpriteId(snap.activeMountId) ? snap.activeMountId : null;
+        updateBrushBar();
+        renderSidebarSprites();
+      }
+
+      const nextCellsMap = new Map(snap.cells.map(([k, v]) => [k, { ...v, wires: Array.isArray(v.wires) ? v.wires.map(w => ({ ...w })) : undefined }]));
 
       // 1. Animate out any cells that were removed or replaced by this undo/redo
       for (const [k, oldCell] of state.worldCells.entries()) {
@@ -11227,18 +11294,79 @@
       );
     }
 
-    function placeSpriteAtWorld(sp, snapX, snapY, animDelay = 0, playSound = true, customOrient = undefined) {
+    // Returns true if a brush placement at (snapX, snapY) would place into empty space OR overwrite a different block/orientation
+    function canBrushPlaceOrOverwrite(sp, snapX, snapY, orient = state.brushOrient || 0) {
+      if (!sp) {
+        const existing = state.worldCells.get(`${snapX},${snapY},main`);
+        return !existing || existing.spriteId !== '__starter_ground__';
+      }
+      if (['body', 'wearable', 'holdable', 'mountable'].includes(sp.type)) return false;
+
+      if ((['moving', 'living'].includes(sp.type) && !(sp.type === 'moving' && ['Mover', 'Piston / Pusher', 'Elevator', 'Conveyor'].includes(sp.subtype))) || isGravityEntity(sp)) {
+        const checkW = sp.w || TILE_SIZE;
+        const checkH = sp.h || TILE_SIZE;
+        const sameEnt = state.dynamicEntities.some(
+          e => e.spriteId === sp.id && Math.abs(e.x - snapX) < 2 && Math.abs(e.y - snapY) < 2 && ((e.orient ?? 0) % 8) === (orient % 8)
+        );
+        return !sameEnt;
+      }
+
+      const layer = getLayerForSprite(sp);
+      const existing = state.worldCells.get(`${snapX},${snapY},${layer}`);
+      if (!existing) return true;
+      const normOrient = ((orient || 0) % 8 + 8) % 8;
+      const existOrient = ((existing.orient ?? existing.rotation ?? 0) % 8 + 8) % 8;
+      return existing.spriteId !== sp.id || existOrient !== normOrient;
+    }
+
+    function removeOverwrittenAtWorld(sp, snapX, snapY) {
+      if (!sp) {
+        state.worldCells.delete(`${snapX},${snapY},main`);
+        return;
+      }
+      const layer = getLayerForSprite(sp);
+      if (sp.type === 'back') {
+        const b1 = state.worldCells.get(`${snapX},${snapY},back`);
+        if (b1 && b1.type === 'back') state.worldCells.delete(`${snapX},${snapY},back`);
+        const b2 = state.worldCells.get(`${snapX},${snapY},farback`);
+        if (b2 && b2.type === 'back') state.worldCells.delete(`${snapX},${snapY},farback`);
+        return;
+      }
+      if (sp.type === 'light') {
+        const lCell = state.worldCells.get(`${snapX},${snapY},${layer}`);
+        if (lCell && lCell.type === 'light') state.worldCells.delete(`${snapX},${snapY},${layer}`);
+        return;
+      }
+      if (layer === 'front' || layer === 'back' || layer === 'farback') {
+        state.worldCells.delete(`${snapX},${snapY},${layer}`);
+        return;
+      }
+      state.worldCells.delete(`${snapX},${snapY},main`);
+      const checkW = sp.w || TILE_SIZE;
+      const checkH = sp.h || TILE_SIZE;
+      state.dynamicEntities = state.dynamicEntities.filter(
+        e => !(snapX < e.x + e.w - 1 && snapX + checkW > e.x + 1 && snapY < e.y + e.h - 1 && snapY + checkH > e.y + 1)
+      );
+    }
+
+    function placeSpriteAtWorld(sp, snapX, snapY, animDelay = 0, playSound = true, customOrient = undefined, allowOverwrite = false) {
       // Motions (and Body/Wearable/Holdable/Mountable avatar items) cannot be placed in the viewport—only Dynamics and world objects can!
       if (sp && (['body', 'wearable', 'holdable', 'mountable'].includes(sp.type))) {
         sfx.buzzer();
         return false;
       }
-      // Enforce single occupancy per space (unless coexisting like BACK behind MAIN)
-      if (isWorldSpaceOccupiedForSprite(sp, snapX, snapY)) {
+      const orient = ((customOrient !== undefined ? customOrient : (state.brushOrient || 0)) % 8 + 8) % 8;
+
+      if (allowOverwrite) {
+        if (!canBrushPlaceOrOverwrite(sp, snapX, snapY, orient)) {
+          return false;
+        }
+        removeOverwrittenAtWorld(sp, snapX, snapY);
+      } else if (isWorldSpaceOccupiedForSprite(sp, snapX, snapY)) {
+        // Enforce single occupancy when dropping a viewport-held block (allowOverwrite === false)
         return false;
       }
 
-      const orient = ((customOrient !== undefined ? customOrient : (state.brushOrient || 0)) % 8 + 8) % 8;
       // Allow placing starter ground blocks in Build Mode when no custom sprite is passed
       if (!sp) {
         const key = `${snapX},${snapY},main`;
@@ -11571,14 +11699,14 @@
         }
 
         // Standard Stamp placement when a brush is selected
+        // Standard Stamp placement when a brush is selected (allows replacing existing blocks on the same layer)
         if (brushSp) {
-          if (isWorldSpaceOccupiedForSprite(brushSp, snapX, snapY)) {
-            sfx.buzzer();
+          if (!canBrushPlaceOrOverwrite(brushSp, snapX, snapY, state.brushOrient)) {
             return;
           }
           pushWorldUndo();
           mouseWorld.hasPushedStrokeUndo = true;
-          placeSpriteAtWorld(brushSp, snapX, snapY);
+          placeSpriteAtWorld(brushSp, snapX, snapY, 0, true, undefined, true);
         }
       }
     });
@@ -11667,12 +11795,12 @@
         if (brushSp && !['moving', 'living'].includes(brushSp.type) && !isGravityEntity(brushSp)) {
           const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
           const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
-          if (!isWorldSpaceOccupiedForSprite(brushSp, snapX, snapY)) {
+          if (canBrushPlaceOrOverwrite(brushSp, snapX, snapY, state.brushOrient)) {
             if (!mouseWorld.hasPushedStrokeUndo) {
               pushWorldUndo();
               mouseWorld.hasPushedStrokeUndo = true;
             }
-            placeSpriteAtWorld(brushSp, snapX, snapY);
+            placeSpriteAtWorld(brushSp, snapX, snapY, 0, true, undefined, true);
           }
         }
       }
@@ -11791,7 +11919,7 @@
             eraseWorldAt(c.x + TILE_SIZE / 2, c.y + TILE_SIZE / 2);
           } else if (brushSp) {
             const staggerDelay = Math.min(0.32, idx * 0.012);
-            placeSpriteAtWorld(brushSp, c.x, c.y, staggerDelay, false);
+            placeSpriteAtWorld(brushSp, c.x, c.y, staggerDelay, false, undefined, true);
           }
         });
       }
@@ -11919,9 +12047,9 @@
 
       const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
       const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
-      if (!isWorldSpaceOccupiedForSprite(sp, snapX, snapY)) {
+      if (canBrushPlaceOrOverwrite(sp, snapX, snapY, state.brushOrient)) {
         pushWorldUndo();
-        placeSpriteAtWorld(sp, snapX, snapY);
+        placeSpriteAtWorld(sp, snapX, snapY, 0, true, undefined, true);
       } else {
         sfx.buzzer();
       }
@@ -12108,9 +12236,13 @@
 
     function setupPaintCanvasSize() {
       const scale = getEffectiveEditorZoom();
-      paintCanvas.width = editor.w * scale;
-      paintCanvas.height = editor.h * scale;
-      paintCtx.imageSmoothingEnabled = false;
+      const targetW = editor.w * scale;
+      const targetH = editor.h * scale;
+      if (paintCanvas.width !== targetW || paintCanvas.height !== targetH) {
+        paintCanvas.width = targetW;
+        paintCanvas.height = targetH;
+        paintCtx.imageSmoothingEnabled = false;
+      }
       canvasZoomLabel.textContent = `${scale}x`;
       const wrapper = document.getElementById('paint-wrapper');
       if (wrapper) {
@@ -12247,8 +12379,72 @@
         btn.classList.toggle('active', btn.dataset.tool === toolName);
       });
       updateEditorSubbars();
+      updatePaintCanvasCursor();
       renderColorHistoryBar();
       renderPaintCanvas();
+    }
+
+    function updatePaintCanvasCursor(e) {
+      if (!paintCanvas) return;
+      const isCtrl = Boolean(e?.ctrlKey || e?.metaKey || editor.ctrlHeld);
+      const isShift = Boolean(e?.shiftKey || editor.shiftHeld);
+      const isAlt = Boolean(e?.altKey || editor.altHeld);
+
+      if (editor.isPanningCanvas) {
+        paintCanvas.style.cursor = 'grabbing';
+        paintStage.style.cursor = 'grabbing';
+        return;
+      }
+      if (editor.spaceHeld) {
+        paintCanvas.style.cursor = 'grab';
+        paintStage.style.cursor = 'grab';
+        return;
+      }
+      paintStage.style.cursor = 'default';
+
+      // Ctrl held (outside Marquee/Fill) activates Move Drawing cursor
+      if (editor.tool === 'move' || (isCtrl && editor.tool !== 'marquee' && editor.tool !== 'fill')) {
+        paintCanvas.style.cursor = 'move';
+        return;
+      }
+      // Shift held (in Pencil, Eraser, or Fill) activates Eyedropper cursor
+      if (editor.tool === 'picker' || (isShift && ['pencil', 'eraser', 'fill'].includes(editor.tool) && !editor.isDrawing)) {
+        paintCanvas.style.cursor = EYEDROPPER_CURSOR;
+        return;
+      }
+      // Alt held activates Fill Bucket cursor
+      if (editor.tool === 'fill' || (isAlt && !editor.isDrawing)) {
+        paintCanvas.style.cursor = FILL_BUCKET_CURSOR;
+        return;
+      }
+      if (editor.tool === 'eraser') {
+        paintCanvas.style.cursor = ERASER_CURSOR;
+        return;
+      }
+      if (editor.tool === 'pencil') {
+        paintCanvas.style.cursor = PENCIL_CURSOR;
+        return;
+      }
+      if (editor.tool === 'marquee') {
+        if (editor.marqueeType === 'wand') {
+          paintCanvas.style.cursor = WAND_CURSOR;
+          return;
+        }
+        if (
+          editor.marquee &&
+          editor.hoverPixel &&
+          editor.hoverPixel.x >= editor.marquee.x &&
+          editor.hoverPixel.x < editor.marquee.x + editor.marquee.w &&
+          editor.hoverPixel.y >= editor.marquee.y &&
+          editor.hoverPixel.y < editor.marquee.y + editor.marquee.h
+        ) {
+          paintCanvas.style.cursor = 'move';
+          return;
+        }
+        paintCanvas.style.cursor = 'crosshair';
+        return;
+      }
+      paintCanvas.style.cursor = 'crosshair';
     }
 
     function updateEditorSubbars() {
@@ -12338,19 +12534,24 @@
       }
     }
 
+    function isPixelInBrushFootprint(dx, dy, sz, isCircle) {
+      if (dx < 0 || dx >= sz || dy < 0 || dy >= sz) return false;
+      if (!isCircle || sz <= 2) return true;
+      const center = (sz - 1) / 2;
+      const rad = (sz - 0.5) / 2;
+      const distSq = (dx - center) ** 2 + (dy - center) ** 2;
+      return distSq <= rad * rad;
+    }
+
     function drawBrushAt(buf, w, h, cx, cy, r, g, b, a) {
       const sz = Math.max(1, editor.brushSize || 1);
       const half = Math.floor(sz / 2);
       const isCircle = editor.brushShape === 'circle' && sz > 2;
-      const radSq = (sz / 2) * (sz / 2);
       for (let dy = 0; dy < sz; dy++) {
         for (let dx = 0; dx < sz; dx++) {
+          if (!isPixelInBrushFootprint(dx, dy, sz, isCircle)) continue;
           const px = cx - half + dx;
           const py = cy - half + dy;
-          if (isCircle) {
-            const distSq = (dx - (sz - 1) / 2) ** 2 + (dy - (sz - 1) / 2) ** 2;
-            if (distSq > radSq + 0.15) continue;
-          }
           plotPixelWithSymmetry(buf, w, h, px, py, r, g, b, a);
         }
       }
@@ -12520,7 +12721,9 @@
       // Live shape / line drag preview
       if (editor.isDrawing && editor.lineStart && editor.hoverPixel && ['line', 'rect', 'ellipse'].includes(editor.tool)) {
         const previewBuf = new Uint8ClampedArray(W * H * 4);
-        const [r, g, b] = hexToRgba(editor.color);
+        const isEraseShape = editor.lineStart.button === 2;
+        const [r, g, b] = isEraseShape ? [0, 0, 0] : hexToRgba(editor.color);
+        const shapeA = isEraseShape ? 0 : editor.alpha;
         let x0 = editor.lineStart.x, y0 = editor.lineStart.y;
         let x1 = editor.hoverPixel.x, y1 = editor.hoverPixel.y;
 
@@ -12537,15 +12740,18 @@
           y1 = y0 + (y1 >= y0 ? side : -side);
         }
 
-        if (editor.tool === 'line') drawLinePixels(previewBuf, W, H, x0, y0, x1, y1, r, g, b, editor.alpha);
-        else if (editor.tool === 'rect') drawRectPixels(previewBuf, W, H, x0, y0, x1, y1, r, g, b, editor.alpha, editor.shapeFilled);
-        else if (editor.tool === 'ellipse') drawEllipsePixels(previewBuf, W, H, x0, y0, x1, y1, r, g, b, editor.alpha, editor.shapeFilled);
+        if (editor.tool === 'line') drawLinePixels(previewBuf, W, H, x0, y0, x1, y1, r, g, b, isEraseShape ? 180 : shapeA);
+        else if (editor.tool === 'rect') drawRectPixels(previewBuf, W, H, x0, y0, x1, y1, r, g, b, isEraseShape ? 180 : shapeA, editor.shapeFilled);
+        else if (editor.tool === 'ellipse') drawEllipsePixels(previewBuf, W, H, x0, y0, x1, y1, r, g, b, isEraseShape ? 180 : shapeA, editor.shapeFilled);
 
         const tmp = document.createElement('canvas');
         tmp.width = W;
         tmp.height = H;
         tmp.getContext('2d').putImageData(new ImageData(previewBuf, W, H), 0, 0);
+        paintCtx.save();
+        if (isEraseShape) paintCtx.globalAlpha = 0.5;
         paintCtx.drawImage(tmp, 0, 0, cw, ch);
+        paintCtx.restore();
       }
 
       // Floating marquee pixels & marching ants
@@ -12562,10 +12768,16 @@
         paintCtx.strokeStyle = '#ffffff';
         paintCtx.lineWidth = 1;
         paintCtx.setLineDash([4, 4]);
-        paintCtx.strokeRect(m.x * scale + 0.5, m.y * scale + 0.5, m.w * scale - 1, m.h * scale - 1);
-        paintCtx.strokeStyle = '#000000';
-        paintCtx.lineDashOffset = 4;
-        paintCtx.strokeRect(m.x * scale + 0.5, m.y * scale + 0.5, m.w * scale - 1, m.h * scale - 1);
+        if (editor.marqueeType === 'circle' && !m.floatingData && m.mask) {
+          paintCtx.beginPath();
+          paintCtx.ellipse((m.x + m.w / 2) * scale, (m.y + m.h / 2) * scale, (m.w / 2) * scale, (m.h / 2) * scale, 0, 0, Math.PI * 2);
+          paintCtx.stroke();
+        } else {
+          paintCtx.strokeRect(m.x * scale + 0.5, m.y * scale + 0.5, m.w * scale - 1, m.h * scale - 1);
+          paintCtx.strokeStyle = '#000000';
+          paintCtx.lineDashOffset = 4;
+          paintCtx.strokeRect(m.x * scale + 0.5, m.y * scale + 0.5, m.w * scale - 1, m.h * scale - 1);
+        }
         paintCtx.restore();
       }
 
@@ -12616,16 +12828,65 @@
         paintCtx.restore();
       }
 
+      // Pivot Center Crosshair & Relative Pivot Coordinates (Toggled with 'P' key)
+      if (editor.showPivotCoords) {
+        const midX = Math.floor(W / 2);
+        const midY = Math.floor(H / 2);
+        const cx = (midX + 0.5) * scale;
+        const cy = (midY + 0.5) * scale;
+        paintCtx.save();
+        paintCtx.strokeStyle = '#fde047';
+        paintCtx.lineWidth = 1.5;
+        paintCtx.beginPath();
+        paintCtx.moveTo(cx - 8, cy);
+        paintCtx.lineTo(cx + 8, cy);
+        paintCtx.moveTo(cx, cy - 8);
+        paintCtx.lineTo(cx, cy + 8);
+        paintCtx.stroke();
+        paintCtx.restore();
+      }
+
       // Hover Brush Footprint Preview
       if (editor.hoverPixel && !editor.isPanningCanvas && ['pencil', 'eraser', 'line', 'spray'].includes(editor.tool)) {
         const sz = editor.tool === 'spray' ? editor.sprayRadius * 2 : Math.max(1, editor.brushSize || 1);
         const half = Math.floor(sz / 2);
         const hx = (editor.hoverPixel.x - half) * scale;
         const hy = (editor.hoverPixel.y - half) * scale;
+        const isCircle = (editor.brushShape === 'circle' && sz > 2) || editor.tool === 'spray';
         paintCtx.save();
         paintCtx.strokeStyle = editor.tool === 'eraser' ? '#fda4af' : '#93c5fd';
         paintCtx.lineWidth = 1;
-        paintCtx.strokeRect(hx + 0.5, hy + 0.5, sz * scale - 1, sz * scale - 1);
+        if (isCircle) {
+          paintCtx.beginPath();
+          for (let dy = 0; dy < sz; dy++) {
+            for (let dx = 0; dx < sz; dx++) {
+              if (!isPixelInBrushFootprint(dx, dy, sz, true)) continue;
+              const px0 = hx + dx * scale;
+              const py0 = hy + dy * scale;
+              const px1 = px0 + scale;
+              const py1 = py0 + scale;
+              if (!isPixelInBrushFootprint(dx, dy - 1, sz, true)) {
+                paintCtx.moveTo(px0, py0 + 0.5);
+                paintCtx.lineTo(px1, py0 + 0.5);
+              }
+              if (!isPixelInBrushFootprint(dx, dy + 1, sz, true)) {
+                paintCtx.moveTo(px0, py1 - 0.5);
+                paintCtx.lineTo(px1, py1 - 0.5);
+              }
+              if (!isPixelInBrushFootprint(dx - 1, dy, sz, true)) {
+                paintCtx.moveTo(px0 + 0.5, py0);
+                paintCtx.lineTo(px0 + 0.5, py1);
+              }
+              if (!isPixelInBrushFootprint(dx + 1, dy, sz, true)) {
+                paintCtx.moveTo(px1 - 0.5, py0);
+                paintCtx.lineTo(px1 - 0.5, py1);
+              }
+            }
+          }
+          paintCtx.stroke();
+        } else {
+          paintCtx.strokeRect(hx + 0.5, hy + 0.5, sz * scale - 1, sz * scale - 1);
+        }
         paintCtx.restore();
       }
     }
@@ -12735,6 +12996,50 @@
 
       const count = editor.frames.length;
       if (count === 0) return;
+
+      // If editing a Dynamic or Motion creation with active Dynamic script code, preview the live composite!
+      if ((editor.type === 'dynamic' || (editor.type === 'body' && editor.subtype === 'Motion')) && editor.code && editor.code.trim()) {
+        const scale = Math.max(1, Math.min(Math.floor((W - 8) / Math.max(1, editor.w)), Math.floor((H - 8) / Math.max(1, editor.h))));
+        const dw = editor.w * scale;
+        const dh = editor.h * scale;
+        const sx = Math.round((W - dw) / 2);
+        const sy = Math.round((H - dh) / 2);
+        const tempSp = {
+          id: '__editor_preview__',
+          w: editor.w,
+          h: editor.h,
+          code: editor.code,
+          frames: editor.frames,
+          frameDims: editor.frameDims
+        };
+        const transforms = evaluateDynamicCellTransforms(tempSp, editor.previewTick / 60, 'start');
+        for (const tr of transforms) {
+          if (!tr.show || tr.opacity <= 0.01) continue;
+          const dim = (editor.frameDims && editor.frameDims[tr.index]) || { w: editor.w, h: editor.h };
+          const buf = editor.frames[tr.index];
+          if (!buf) continue;
+          const tmp = document.createElement('canvas');
+          tmp.width = dim.w;
+          tmp.height = dim.h;
+          const safe = new Uint8ClampedArray(dim.w * dim.h * 4);
+          safe.set(buf.subarray(0, safe.length));
+          tmp.getContext('2d').putImageData(new ImageData(safe, dim.w, dim.h), 0, 0);
+
+          const cw = dim.w * scale;
+          const ch = dim.h * scale;
+          previewCtx.save();
+          previewCtx.globalAlpha = tr.opacity;
+          if (tr.bright) previewCtx.globalCompositeOperation = 'lighter';
+          const cx = sx + cw / 2 + (tr.dx + tr.pivotX) * scale;
+          const cy = sy + ch / 2 + (tr.dy + tr.pivotY) * scale;
+          previewCtx.translate(cx, cy);
+          if (tr.rot !== 0) previewCtx.rotate((tr.rot * Math.PI) / 180);
+          if (tr.flipH || tr.flipV) previewCtx.scale(tr.flipH ? -1 : 1, tr.flipV ? -1 : 1);
+          previewCtx.drawImage(tmp, -cw / 2 - tr.pivotX * scale, -ch / 2 - tr.pivotY * scale, cw, ch);
+          previewCtx.restore();
+        }
+        return;
+      }
 
       const fps = Math.max(1, editor.previewFps || 8);
       const step = Math.floor(editor.previewTick / Math.max(1, Math.round(60 / fps)));
@@ -12857,8 +13162,32 @@
       dynamicCodeInput.value = editor.code;
       document.getElementById('preview-fps-input').value = editor.previewFps;
 
+      // Show "+ Save as New" alongside "Save" when editing an existing creation so users can either update all placed blocks OR branch into a new creation
+      const saveAsNewBtn = document.getElementById('save-as-new-sprite-btn');
+      const saveBtnLabel = document.getElementById('save-sprite-btn-label');
+      if (saveAsNewBtn) {
+        const isEditingExisting = Boolean(editor.editingId);
+        saveAsNewBtn.classList.toggle('hidden', !isEditingExisting);
+        saveAsNewBtn.classList.toggle('flex', isEditingExisting);
+      }
+      if (saveBtnLabel) {
+        if (editor.editingId) {
+          let placedCount = 0;
+          for (const [, c] of state.worldCells.entries()) {
+            if (c.spriteId === editor.editingId) placedCount++;
+          }
+          for (const ent of state.dynamicEntities) {
+            if (ent.spriteId === editor.editingId) placedCount++;
+          }
+          saveBtnLabel.textContent = placedCount > 0 ? `Save (${placedCount} in world)` : 'Save';
+        } else {
+          saveBtnLabel.textContent = 'Save';
+        }
+      }
+
       editorModal.classList.add('open');
       applyEditorCreationType(editor.type, true, false);
+      updatePaintCanvasCursor();
       setTimeout(() => {
         setupPaintCanvasSize();
         renderPaintCanvas();
@@ -12873,13 +13202,26 @@
       dynamicCodePopup.classList.remove('flex');
     }
 
-    function saveCurrentSprite() {
+    function saveCurrentSprite(forceSaveAsNew = false) {
       commitMarqueeSelection();
-      const cleanName = spriteNameInput.value.trim() || `Creation ${state.sprites.length + 1}`;
-      const id = editor.editingId || ('sp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
+      const targetEditingId = forceSaveAsNew ? null : editor.editingId;
+      let cleanName = spriteNameInput.value.trim() || `Creation ${state.sprites.length + 1}`;
+      const existingObj = targetEditingId ? getSpriteById(targetEditingId) : null;
+      if (forceSaveAsNew && editor.editingId) {
+        const orig = getSpriteById(editor.editingId);
+        if (orig && cleanName === orig.name) {
+          cleanName = `${cleanName} Copy`;
+        }
+      }
+
+      // Push a full World + Sprite undo snapshot before mutating an existing creation so Ctrl+Z in the world can revert accidental edits!
+      if (existingObj) {
+        pushWorldUndo();
+      }
+
+      const id = targetEditingId || ('sp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
       const thumb = createThumbnailDataUrl(editor.frames, editor.w, editor.h, editor.frameDims);
 
-      const existingObj = editor.editingId ? getSpriteById(editor.editingId) : null;
       const spriteData = {
         id,
         name: cleanName,
@@ -12932,7 +13274,11 @@
 
     document.getElementById('open-create-btn').addEventListener('click', () => openSpriteEditor(null));
     document.getElementById('cancel-editor-btn').addEventListener('click', closeSpriteEditor);
-    document.getElementById('save-sprite-btn').addEventListener('click', saveCurrentSprite);
+    document.getElementById('save-sprite-btn').addEventListener('click', () => saveCurrentSprite(false));
+    const saveAsNewSpriteBtn = document.getElementById('save-as-new-sprite-btn');
+    if (saveAsNewSpriteBtn) {
+      saveAsNewSpriteBtn.addEventListener('click', () => saveCurrentSprite(true));
+    }
 
     // Paint Canvas Mouse Drawing Events
     function getPaintPixelCoords(e) {
@@ -12945,9 +13291,57 @@
       };
     }
 
+    // Allow Middle-Mouse or Space+Drag panning anywhere inside #paint-stage, plus Scroll-Wheel zooming
+    paintStage.addEventListener('mousedown', (e) => {
+      if (!editor.isOpen) return;
+      if (e.button === 1 || (e.button === 0 && editor.spaceHeld && e.target !== paintCanvas)) {
+        e.preventDefault();
+        editor.isPanningCanvas = true;
+        editor.panStartMouse = { x: e.clientX, y: e.clientY };
+        editor.panStartOffset = { x: editor.panX, y: editor.panY };
+        updatePaintCanvasCursor(e);
+      }
+    });
+
+    editorModal.addEventListener('wheel', (e) => {
+      if (!editor.isOpen) return;
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        const delta = e.deltaY < 0 ? 1 : -1;
+        editor.brushSize = Math.max(1, Math.min(16, (editor.brushSize || 1) + delta));
+        const sizeBtn = document.getElementById('brush-size-btn');
+        if (sizeBtn) sizeBtn.textContent = `${editor.brushSize}px`;
+        if (editor.tool !== 'pencil' && editor.tool !== 'eraser' && editor.tool !== 'line') {
+          selectTool('pencil');
+        } else {
+          renderPaintCanvas();
+        }
+      }
+    }, { capture: true, passive: false });
+
+    paintStage.addEventListener('wheel', (e) => {
+      if (!editor.isOpen) return;
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) return;
+      const curScale = getEffectiveEditorZoom();
+      const step = curScale >= 12 ? 2 : 1;
+      const nextScale = e.deltaY < 0
+        ? Math.min(36, curScale + step)
+        : Math.max(2, curScale - step);
+      if (nextScale !== curScale) {
+        editor.canvasZoom = nextScale;
+        setupPaintCanvasSize();
+        renderPaintCanvas();
+      }
+    }, { passive: false });
+
     paintCanvas.addEventListener('mousedown', (e) => {
       if (!editor.isOpen) return;
       e.preventDefault();
+      editor.ctrlHeld = Boolean(e.ctrlKey || e.metaKey);
+      editor.shiftHeld = Boolean(e.shiftKey);
+      editor.altHeld = Boolean(e.altKey);
       const pt = getPaintPixelCoords(e);
       editor.hoverPixel = pt;
 
@@ -12955,8 +13349,10 @@
         editor.isPanningCanvas = true;
         editor.panStartMouse = { x: e.clientX, y: e.clientY };
         editor.panStartOffset = { x: editor.panX, y: editor.panY };
+        updatePaintCanvasCursor(e);
         return;
       }
+      updatePaintCanvasCursor(e);
 
       const buf = editor.frames[editor.activeFrame];
       const W = editor.w;
@@ -12993,6 +13389,51 @@
       if (editor.tool === 'marquee') {
         if (e.button === 2) {
           commitMarqueeSelection();
+          return;
+        }
+        if (editor.marqueeType === 'wand') {
+          commitMarqueeSelection();
+          const sIdx = (pt.y * W + pt.x) * 4;
+          const tr = buf[sIdx], tg = buf[sIdx + 1], tb = buf[sIdx + 2], ta = buf[sIdx + 3];
+          const visited = new Uint8Array(W * H);
+          const stack = [[pt.x, pt.y]];
+          visited[pt.y * W + pt.x] = 1;
+          let minX = pt.x, maxX = pt.x, minY = pt.y, maxY = pt.y;
+          const matched = [];
+
+          while (stack.length > 0) {
+            const [cx, cy] = stack.pop();
+            matched.push([cx, cy]);
+            if (cx < minX) minX = cx;
+            if (cx > maxX) maxX = cx;
+            if (cy < minY) minY = cy;
+            if (cy > maxY) maxY = cy;
+
+            const neighbors = [[cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]];
+            for (const [nx, ny] of neighbors) {
+              if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+              const nPos = ny * W + nx;
+              if (visited[nPos]) continue;
+              const nIdx = nPos * 4;
+              const same = ta === 0
+                ? buf[nIdx + 3] === 0
+                : (buf[nIdx + 3] > 0 && Math.abs(buf[nIdx] - tr) <= 8 && Math.abs(buf[nIdx + 1] - tg) <= 8 && Math.abs(buf[nIdx + 2] - tb) <= 8);
+              if (same) {
+                visited[nPos] = 1;
+                stack.push([nx, ny]);
+              }
+            }
+          }
+
+          const mw = Math.max(1, maxX - minX + 1);
+          const mh = Math.max(1, maxY - minY + 1);
+          const mask = new Uint8Array(mw * mh);
+          for (const [mx, my] of matched) {
+            mask[(my - minY) * mw + (mx - minX)] = 1;
+          }
+          editor.marquee = { x: minX, y: minY, w: mw, h: mh, mask, floatingData: null };
+          editor.marqueeAction = null;
+          renderPaintCanvas();
           return;
         }
         if (
@@ -13075,29 +13516,34 @@
 
     window.addEventListener('mousemove', (e) => {
       if (!editor.isOpen) return;
+      editor.ctrlHeld = Boolean(e.ctrlKey || e.metaKey);
+      editor.shiftHeld = Boolean(e.shiftKey);
+      editor.altHeld = Boolean(e.altKey);
       if (editor.isPanningCanvas) {
         editor.panX = editor.panStartOffset.x + (e.clientX - editor.panStartMouse.x);
         editor.panY = editor.panStartOffset.y + (e.clientY - editor.panStartMouse.y);
         setupPaintCanvasSize();
+        renderPaintCanvas();
         return;
       }
 
       const rect = paintCanvas.getBoundingClientRect();
       const inside = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
-      if (!inside && !editor.isDrawing) {
-        if (editor.hoverPixel) {
-          editor.hoverPixel = null;
-          renderPaintCanvas();
-        }
-        return;
-      }
-
       const pt = getPaintPixelCoords(e);
-      editor.hoverPixel = pt;
-      cursorCoords.textContent = `${pt.x}, ${pt.y}`;
+      editor.hoverPixel = inside || editor.isDrawing ? pt : null;
+      if (cursorCoords) {
+        if (editor.showPivotCoords) {
+          const pivX = pt.x - Math.floor(editor.w / 2);
+          const pivY = pt.y - Math.floor(editor.h / 2);
+          cursorCoords.textContent = `PIVOT ${pivX}, ${pivY}`;
+        } else {
+          cursorCoords.textContent = `${pt.x}, ${pt.y}`;
+        }
+      }
+      updatePaintCanvasCursor(e);
 
       if (!editor.isDrawing) {
-        renderPaintCanvas();
+        if (inside) renderPaintCanvas();
         return;
       }
 
@@ -13108,7 +13554,7 @@
       if (editor.celMoveDrag) {
         const dx = pt.x - editor.celMoveDrag.startX;
         const dy = pt.y - editor.celMoveDrag.startY;
-        const src = editor.celMoveDrag.snapshot;
+        const snap = editor.celMoveDrag.snapshot;
         buf.fill(0);
         for (let y = 0; y < H; y++) {
           const ny = y + dy;
@@ -13118,18 +13564,19 @@
             if (nx < 0 || nx >= W) continue;
             const sIdx = (y * W + x) * 4;
             const dIdx = (ny * W + nx) * 4;
-            buf[dIdx] = src[sIdx];
-            buf[dIdx + 1] = src[sIdx + 1];
-            buf[dIdx + 2] = src[sIdx + 2];
-            buf[dIdx + 3] = src[sIdx + 3];
+            buf[dIdx] = snap[sIdx];
+            buf[dIdx + 1] = snap[sIdx + 1];
+            buf[dIdx + 2] = snap[sIdx + 2];
+            buf[dIdx + 3] = snap[sIdx + 3];
           }
         }
+        renderFrameTabs();
         renderPaintCanvas();
         return;
       }
 
       if (editor.tool === 'marquee' && editor.marquee) {
-        if (editor.marqueeAction === 'selecting') {
+        if (editor.marqueeAction === 'selecting' && editor.marqueeDragOrigin) {
           let x0 = editor.marqueeDragOrigin.x;
           let y0 = editor.marqueeDragOrigin.y;
           let x1 = pt.x;
@@ -13143,11 +13590,30 @@
           const minY = Math.max(0, Math.min(y0, y1));
           const maxX = Math.min(W - 1, Math.max(x0, x1));
           const maxY = Math.min(H - 1, Math.max(y0, y1));
+          const mw = Math.max(1, maxX - minX + 1);
+          const mh = Math.max(1, maxY - minY + 1);
           editor.marquee.x = minX;
           editor.marquee.y = minY;
-          editor.marquee.w = Math.max(1, maxX - minX + 1);
-          editor.marquee.h = Math.max(1, maxY - minY + 1);
-        } else if (editor.marqueeAction === 'moving') {
+          editor.marquee.w = mw;
+          editor.marquee.h = mh;
+          if (editor.marqueeType === 'circle') {
+            const mask = new Uint8Array(mw * mh);
+            const rx = mw / 2;
+            const ry = mh / 2;
+            for (let my = 0; my < mh; my++) {
+              for (let mx = 0; mx < mw; mx++) {
+                const nx = rx > 0.5 ? (mx + 0.5 - rx) / rx : 0;
+                const ny = ry > 0.5 ? (my + 0.5 - ry) / ry : 0;
+                if (nx * nx + ny * ny <= 1.05) {
+                  mask[my * mw + mx] = 1;
+                }
+              }
+            }
+            editor.marquee.mask = mask;
+          } else {
+            editor.marquee.mask = null;
+          }
+        } else if (editor.marqueeAction === 'moving' && editor.marqueeDragOrigin) {
           editor.marquee.x = pt.x - editor.marqueeDragOrigin.x;
           editor.marquee.y = pt.y - editor.marqueeDragOrigin.y;
         }
@@ -13160,44 +13626,66 @@
         return;
       }
 
-      if (editor.lineStart) {
+      if (['pencil', 'eraser', 'spray'].includes(editor.tool) && editor.lineStart) {
         const isErasing = editor.lineStart.button === 2 || editor.tool === 'eraser';
         const [r, g, b] = isErasing ? [0, 0, 0] : hexToRgba(editor.color);
         const a = isErasing ? 0 : editor.alpha;
         if (editor.tool === 'spray') {
-          for (let i = 0; i < 4; i++) {
+          for (let i = 0; i < 5; i++) {
             const ang = Math.random() * Math.PI * 2;
             const rad = Math.random() * editor.sprayRadius;
             plotPixelWithSymmetry(buf, W, H, Math.round(pt.x + Math.cos(ang) * rad), Math.round(pt.y + Math.sin(ang) * rad), r, g, b, a);
           }
         } else {
           drawLinePixels(buf, W, H, editor.lineStart.x, editor.lineStart.y, pt.x, pt.y, r, g, b, a);
+          editor.lineStart.x = pt.x;
+          editor.lineStart.y = pt.y;
         }
-        editor.lineStart = { x: pt.x, y: pt.y, button: editor.lineStart.button };
+        renderFrameTabs();
         renderPaintCanvas();
       }
     });
 
-    window.addEventListener('mouseup', () => {
+    window.addEventListener('mouseup', (e) => {
       if (!editor.isOpen) return;
       if (editor.isPanningCanvas) {
         editor.isPanningCanvas = false;
+        updatePaintCanvasCursor(e);
         return;
       }
-      if (!editor.isDrawing) return;
+      if (!editor.isDrawing) {
+        updatePaintCanvasCursor(e);
+        return;
+      }
 
       const buf = editor.frames[editor.activeFrame];
       const W = editor.w;
       const H = editor.h;
 
-      if (editor.lineStart && editor.hoverPixel && ['line', 'rect', 'ellipse'].includes(editor.tool)) {
+      if (editor.celMoveDrag) {
+        editor.celMoveDrag = null;
+        editor.isDrawing = false;
+        renderFrameTabs();
+        renderPaintCanvas();
+        return;
+      }
+
+      if (editor.tool === 'marquee') {
+        editor.marqueeAction = null;
+        editor.isDrawing = false;
+        renderPaintCanvas();
+        return;
+      }
+
+      if (editor.lineStart && ['line', 'rect', 'ellipse'].includes(editor.tool)) {
+        const pt = editor.hoverPixel || getPaintPixelCoords(e);
         const isErasing = editor.lineStart.button === 2;
         const [r, g, b] = isErasing ? [0, 0, 0] : hexToRgba(editor.color);
         const a = isErasing ? 0 : editor.alpha;
         if (!isErasing) recordUsedColor(editor.color);
 
         let x0 = editor.lineStart.x, y0 = editor.lineStart.y;
-        let x1 = editor.hoverPixel.x, y1 = editor.hoverPixel.y;
+        let x1 = pt.x, y1 = pt.y;
 
         if (editor.tool === 'line' && editor.shiftHeld) {
           const dx = x1 - x0, dy = y1 - y0;
@@ -13219,13 +13707,11 @@
 
       editor.isDrawing = false;
       editor.lineStart = null;
-      editor.celMoveDrag = null;
-      editor.marqueeAction = null;
       renderFrameTabs();
       renderPaintCanvas();
     });
 
-    // Editor Tool Strip & Subbars Listeners
+    // Editor Tool & Transform Buttons
     document.querySelectorAll('.tool-btn[data-tool]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const t = btn.dataset.tool;
@@ -13236,6 +13722,38 @@
         selectTool(t);
       });
     });
+
+    document.querySelectorAll('.sfill-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        editor.shapeFilled = btn.dataset.sfill === 'filled';
+        document.querySelectorAll('.sfill-btn').forEach(b => b.classList.toggle('active', b === btn));
+      });
+    });
+
+    document.querySelectorAll('.mtype-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        commitMarqueeSelection();
+        editor.marqueeType = btn.dataset.mtype || 'rect';
+        document.querySelectorAll('.mtype-btn').forEach(b => b.classList.toggle('active', b === btn));
+        updatePaintCanvasCursor();
+      });
+    });
+
+    const fillAllCelsToggle = document.getElementById('fill-all-cels-toggle');
+    if (fillAllCelsToggle) {
+      fillAllCelsToggle.addEventListener('change', (e) => {
+        editor.fillAllCels = e.target.checked;
+      });
+    }
+
+    const sprayRadiusSlider = document.getElementById('spray-radius-slider');
+    const sprayRadiusLabel = document.getElementById('spray-radius-label');
+    if (sprayRadiusSlider) {
+      sprayRadiusSlider.addEventListener('input', (e) => {
+        editor.sprayRadius = parseInt(e.target.value, 10) || 5;
+        if (sprayRadiusLabel) sprayRadiusLabel.textContent = `${editor.sprayRadius}px`;
+      });
+    }
 
     document.getElementById('brush-size-btn').addEventListener('click', (e) => {
       editor.brushSize = (editor.brushSize % 6) + 1;
@@ -13260,9 +13778,9 @@
       btn.addEventListener('click', () => {
         const axis = btn.dataset.sym;
         if (axis === 'x') editor.symmetryX = !editor.symmetryX;
-        if (axis === 'y') editor.symmetryY = !editor.symmetryY;
-        if (axis === 'diag1') editor.symmetryDiag1 = !editor.symmetryDiag1;
-        if (axis === 'diag2') editor.symmetryDiag2 = !editor.symmetryDiag2;
+        else if (axis === 'y') editor.symmetryY = !editor.symmetryY;
+        else if (axis === 'diag1') editor.symmetryDiag1 = !editor.symmetryDiag1;
+        else if (axis === 'diag2') editor.symmetryDiag2 = !editor.symmetryDiag2;
         btn.classList.toggle('active',
           (axis === 'x' && editor.symmetryX) ||
           (axis === 'y' && editor.symmetryY) ||
@@ -13289,14 +13807,15 @@
     });
 
     function flipActiveCelHorizontal() {
+      commitMarqueeSelection();
       pushEditorUndo();
       const buf = editor.frames[editor.activeFrame];
       const W = editor.w, H = editor.h;
       const copy = new Uint8ClampedArray(buf);
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
-          const s = (y * W + x) * 4;
-          const d = (y * W + (W - 1 - x)) * 4;
+          const s = (y * W + (W - 1 - x)) * 4;
+          const d = (y * W + x) * 4;
           buf[d] = copy[s];
           buf[d + 1] = copy[s + 1];
           buf[d + 2] = copy[s + 2];
@@ -13308,14 +13827,15 @@
     }
 
     function flipActiveCelVertical() {
+      commitMarqueeSelection();
       pushEditorUndo();
       const buf = editor.frames[editor.activeFrame];
       const W = editor.w, H = editor.h;
       const copy = new Uint8ClampedArray(buf);
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
-          const s = (y * W + x) * 4;
-          const d = ((H - 1 - y) * W + x) * 4;
+          const s = ((H - 1 - y) * W + x) * 4;
+          const d = (y * W + x) * 4;
           buf[d] = copy[s];
           buf[d + 1] = copy[s + 1];
           buf[d + 2] = copy[s + 2];
@@ -13327,23 +13847,51 @@
     }
 
     function rotateActiveCel90() {
+      if (editor.marquee) {
+        liftMarqueeToFloating();
+        const m = editor.marquee;
+        if (m.floatingData) {
+          const oldW = m.w, oldH = m.h;
+          const nextData = new Uint8ClampedArray(oldW * oldH * 4);
+          for (let y = 0; y < oldH; y++) {
+            for (let x = 0; x < oldW; x++) {
+              const s = (y * oldW + x) * 4;
+              const nx = oldH - 1 - y;
+              const ny = x;
+              const d = (ny * oldH + nx) * 4;
+              nextData[d] = m.floatingData[s];
+              nextData[d + 1] = m.floatingData[s + 1];
+              nextData[d + 2] = m.floatingData[s + 2];
+              nextData[d + 3] = m.floatingData[s + 3];
+            }
+          }
+          m.w = oldH;
+          m.h = oldW;
+          m.floatingData = nextData;
+          m.mask = null;
+          renderPaintCanvas();
+          return;
+        }
+      }
+      commitMarqueeSelection();
       pushEditorUndo();
       const buf = editor.frames[editor.activeFrame];
       const W = editor.w, H = editor.h;
       const copy = new Uint8ClampedArray(buf);
       buf.fill(0);
+      const cx = (W - 1) / 2;
+      const cy = (H - 1) / 2;
       for (let y = 0; y < H; y++) {
         for (let x = 0; x < W; x++) {
-          const nx = W - 1 - y;
-          const ny = x;
-          if (nx >= 0 && nx < W && ny >= 0 && ny < H) {
-            const s = (y * W + x) * 4;
-            const d = (ny * W + nx) * 4;
-            buf[d] = copy[s];
-            buf[d + 1] = copy[s + 1];
-            buf[d + 2] = copy[s + 2];
-            buf[d + 3] = copy[s + 3];
-          }
+          const sx = Math.round(cx + (y - cy));
+          const sy = Math.round(cy - (x - cx));
+          if (sx < 0 || sx >= W || sy < 0 || sy >= H) continue;
+          const s = (sy * W + sx) * 4;
+          const d = (y * W + x) * 4;
+          buf[d] = copy[s];
+          buf[d + 1] = copy[s + 1];
+          buf[d + 2] = copy[s + 2];
+          buf[d + 3] = copy[s + 3];
         }
       }
       renderFrameTabs();
@@ -13353,6 +13901,7 @@
     document.getElementById('flip-h-btn').addEventListener('click', flipActiveCelHorizontal);
     document.getElementById('flip-v-btn').addEventListener('click', flipActiveCelVertical);
     document.getElementById('rotate-btn').addEventListener('click', rotateActiveCel90);
+
     document.getElementById('undo-btn').addEventListener('click', (e) => {
       if (e.shiftKey) redoEditor();
       else undoEditor();
@@ -13365,6 +13914,17 @@
     document.getElementById('clear-canvas-btn').addEventListener('click', () => {
       pushEditorUndo();
       if (editor.marquee) {
+        editor.marquee.floatingData = null;
+        const m = editor.marquee;
+        const buf = editor.frames[editor.activeFrame];
+        for (let my = 0; my < m.h; my++) {
+          for (let mx = 0; mx < m.w; mx++) {
+            const tx = m.x + mx, ty = m.y + my;
+            if (tx < 0 || tx >= editor.w || ty < 0 || ty >= editor.h) continue;
+            const idx = (ty * editor.w + tx) * 4;
+            buf[idx] = 0; buf[idx + 1] = 0; buf[idx + 2] = 0; buf[idx + 3] = 0;
+          }
+        }
         editor.marquee = null;
       } else {
         editor.frames[editor.activeFrame].fill(0);
@@ -13373,84 +13933,46 @@
       renderPaintCanvas();
     });
 
-    // Subbar Controls
-    document.querySelectorAll('.mtype-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        editor.marqueeType = btn.dataset.mtype;
-        document.querySelectorAll('.mtype-btn').forEach(b => b.classList.toggle('active', b === btn));
-      });
-    });
-
-    document.querySelectorAll('.sfill-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        editor.shapeFilled = btn.dataset.sfill === 'filled';
-        document.querySelectorAll('.sfill-btn').forEach(b => b.classList.toggle('active', b === btn));
-      });
-    });
-
-    document.getElementById('shape-equal-toggle').addEventListener('change', (e) => {
-      editor.shapeEqualAspect = e.target.checked;
-    });
-
-    document.querySelectorAll('.fmode-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        editor.fillMode = btn.dataset.fmode;
-        document.querySelectorAll('.fmode-btn').forEach(b => b.classList.toggle('active', b === btn));
-      });
-    });
-
-    document.getElementById('fill-all-cels-toggle').addEventListener('change', (e) => {
-      editor.fillAllCels = e.target.checked;
-    });
-
-    document.getElementById('spray-radius-slider').addEventListener('input', (e) => {
-      editor.sprayRadius = parseInt(e.target.value, 10) || 5;
-      document.getElementById('spray-radius-label').textContent = `${editor.sprayRadius}px`;
-    });
-
-    // Canvas Dimensions (- / + buttons & inputs)
-    function applyCanvasDimensionsChange(nextW, nextH) {
-      const clampedW = Math.max(4, Math.min(128, Math.round(nextW || editor.w)));
-      const clampedH = Math.max(4, Math.min(128, Math.round(nextH || editor.h)));
-      if (clampedW === editor.w && clampedH === editor.h) {
-        canvasWInput.value = clampedW;
-        canvasHInput.value = clampedH;
-        return;
-      }
+    // Canvas Dimensions & FPS +/- Stepper Controls
+    function applyEditorResize(newW, newH) {
+      const tw = Math.max(4, Math.min(128, Math.round(newW || 19)));
+      const th = Math.max(4, Math.min(128, Math.round(newH || 19)));
+      if (tw === editor.w && th === editor.h) return;
+      commitMarqueeSelection();
       pushEditorUndo();
-      const oldW = editor.w;
-      const oldH = editor.h;
-      editor.w = clampedW;
-      editor.h = clampedH;
-      editor.frames[editor.activeFrame] = resizeSingleBuffer(editor.frames[editor.activeFrame], oldW, oldH, clampedW, clampedH);
-      editor.frameDims[editor.activeFrame] = { w: clampedW, h: clampedH };
-      canvasWInput.value = clampedW;
-      canvasHInput.value = clampedH;
+      editor.frames = editor.frames.map((buf, idx) => {
+        const d = (editor.frameDims && editor.frameDims[idx]) || { w: editor.w, h: editor.h };
+        return resizeSingleBuffer(buf, d.w, d.h, tw, th);
+      });
+      editor.frameDims = editor.frames.map(() => ({ w: tw, h: th }));
+      editor.w = tw;
+      editor.h = th;
+      canvasWInput.value = tw;
+      canvasHInput.value = th;
       setupPaintCanvasSize();
       renderFrameTabs();
       renderPaintCanvas();
     }
 
-    canvasWInput.addEventListener('change', () => applyCanvasDimensionsChange(parseInt(canvasWInput.value, 10), editor.h));
-    canvasHInput.addEventListener('change', () => applyCanvasDimensionsChange(editor.w, parseInt(canvasHInput.value, 10)));
-    document.getElementById('canvas-w-dec-btn').addEventListener('click', (e) => applyCanvasDimensionsChange(editor.w - (e.shiftKey ? 5 : 1), editor.h));
-    document.getElementById('canvas-w-inc-btn').addEventListener('click', (e) => applyCanvasDimensionsChange(editor.w + (e.shiftKey ? 5 : 1), editor.h));
-    document.getElementById('canvas-h-dec-btn').addEventListener('click', (e) => applyCanvasDimensionsChange(editor.w, editor.h - (e.shiftKey ? 5 : 1)));
-    document.getElementById('canvas-h-inc-btn').addEventListener('click', (e) => applyCanvasDimensionsChange(editor.w, editor.h + (e.shiftKey ? 5 : 1)));
+    canvasWInput.addEventListener('change', () => applyEditorResize(parseInt(canvasWInput.value, 10), editor.h));
+    canvasHInput.addEventListener('change', () => applyEditorResize(editor.w, parseInt(canvasHInput.value, 10)));
+    document.getElementById('canvas-w-dec-btn').addEventListener('click', (e) => applyEditorResize(editor.w - (e.shiftKey ? 5 : 1), editor.h));
+    document.getElementById('canvas-w-inc-btn').addEventListener('click', (e) => applyEditorResize(editor.w + (e.shiftKey ? 5 : 1), editor.h));
+    document.getElementById('canvas-h-dec-btn').addEventListener('click', (e) => applyEditorResize(editor.w, editor.h - (e.shiftKey ? 5 : 1)));
+    document.getElementById('canvas-h-inc-btn').addEventListener('click', (e) => applyEditorResize(editor.w, editor.h + (e.shiftKey ? 5 : 1)));
 
-    // Preview FPS (- / + buttons & input)
-    function applyPreviewFpsChange(nextFps) {
-      const clamped = Math.max(1, Math.min(60, Math.round(nextFps || 8)));
+    const previewFpsInput = document.getElementById('preview-fps-input');
+    function setPreviewFps(val) {
+      const clamped = Math.max(1, Math.min(60, Math.round(val || 8)));
       editor.previewFps = clamped;
-      document.getElementById('preview-fps-input').value = clamped;
+      previewFpsInput.value = clamped;
       if (editor.type === 'body' && editor.subtype === 'Body' && editor.previewMode && editor.stateFps) {
         editor.stateFps[editor.previewMode] = clamped;
       }
     }
-
-    document.getElementById('preview-fps-input').addEventListener('change', (e) => applyPreviewFpsChange(parseInt(e.target.value, 10)));
-    document.getElementById('preview-fps-dec-btn').addEventListener('click', (e) => applyPreviewFpsChange(editor.previewFps - (e.shiftKey ? 5 : 1)));
-    document.getElementById('preview-fps-inc-btn').addEventListener('click', (e) => applyPreviewFpsChange(editor.previewFps + (e.shiftKey ? 5 : 1)));
+    previewFpsInput.addEventListener('change', () => setPreviewFps(parseInt(previewFpsInput.value, 10)));
+    document.getElementById('preview-fps-dec-btn').addEventListener('click', (e) => setPreviewFps(editor.previewFps - (e.shiftKey ? 5 : 1)));
+    document.getElementById('preview-fps-inc-btn').addEventListener('click', (e) => setPreviewFps(editor.previewFps + (e.shiftKey ? 5 : 1)));
 
     document.getElementById('preview-play-toggle-btn').addEventListener('click', () => {
       editor.previewPlaying = !editor.previewPlaying;
@@ -13458,9 +13980,8 @@
       document.getElementById('preview-play-icon').classList.toggle('hidden', editor.previewPlaying);
     });
 
-    // Canvas Zoom & Grid Toggle
     document.getElementById('canvas-zoom-in-btn').addEventListener('click', () => {
-      editor.canvasZoom = Math.min(32, getEffectiveEditorZoom() + 2);
+      editor.canvasZoom = Math.min(36, getEffectiveEditorZoom() + 2);
       setupPaintCanvasSize();
       renderPaintCanvas();
     });
@@ -13481,32 +14002,33 @@
       renderPaintCanvas();
     });
 
-    // Animation Cels Strip Controls
+    // Cel Strip Frame Management Buttons
     document.getElementById('add-frame-btn').addEventListener('click', () => {
+      commitMarqueeSelection();
       pushEditorUndo();
-      const curDim = editor.frameDims[editor.activeFrame] || { w: editor.w, h: editor.h };
-      const curState = (editor.frameStates && editor.frameStates[editor.activeFrame]) || 'Cell 1';
-      const insertIdx = editor.activeFrame + 1;
-      editor.frames.splice(insertIdx, 0, new Uint8ClampedArray(curDim.w * curDim.h * 4));
-      editor.frameDims.splice(insertIdx, 0, { w: curDim.w, h: curDim.h });
-      editor.frameStates.splice(insertIdx, 0, curState);
-      editor.activeFrame = insertIdx;
-      syncActiveFrameDimensions();
+      const curBuf = editor.frames[editor.activeFrame];
+      const nextBuf = curBuf ? new Uint8ClampedArray(curBuf) : new Uint8ClampedArray(editor.w * editor.h * 4);
+      const curState = (editor.frameStates && editor.frameStates[editor.activeFrame]) || `Cell ${editor.frames.length + 1}`;
+      editor.frames.splice(editor.activeFrame + 1, 0, nextBuf);
+      editor.frameDims.splice(editor.activeFrame + 1, 0, { w: editor.w, h: editor.h });
+      editor.frameStates.splice(editor.activeFrame + 1, 0, curState);
+      editor.activeFrame++;
       renderFrameTabs();
       renderPaintCanvas();
     });
 
     document.getElementById('del-frame-btn').addEventListener('click', () => {
-      if (editor.frames.length <= 1) {
-        sfx.buzzer();
-        return;
-      }
+      commitMarqueeSelection();
       pushEditorUndo();
-      editor.frames.splice(editor.activeFrame, 1);
-      editor.frameDims.splice(editor.activeFrame, 1);
-      editor.frameStates.splice(editor.activeFrame, 1);
-      if (editor.activeFrame >= editor.frames.length) {
-        editor.activeFrame = editor.frames.length - 1;
+      if (editor.frames.length <= 1) {
+        editor.frames[0].fill(0);
+      } else {
+        editor.frames.splice(editor.activeFrame, 1);
+        editor.frameDims.splice(editor.activeFrame, 1);
+        editor.frameStates.splice(editor.activeFrame, 1);
+        if (editor.activeFrame >= editor.frames.length) {
+          editor.activeFrame = editor.frames.length - 1;
+        }
       }
       syncActiveFrameDimensions();
       renderFrameTabs();
@@ -13514,45 +14036,593 @@
     });
 
     document.getElementById('move-cel-left-btn').addEventListener('click', () => {
-      const i = editor.activeFrame;
-      if (i <= 0) return;
+      if (editor.activeFrame <= 0) return;
+      commitMarqueeSelection();
       pushEditorUndo();
+      const i = editor.activeFrame;
       [editor.frames[i - 1], editor.frames[i]] = [editor.frames[i], editor.frames[i - 1]];
       [editor.frameDims[i - 1], editor.frameDims[i]] = [editor.frameDims[i], editor.frameDims[i - 1]];
       [editor.frameStates[i - 1], editor.frameStates[i]] = [editor.frameStates[i], editor.frameStates[i - 1]];
-      editor.activeFrame = i - 1;
+      editor.activeFrame--;
       renderFrameTabs();
       renderPaintCanvas();
     });
 
     document.getElementById('move-cel-right-btn').addEventListener('click', () => {
-      const i = editor.activeFrame;
-      if (i >= editor.frames.length - 1) return;
+      if (editor.activeFrame >= editor.frames.length - 1) return;
+      commitMarqueeSelection();
       pushEditorUndo();
+      const i = editor.activeFrame;
       [editor.frames[i + 1], editor.frames[i]] = [editor.frames[i], editor.frames[i + 1]];
       [editor.frameDims[i + 1], editor.frameDims[i]] = [editor.frameDims[i], editor.frameDims[i + 1]];
       [editor.frameStates[i + 1], editor.frameStates[i]] = [editor.frameStates[i], editor.frameStates[i + 1]];
-      editor.activeFrame = i + 1;
+      editor.activeFrame++;
       renderFrameTabs();
       renderPaintCanvas();
     });
 
     document.getElementById('copy-cel-btn').addEventListener('click', () => {
-      editor.clipboardBuf = new Uint8ClampedArray(editor.frames[editor.activeFrame]);
-      sfx.ui(560);
+      copyEditorSelectionOrCel();
     });
 
     document.getElementById('paste-cel-btn').addEventListener('click', () => {
-      if (!editor.clipboardBuf) return;
+      pasteEditorSelectionOrCel();
+    });
+
+    // Sort Cels by State Order button (#sort-cels-state-btn)
+    const sortCelsStateBtn = document.getElementById('sort-cels-state-btn');
+    if (sortCelsStateBtn) {
+      sortCelsStateBtn.addEventListener('click', () => {
+        commitMarqueeSelection();
+        pushEditorUndo();
+        const order = getFrameLabelsForSubtype(editor.type, editor.subtype);
+        const combined = editor.frames.map((f, i) => ({
+          frame: f,
+          dim: editor.frameDims[i] || { w: editor.w, h: editor.h },
+          state: (editor.frameStates && editor.frameStates[i]) || `Cell ${i + 1}`,
+          origIdx: i
+        }));
+        combined.sort((a, b) => {
+          const ia = order.indexOf(a.state);
+          const ib = order.indexOf(b.state);
+          const ra = ia === -1 ? 999 : ia;
+          const rb = ib === -1 ? 999 : ib;
+          if (ra !== rb) return ra - rb;
+          return a.origIdx - b.origIdx;
+        });
+        editor.frames = combined.map(c => c.frame);
+        editor.frameDims = combined.map(c => c.dim);
+        editor.frameStates = combined.map(c => c.state);
+        editor.activeFrame = 0;
+        syncActiveFrameDimensions();
+        populateCelStateDropdown();
+        renderFrameTabs();
+        renderPaintCanvas();
+      });
+    }
+
+    // Marquee / Cel Copy, Cut, Paste & Select All Helpers
+    function selectAllEditorCel() {
+      selectTool('marquee');
+      editor.marquee = {
+        x: 0,
+        y: 0,
+        w: editor.w,
+        h: editor.h,
+        mask: null,
+        floatingData: null
+      };
+      renderPaintCanvas();
+    }
+
+    function copyEditorSelectionOrCel() {
+      const buf = editor.frames[editor.activeFrame];
+      const W = editor.w, H = editor.h;
+      if (editor.marquee) {
+        const m = editor.marquee;
+        const copyBuf = new Uint8ClampedArray(m.w * m.h * 4);
+        if (m.floatingData) {
+          copyBuf.set(m.floatingData);
+        } else {
+          for (let my = 0; my < m.h; my++) {
+            for (let mx = 0; mx < m.w; mx++) {
+              const sx = m.x + mx, sy = m.y + my;
+              if (sx < 0 || sx >= W || sy < 0 || sy >= H) continue;
+              if (m.mask && !m.mask[my * m.w + mx]) continue;
+              const sIdx = (sy * W + sx) * 4;
+              const dIdx = (my * m.w + mx) * 4;
+              copyBuf[dIdx] = buf[sIdx];
+              copyBuf[dIdx + 1] = buf[sIdx + 1];
+              copyBuf[dIdx + 2] = buf[sIdx + 2];
+              copyBuf[dIdx + 3] = buf[sIdx + 3];
+            }
+          }
+        }
+        editor.clipboardSelection = { w: m.w, h: m.h, x: m.x, y: m.y, data: copyBuf };
+        editor.preferInternalClipboard = true;
+      } else {
+        editor.clipboardBuf = new Uint8ClampedArray(buf);
+        editor.clipboardSelection = { w: W, h: H, x: 0, y: 0, data: new Uint8ClampedArray(buf) };
+        editor.preferInternalClipboard = true;
+      }
+      sfx.ui(560);
+    }
+
+    function cutEditorSelectionOrCel() {
+      copyEditorSelectionOrCel();
       pushEditorUndo();
-      const target = editor.frames[editor.activeFrame];
-      target.fill(0);
-      target.set(editor.clipboardBuf.subarray(0, target.length));
+      const buf = editor.frames[editor.activeFrame];
+      const W = editor.w, H = editor.h;
+      if (editor.marquee) {
+        const m = editor.marquee;
+        if (!m.floatingData) {
+          for (let my = 0; my < m.h; my++) {
+            for (let mx = 0; mx < m.w; mx++) {
+              const sx = m.x + mx, sy = m.y + my;
+              if (sx < 0 || sx >= W || sy < 0 || sy >= H) continue;
+              if (m.mask && !m.mask[my * m.w + mx]) continue;
+              const sIdx = (sy * W + sx) * 4;
+              buf[sIdx] = 0; buf[sIdx + 1] = 0; buf[sIdx + 2] = 0; buf[sIdx + 3] = 0;
+            }
+          }
+        }
+        editor.marquee = null;
+      } else {
+        buf.fill(0);
+      }
+      renderFrameTabs();
+      renderPaintCanvas();
+    }
+
+    function pasteEditorSelectionOrCel() {
+      if (editor.clipboardSelection && editor.clipboardSelection.data) {
+        commitMarqueeSelection();
+        pushEditorUndo();
+        const cs = editor.clipboardSelection;
+        if (cs.w === editor.w && cs.h === editor.h && editor.tool !== 'marquee') {
+          editor.frames[editor.activeFrame].set(cs.data.subarray(0, editor.frames[editor.activeFrame].length));
+        } else {
+          selectTool('marquee');
+          editor.marquee = {
+            x: Math.max(0, Math.min(editor.w - cs.w, cs.x || 0)),
+            y: Math.max(0, Math.min(editor.h - cs.h, cs.y || 0)),
+            w: cs.w,
+            h: cs.h,
+            mask: null,
+            floatingData: new Uint8ClampedArray(cs.data)
+          };
+        }
+        renderFrameTabs();
+        renderPaintCanvas();
+        sfx.ui(520);
+      } else if (editor.clipboardBuf) {
+        commitMarqueeSelection();
+        pushEditorUndo();
+        const dst = editor.frames[editor.activeFrame];
+        dst.set(editor.clipboardBuf.subarray(0, dst.length));
+        renderFrameTabs();
+        renderPaintCanvas();
+      }
+    }
+
+    // PNG Import, Spritesheet Strip Slicer, Clipboard PNG & Strip Export
+    function applyImportedImageToEditor(img) {
+      if (!img) return;
+      commitMarqueeSelection();
+      pushEditorUndo();
+
+      const fitPaste = document.getElementById('auto-resize-paste')?.checked;
+      // Check if this is a multi-frame horizontal spritesheet strip
+      const isMultipleOfW = img.width > editor.w && (img.width % editor.w === 0) && img.height === editor.h;
+      const isSquareStrip = img.width >= img.height * 2 && (img.width % img.height === 0);
+
+      if (isMultipleOfW || isSquareStrip) {
+        editor.lastPastedImage = img;
+        const frameW = isMultipleOfW ? editor.w : img.height;
+        const count = Math.floor(img.width / frameW);
+        stripNoticeText.textContent = `Spritesheet strip (${img.width}x${img.height}) detected — Slice into ${count} cels?`;
+        stripNoticeBar.classList.remove('hidden');
+        stripNoticeBar.classList.add('flex');
+      } else {
+        stripNoticeBar.classList.add('hidden');
+        stripNoticeBar.classList.remove('flex');
+      }
+
+      if (fitPaste && img.width >= 4 && img.height >= 4 && img.width <= 128 && img.height <= 128) {
+        applyEditorResize(img.width, img.height);
+      }
+
+      const c = document.createElement('canvas');
+      c.width = editor.w;
+      c.height = editor.h;
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      const drawW = Math.min(editor.w, img.width);
+      const drawH = Math.min(editor.h, img.height);
+      ctx.drawImage(img, 0, 0, drawW, drawH, 0, 0, drawW, drawH);
+      const imgData = ctx.getImageData(0, 0, editor.w, editor.h).data;
+      editor.frames[editor.activeFrame] = new Uint8ClampedArray(imgData);
+      renderFrameTabs();
+      renderPaintCanvas();
+    }
+
+    document.getElementById('slice-strip-btn').addEventListener('click', () => {
+      const img = editor.lastPastedImage;
+      if (!img) return;
+      commitMarqueeSelection();
+      pushEditorUndo();
+
+      const isMultipleOfW = img.width > editor.w && (img.width % editor.w === 0);
+      const sliceW = isMultipleOfW ? editor.w : img.height;
+      const sliceH = isMultipleOfW ? editor.h : img.height;
+      const count = Math.max(1, Math.min(32, Math.floor(img.width / sliceW)));
+
+      if (sliceW !== editor.w || sliceH !== editor.h) {
+        editor.w = Math.min(128, Math.max(4, sliceW));
+        editor.h = Math.min(128, Math.max(4, sliceH));
+        canvasWInput.value = editor.w;
+        canvasHInput.value = editor.h;
+      }
+
+      const defaultLabels = getFrameLabelsForSubtype(editor.type, editor.subtype);
+      const newFrames = [];
+      const newDims = [];
+      const newStates = [];
+
+      for (let i = 0; i < count; i++) {
+        const c = document.createElement('canvas');
+        c.width = editor.w;
+        c.height = editor.h;
+        const ctx = c.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, i * sliceW, 0, sliceW, sliceH, 0, 0, editor.w, editor.h);
+        newFrames.push(new Uint8ClampedArray(ctx.getImageData(0, 0, editor.w, editor.h).data));
+        newDims.push({ w: editor.w, h: editor.h });
+        newStates.push(defaultLabels[Math.min(i, defaultLabels.length - 1)] || `Cell ${i + 1}`);
+      }
+
+      editor.frames = newFrames;
+      editor.frameDims = newDims;
+      editor.frameStates = newStates;
+      editor.activeFrame = 0;
+      stripNoticeBar.classList.add('hidden');
+      stripNoticeBar.classList.remove('flex');
+      setupPaintCanvasSize();
+      populateCelStateDropdown();
+      renderFrameTabs();
+      renderPaintCanvas();
+      sfx.createSuccess();
+    });
+
+    document.getElementById('dismiss-strip-btn').addEventListener('click', () => {
+      stripNoticeBar.classList.add('hidden');
+      stripNoticeBar.classList.remove('flex');
+    });
+
+    document.getElementById('import-png-input').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => applyImportedImageToEditor(img);
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    });
+
+    window.addEventListener('paste', (e) => {
+      if (!editor.isOpen || isTypingInInput()) return;
+      const items = e.clipboardData && e.clipboardData.items;
+      if (items) {
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].type && items[i].type.startsWith('image/')) {
+            e.preventDefault();
+            const blob = items[i].getAsFile();
+            if (!blob) continue;
+            const url = URL.createObjectURL(blob);
+            const img = new Image();
+            img.onload = () => {
+              applyImportedImageToEditor(img);
+              URL.revokeObjectURL(url);
+            };
+            img.src = url;
+            return;
+          }
+        }
+      }
+      if (editor.preferInternalClipboard) {
+        e.preventDefault();
+        pasteEditorSelectionOrCel();
+      }
+    });
+
+    document.getElementById('copy-png-clipboard-btn').addEventListener('click', () => {
+      commitMarqueeSelection();
+      const c = document.createElement('canvas');
+      c.width = editor.w;
+      c.height = editor.h;
+      const safe = new Uint8ClampedArray(editor.w * editor.h * 4);
+      safe.set(editor.frames[editor.activeFrame].subarray(0, safe.length));
+      c.getContext('2d').putImageData(new ImageData(safe, editor.w, editor.h), 0, 0);
+      copyEditorSelectionOrCel();
+      if (navigator.clipboard && window.ClipboardItem) {
+        c.toBlob((blob) => {
+          if (blob) {
+            navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).catch(() => {});
+          }
+        }, 'image/png');
+      }
+    });
+
+    document.getElementById('export-cel-png-btn').addEventListener('click', () => {
+      commitMarqueeSelection();
+      const c = document.createElement('canvas');
+      c.width = editor.w;
+      c.height = editor.h;
+      const safe = new Uint8ClampedArray(editor.w * editor.h * 4);
+      safe.set(editor.frames[editor.activeFrame].subarray(0, safe.length));
+      c.getContext('2d').putImageData(new ImageData(safe, editor.w, editor.h), 0, 0);
+      const a = document.createElement('a');
+      a.href = c.toDataURL('image/png');
+      a.download = `${(spriteNameInput.value.trim() || 'sprite').replace(/\s+/g, '_')}_cel${editor.activeFrame + 1}.png`;
+      a.click();
+    });
+
+    function buildHorizontalStripCanvas(frames, frameDims, defaultW, defaultH) {
+      let totalW = 0;
+      let maxH = 1;
+      frames.forEach((_, idx) => {
+        const d = (frameDims && frameDims[idx]) || { w: defaultW, h: defaultH };
+        totalW += d.w;
+        if (d.h > maxH) maxH = d.h;
+      });
+      const strip = document.createElement('canvas');
+      strip.width = Math.max(1, totalW);
+      strip.height = maxH;
+      const ctx = strip.getContext('2d');
+      let curX = 0;
+      frames.forEach((buf, idx) => {
+        const d = (frameDims && frameDims[idx]) || { w: defaultW, h: defaultH };
+        const tmp = document.createElement('canvas');
+        tmp.width = d.w;
+        tmp.height = d.h;
+        const safe = new Uint8ClampedArray(d.w * d.h * 4);
+        safe.set(buf.subarray(0, safe.length));
+        tmp.getContext('2d').putImageData(new ImageData(safe, d.w, d.h), 0, 0);
+        ctx.drawImage(tmp, curX, 0);
+        curX += d.w;
+      });
+      return strip;
+    }
+
+    document.getElementById('export-strip-png-btn').addEventListener('click', () => {
+      commitMarqueeSelection();
+      const strip = buildHorizontalStripCanvas(editor.frames, editor.frameDims, editor.w, editor.h);
+      const a = document.createElement('a');
+      a.href = strip.toDataURL('image/png');
+      a.download = `${(spriteNameInput.value.trim() || 'sprite').replace(/\s+/g, '_')}_strip.png`;
+      a.click();
+    });
+
+    document.getElementById('export-all-strips-btn').addEventListener('click', () => {
+      if (state.sprites.length === 0) {
+        sfx.buzzer();
+        return;
+      }
+      state.sprites.forEach((sp, i) => {
+        setTimeout(() => {
+          const strip = buildHorizontalStripCanvas(sp.frames, sp.frameDims, sp.w, sp.h);
+          const a = document.createElement('a');
+          a.href = strip.toDataURL('image/png');
+          a.download = `${(sp.name || 'sprite').replace(/\s+/g, '_')}_strip.png`;
+          a.click();
+        }, i * 140);
+      });
+    });
+
+    // Color & Opacity FX Popover (#color-fx-popover)
+    const colorFxBtn = document.getElementById('color-fx-btn');
+    const colorFxPopover = document.getElementById('color-fx-popover');
+    const fxHueSlider = document.getElementById('fx-hue-slider');
+    const fxSatSlider = document.getElementById('fx-sat-slider');
+    const fxValSlider = document.getElementById('fx-val-slider');
+    const fxTintColor = document.getElementById('fx-tint-color');
+    const fxTintSlider = document.getElementById('fx-tint-slider');
+    const fxAlphaSlider = document.getElementById('fx-alpha-slider');
+    const fxAllCelsToggle = document.getElementById('fx-all-cels-toggle');
+
+    function resetFxSlidersUI() {
+      fxHueSlider.value = 0;
+      fxSatSlider.value = 0;
+      fxValSlider.value = 0;
+      fxTintSlider.value = 0;
+      fxAlphaSlider.value = 100;
+      document.getElementById('fx-hue-label').textContent = '0';
+      document.getElementById('fx-sat-label').textContent = '0%';
+      document.getElementById('fx-val-label').textContent = '0%';
+      document.getElementById('fx-tint-label').textContent = '0%';
+      document.getElementById('fx-alpha-label').textContent = '100%';
+    }
+
+    function openColorFxPopover() {
+      commitMarqueeSelection();
+      editor.fxSession = editor.frames.map(f => new Uint8ClampedArray(f));
+      resetFxSlidersUI();
+      colorFxPopover.classList.remove('hidden');
+      colorFxPopover.classList.add('flex');
+      colorFxBtn.classList.add('active');
+    }
+
+    function closeColorFxPopover(revertPreview = true) {
+      if (revertPreview && editor.fxSession) {
+        editor.frames = editor.fxSession.map(f => new Uint8ClampedArray(f));
+        renderFrameTabs();
+        renderPaintCanvas();
+      }
+      editor.fxSession = null;
+      colorFxPopover.classList.add('hidden');
+      colorFxPopover.classList.remove('flex');
+      colorFxBtn.classList.remove('active');
+    }
+
+    function previewColorFxChanges() {
+      if (!editor.fxSession) {
+        editor.fxSession = editor.frames.map(f => new Uint8ClampedArray(f));
+      }
+      const hueShift = parseInt(fxHueSlider.value, 10) || 0;
+      const satShift = (parseInt(fxSatSlider.value, 10) || 0) / 100;
+      const valShift = (parseInt(fxValSlider.value, 10) || 0) / 100;
+      const tintAmt = (parseInt(fxTintSlider.value, 10) || 0) / 100;
+      const alphaScale = (parseInt(fxAlphaSlider.value, 10) ?? 100) / 100;
+      const [tr, tg, tb] = hexToRgba(fxTintColor.value || '#3b82f6');
+
+      document.getElementById('fx-hue-label').textContent = `${hueShift}°`;
+      document.getElementById('fx-sat-label').textContent = `${Math.round(satShift * 100)}%`;
+      document.getElementById('fx-val-label').textContent = `${Math.round(valShift * 100)}%`;
+      document.getElementById('fx-tint-label').textContent = `${Math.round(tintAmt * 100)}%`;
+      document.getElementById('fx-alpha-label').textContent = `${Math.round(alphaScale * 100)}%`;
+
+      const applyToAll = fxAllCelsToggle.checked;
+      editor.frames = editor.fxSession.map((origBuf, idx) => {
+        if (!applyToAll && idx !== editor.activeFrame) {
+          return new Uint8ClampedArray(origBuf);
+        }
+        const out = new Uint8ClampedArray(origBuf);
+        for (let i = 0; i < out.length; i += 4) {
+          if (out[i + 3] === 0) continue;
+          let { h, s, v } = rgbToHsv(out[i], out[i + 1], out[i + 2]);
+          h = (h + hueShift + 360) % 360;
+          s = Math.max(0, Math.min(1, s + satShift));
+          v = Math.max(0, Math.min(1, v + valShift));
+          let [nr, ng, nb] = hsvToRgb(h, s, v);
+          if (tintAmt > 0) {
+            nr = Math.round(nr * (1 - tintAmt) + tr * tintAmt);
+            ng = Math.round(ng * (1 - tintAmt) + tg * tintAmt);
+            nb = Math.round(nb * (1 - tintAmt) + tb * tintAmt);
+          }
+          out[i] = nr;
+          out[i + 1] = ng;
+          out[i + 2] = nb;
+          out[i + 3] = Math.max(0, Math.min(255, Math.round(out[i + 3] * alphaScale)));
+        }
+        return out;
+      });
+      renderFrameTabs();
+      renderPaintCanvas();
+    }
+
+    colorFxBtn.addEventListener('click', () => {
+      if (colorFxPopover.classList.contains('hidden')) openColorFxPopover();
+      else closeColorFxPopover(true);
+    });
+    document.getElementById('color-fx-close-btn').addEventListener('click', () => closeColorFxPopover(true));
+    [fxHueSlider, fxSatSlider, fxValSlider, fxTintColor, fxTintSlider, fxAlphaSlider, fxAllCelsToggle].forEach((el) => {
+      el.addEventListener('input', previewColorFxChanges);
+      el.addEventListener('change', previewColorFxChanges);
+    });
+
+    document.getElementById('fx-reset-btn').addEventListener('click', () => {
+      if (editor.fxSession) {
+        editor.frames = editor.fxSession.map(f => new Uint8ClampedArray(f));
+      }
+      resetFxSlidersUI();
       renderFrameTabs();
       renderPaintCanvas();
     });
 
-    // Dynamic Code Editor Popup
+    document.getElementById('fx-apply-btn').addEventListener('click', () => {
+      if (editor.fxSession) {
+        const currentTransformed = editor.frames.map(f => new Uint8ClampedArray(f));
+        editor.frames = editor.fxSession.map(f => new Uint8ClampedArray(f));
+        pushEditorUndo();
+        editor.frames = currentTransformed;
+      }
+      closeColorFxPopover(false);
+      renderFrameTabs();
+      renderPaintCanvas();
+    });
+
+    document.getElementById('fx-replace-btn').addEventListener('click', () => {
+      if (editor.fxSession) {
+        editor.frames = editor.fxSession.map(f => new Uint8ClampedArray(f));
+      }
+      pushEditorUndo();
+      const [sr, sg, sb] = hexToRgba(document.getElementById('fx-replace-from').value);
+      const [tr, tg, tb] = hexToRgba(document.getElementById('fx-replace-to').value);
+      const indices = fxAllCelsToggle.checked
+        ? editor.frames.map((_, i) => i)
+        : [editor.activeFrame];
+      for (const idx of indices) {
+        replaceColorInBuffer(editor.frames[idx], sr, sg, sb, 255, tr, tg, tb, 255);
+      }
+      editor.fxSession = editor.frames.map(f => new Uint8ClampedArray(f));
+      resetFxSlidersUI();
+      renderFrameTabs();
+      renderPaintCanvas();
+    });
+
+    document.getElementById('fx-outline-btn').addEventListener('click', () => {
+      if (editor.fxSession) {
+        editor.frames = editor.fxSession.map(f => new Uint8ClampedArray(f));
+      }
+      pushEditorUndo();
+      const [or, og, ob] = hexToRgba(document.getElementById('fx-outline-color').value || editor.color);
+      const indices = fxAllCelsToggle.checked
+        ? editor.frames.map((_, i) => i)
+        : [editor.activeFrame];
+      for (const idx of indices) {
+        const dim = (editor.frameDims && editor.frameDims[idx]) || { w: editor.w, h: editor.h };
+        const W = dim.w, H = dim.h;
+        const src = new Uint8ClampedArray(editor.frames[idx]);
+        const dst = editor.frames[idx];
+        for (let y = 0; y < H; y++) {
+          for (let x = 0; x < W; x++) {
+            const pIdx = (y * W + x) * 4;
+            if (src[pIdx + 3] > 20) continue;
+            const hasOpaqueNeighbor =
+              (x > 0 && src[(y * W + (x - 1)) * 4 + 3] > 20) ||
+              (x < W - 1 && src[(y * W + (x + 1)) * 4 + 3] > 20) ||
+              (y > 0 && src[((y - 1) * W + x) * 4 + 3] > 20) ||
+              (y < H - 1 && src[((y + 1) * W + x) * 4 + 3] > 20);
+            if (hasOpaqueNeighbor) {
+              dst[pIdx] = or;
+              dst[pIdx + 1] = og;
+              dst[pIdx + 2] = ob;
+              dst[pIdx + 3] = 255;
+            }
+          }
+        }
+      }
+      editor.fxSession = editor.frames.map(f => new Uint8ClampedArray(f));
+      renderFrameTabs();
+      renderPaintCanvas();
+    });
+
+    // Movable Dynamic Code Popup Header Dragging
+    let isDraggingCodePopup = false;
+    let codePopupDragOffset = { x: 0, y: 0 };
+    if (dynamicCodeHeader) {
+      dynamicCodeHeader.addEventListener('mousedown', (e) => {
+        if (e.target.closest('button')) return;
+        isDraggingCodePopup = true;
+        const rect = dynamicCodePopup.getBoundingClientRect();
+        codePopupDragOffset = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!isDraggingCodePopup) return;
+        const nx = Math.max(8, Math.min(window.innerWidth - 180, e.clientX - codePopupDragOffset.x));
+        const ny = Math.max(8, Math.min(window.innerHeight - 80, e.clientY - codePopupDragOffset.y));
+        dynamicCodePopup.style.left = `${nx}px`;
+        dynamicCodePopup.style.top = `${ny}px`;
+      });
+      window.addEventListener('mouseup', () => {
+        isDraggingCodePopup = false;
+      });
+    }
+
+    // Dynamic Code Popup Controls
     openCodePopupBtn.addEventListener('click', () => {
       const isHidden = dynamicCodePopup.classList.contains('hidden');
       dynamicCodePopup.classList.toggle('hidden', !isHidden);
@@ -13565,102 +14635,50 @@
     document.getElementById('toggle-code-help-btn').addEventListener('click', () => {
       document.getElementById('dynamic-code-help').classList.toggle('hidden');
     });
-    document.querySelectorAll('.code-chip').forEach(btn => {
-      btn.addEventListener('click', () => {
-        dynamicCodeTextarea.value = btn.dataset.snippet;
-        editor.code = dynamicCodeTextarea.value;
+    document.getElementById('clear-code-btn').addEventListener('click', () => {
+      editor.code = '';
+      dynamicCodeTextarea.value = '';
+      dynamicCodeInput.value = '';
+    });
+    document.querySelectorAll('.code-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        editor.code = chip.dataset.snippet || '';
+        dynamicCodeTextarea.value = editor.code;
         dynamicCodeInput.value = editor.code;
       });
     });
-    document.getElementById('clear-code-btn').addEventListener('click', () => {
-      dynamicCodeTextarea.value = '';
-      dynamicCodeInput.value = '';
-      editor.code = '';
-    });
     dynamicCodeTextarea.addEventListener('input', (e) => {
       editor.code = e.target.value;
-      dynamicCodeInput.value = editor.code;
+      dynamicCodeInput.value = e.target.value;
     });
     dynamicCodeInput.addEventListener('input', (e) => {
       editor.code = e.target.value;
-      dynamicCodeTextarea.value = editor.code;
+      dynamicCodeTextarea.value = e.target.value;
     });
 
     /********************************************************************
-     * SIDEBAR CREATIONS LIST, SEARCH BY NAME & TYPE, AND EQUIPPING
+     * RIGHT SIDEBAR: EQUIP / BRUSH SELECTION & SPRITE CARDS
      ********************************************************************/
-    const sidebarSearchInput = document.getElementById('sidebar-search-input');
-    const sidebarSearchClear = document.getElementById('sidebar-search-clear');
-
-    function updateBrushBar() {
-      const wornParts = [];
-      const bSp = getSpriteById(state.activeBodyId);
-      const wSp = getSpriteById(state.activeWearableId);
-      const hSp = getSpriteById(state.activeHoldableId);
-      const mSp = getSpriteById(state.activeMountId);
-      if (bSp) wornParts.push(bSp.name);
-      if (wSp) wornParts.push(wSp.name);
-      if (hSp) wornParts.push(hSp.name);
-      if (mSp) wornParts.push(mSp.name);
-
-      activeWornLabel.textContent = wornParts.length > 0 ? wornParts.join(' + ') : 'Wireframe';
-      clearWornBtn.classList.toggle('hidden', wornParts.length === 0);
-
-      const brushSp = getSpriteById(state.activeBrushId);
-      if (brushSp) {
-        const orientSuffix = getOrientationLabel(state.brushOrient);
-        activeBrushLabel.textContent = orientSuffix ? `${brushSp.name} (${orientSuffix})` : brushSp.name;
-        clearBrushBtn.classList.remove('hidden');
-      } else {
-        activeBrushLabel.textContent = '';
-        clearBrushBtn.classList.add('hidden');
-      }
-    }
-
-    clearWornBtn.addEventListener('click', () => {
-      state.activeBodyId = null;
-      state.activeWearableId = null;
-      state.activeHoldableId = null;
-      state.activeMountId = null;
-      spawnEquipPoof(false);
-      updateBrushBar();
-      renderSidebarSprites();
-      saveAutoBackup();
-    });
-
-    clearBrushBtn.addEventListener('click', () => {
-      state.activeBrushId = null;
-      state.brushOrient = 0;
-      updateBrushBar();
-      renderSidebarSprites();
-      updateWorldCursor();
-    });
-
     function equipOrSelectSprite(sp, forceEquip = false) {
       if (!sp) return;
+      if (sp.type === 'body' && sp.subtype === 'Motion') {
+        addMotionToCurrentBody(sp.id);
+        return;
+      }
       if (sp.type === 'body') {
-        if (sp.subtype === 'Motion') {
-          addMotionToCurrentBody(sp.id);
-        } else {
-          const unequipping = !forceEquip && state.activeBodyId === sp.id;
-          state.activeBodyId = unequipping ? null : sp.id;
-          spawnEquipPoof(!unequipping);
-        }
+        state.activeBodyId = (state.activeBodyId === sp.id && !forceEquip) ? null : sp.id;
+        spawnEquipPoof(Boolean(state.activeBodyId));
       } else if (sp.type === 'wearable') {
-        const unequipping = !forceEquip && state.activeWearableId === sp.id;
-        state.activeWearableId = unequipping ? null : sp.id;
-        spawnEquipPoof(!unequipping);
+        state.activeWearableId = (state.activeWearableId === sp.id && !forceEquip) ? null : sp.id;
+        spawnEquipPoof(Boolean(state.activeWearableId));
       } else if (sp.type === 'holdable') {
-        const unequipping = !forceEquip && state.activeHoldableId === sp.id;
-        state.activeHoldableId = unequipping ? null : sp.id;
-        state.player.consumableBites = 0;
-        spawnEquipPoof(!unequipping);
+        state.activeHoldableId = (state.activeHoldableId === sp.id && !forceEquip) ? null : sp.id;
+        spawnEquipPoof(Boolean(state.activeHoldableId));
       } else if (sp.type === 'mountable') {
-        const unequipping = !forceEquip && state.activeMountId === sp.id;
-        state.activeMountId = unequipping ? null : sp.id;
-        spawnEquipPoof(!unequipping);
+        state.activeMountId = (state.activeMountId === sp.id && !forceEquip) ? null : sp.id;
+        spawnEquipPoof(Boolean(state.activeMountId));
       } else {
-        if (!forceEquip && state.activeBrushId === sp.id) {
+        if (state.activeBrushId === sp.id && !forceEquip) {
           state.activeBrushId = null;
           state.brushOrient = 0;
         } else {
@@ -13676,43 +14694,73 @@
       updateWorldCursor();
     }
 
+    function updateBrushBar() {
+      const bodySp = getSpriteById(state.activeBodyId);
+      const wearSp = getSpriteById(state.activeWearableId);
+      const holdSp = getSpriteById(state.activeHoldableId);
+      const mountSp = getSpriteById(state.activeMountId);
+      const brushSp = getSpriteById(state.activeBrushId);
+
+      const wornNames = [bodySp?.name, wearSp?.name, holdSp?.name, mountSp?.name].filter(Boolean);
+      activeWornLabel.textContent = wornNames.length > 0 ? wornNames.join(' + ') : 'Wireframe';
+      clearWornBtn.classList.toggle('hidden', wornNames.length === 0);
+
+      if (brushSp) {
+        const orientText = getOrientationLabel(state.brushOrient);
+        activeBrushLabel.textContent = orientText ? `${brushSp.name} (${orientText})` : brushSp.name;
+        clearBrushBtn.classList.remove('hidden');
+      } else {
+        activeBrushLabel.textContent = '';
+        clearBrushBtn.classList.add('hidden');
+      }
+    }
+
+    clearWornBtn.addEventListener('click', () => {
+      state.activeBodyId = null;
+      state.activeWearableId = null;
+      state.activeHoldableId = null;
+      state.activeMountId = null;
+      spawnEquipPoof(false);
+      updateBrushBar();
+      renderSidebarSprites();
+    });
+
+    clearBrushBtn.addEventListener('click', () => {
+      state.activeBrushId = null;
+      state.brushOrient = 0;
+      updateBrushBar();
+      renderSidebarSprites();
+      updateWorldCursor();
+    });
+
     function renderSidebarSprites() {
-      spriteGrid.innerHTML = '';
-      const rawQuery = (state.searchQuery || '').trim().toLowerCase();
-
+      const q = (state.searchQuery || '').trim().toLowerCase();
       const filtered = state.sprites.filter((sp) => {
-        const spec = getTypeSpec(sp.type === 'furry' ? 'thing' : sp.type);
-        // When a search query is entered, search across all categories by name, object type, and subtype
-        if (rawQuery) {
-          const nameStr = (sp.name || '').toLowerCase();
-          const typeName = (spec.name || '').toLowerCase();
-          const typeId = (sp.type || '').toLowerCase().replace(/_/g, ' ');
-          const subStr = (sp.subtype || '').toLowerCase();
-          const haystack = `${nameStr} ${typeName} ${typeId} ${subStr}`;
-          const tokens = rawQuery.split(/\s+/).filter(Boolean);
-          return tokens.every(tok => haystack.includes(tok));
+        if (!sp) return false;
+        const spec = getTypeSpec(sp.type);
+        if (state.filter !== 'all' && spec.category !== state.filter) return false;
+        if (q) {
+          const matchName = (sp.name || '').toLowerCase().includes(q);
+          const matchType = spec.name.toLowerCase().includes(q) || (sp.subtype || '').toLowerCase().includes(q);
+          if (!matchName && !matchType) return false;
         }
+        return true;
+      }).slice().reverse();
 
-        if (state.filter === 'all') return true;
-        return spec.category === state.filter;
-      });
-
-      const emptyMsg = emptyState.querySelector('p');
       if (filtered.length === 0) {
         emptyState.classList.remove('hidden');
         spriteGrid.classList.add('hidden');
-        if (emptyMsg) {
-          emptyMsg.textContent = state.sprites.length === 0 ? 'No saved creations.' : 'No matching creations.';
-        }
+        spriteGrid.innerHTML = '';
         return;
       }
 
       emptyState.classList.add('hidden');
       spriteGrid.classList.remove('hidden');
+      spriteGrid.innerHTML = '';
 
       filtered.forEach((sp) => {
-        const spec = getTypeSpec(sp.type === 'furry' ? 'thing' : sp.type);
-        const isSelected =
+        const spec = getTypeSpec(sp.type);
+        const isActive =
           state.activeBrushId === sp.id ||
           state.activeBodyId === sp.id ||
           state.activeWearableId === sp.id ||
@@ -13721,39 +14769,54 @@
 
         const card = document.createElement('div');
         card.draggable = true;
-        card.className = `group relative bg-[#1b1c24] border rounded-sm overflow-hidden flex flex-col cursor-pointer transition-all ${
-          isSelected ? 'border-blue-400 ring-1 ring-blue-400' : 'border-[#2c2e3b] hover:border-zinc-500'
+        card.className = `group relative rounded-sm border bg-[#1b1c24] overflow-hidden cursor-pointer select-none transition-all ${
+          isActive ? 'border-blue-400 ring-1 ring-blue-400' : 'border-[#2e303e] hover:border-zinc-500'
         }`;
 
-        const badgeLabel = (sp.type === 'thing' && (sp.subtype === 'Furry' || sp.subtype === 'Drifty'))
-          ? sp.subtype.toUpperCase()
-          : spec.name;
-
         card.innerHTML = `
-          <div class="px-1.5 py-0.5 bg-[#121318] border-b border-[#252733] flex items-center justify-between text-[9px] text-zinc-400">
-            <span class="truncate pr-1">${sp.name}</span>
-            <button data-del="${sp.id}" class="text-zinc-500 hover:text-red-400 px-1 leading-none">X</button>
+          <div class="h-20 checkerboard flex items-center justify-center p-2 relative">
+            <img src="${sp.thumbnail}" alt="${sp.name}" class="max-w-full max-h-full object-contain pointer-events-none" style="image-rendering: pixelated;" />
+            <span class="absolute top-1 right-1 px-1.5 py-0.5 bg-[#111217]/90 border border-[#2c2e3a] rounded-xs text-[7px] text-blue-300 uppercase">${spec.name}</span>
+            <button data-action="edit" class="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-1 left-1 z-10 px-1.5 py-0.5 bg-[#14151b]/95 hover:bg-blue-600 text-zinc-200 hover:text-white text-[8px] rounded-xs border border-[#343746]">Edit</button>
+            <button data-action="delete" class="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-1 right-1 z-10 min-w-[22px] h-[20px] px-1.5 bg-[#14151b]/95 hover:bg-red-600 text-zinc-300 hover:text-white text-[9px] font-bold rounded-xs border border-[#343746] flex items-center justify-center">X</button>
           </div>
-          <div class="relative h-20 checkerboard flex items-center justify-center p-1.5">
-            <img src="${sp.thumbnail}" alt="${sp.name}" class="w-14 h-14 object-contain pointer-events-none" style="image-rendering: pixelated;" />
-            <span class="absolute top-1 right-1 px-1 py-0.2 bg-[#111217]/90 border border-[#2c2e3b] rounded-xs text-[8px] text-blue-300 mono">${badgeLabel}</span>
-            <button data-edit="${sp.id}" class="opacity-0 group-hover:opacity-100 absolute bottom-1 right-1 ase-btn px-1.5 py-0.5 text-[8px] text-zinc-200">Edit</button>
-          </div>
+          <div class="px-2 py-1 bg-[#14151b] border-t border-[#262834] text-[9px] text-zinc-200 truncate text-center">${sp.name}</div>
         `;
 
         card.addEventListener('click', (e) => {
-          if (e.target.closest('[data-del]') || e.target.closest('[data-edit]')) return;
+          const actionBtn = e.target.closest('button[data-action]');
+          if (actionBtn) {
+            e.stopPropagation();
+            const act = actionBtn.dataset.action;
+            if (act === 'edit') {
+              openSpriteEditor(sp.id, false);
+            } else if (act === 'delete') {
+              if (actionBtn.dataset.confirm === '1') {
+                deleteCreationById(sp.id);
+              } else {
+                actionBtn.dataset.confirm = '1';
+                actionBtn.textContent = 'Del?';
+                actionBtn.classList.add('bg-red-600', 'text-white', 'opacity-100');
+                setTimeout(() => {
+                  if (actionBtn.isConnected) {
+                    actionBtn.dataset.confirm = '0';
+                    actionBtn.textContent = 'X';
+                    actionBtn.classList.remove('bg-red-600', 'text-white', 'opacity-100');
+                  }
+                }, 2400);
+              }
+            }
+            return;
+          }
           equipOrSelectSprite(sp);
         });
 
-        card.querySelector('[data-edit]').addEventListener('click', (e) => {
-          e.stopPropagation();
-          openSpriteEditor(sp.id, false);
-        });
-
-        card.querySelector('[data-del]').addEventListener('click', (e) => {
-          e.stopPropagation();
-          deleteCreationById(sp.id);
+        card.querySelectorAll('button[data-action]').forEach((btn) => {
+          btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+          btn.addEventListener('dragstart', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+          });
         });
 
         card.addEventListener('dragstart', (e) => {
@@ -13777,6 +14840,9 @@
         spriteGrid.appendChild(card);
       });
     }
+
+    const sidebarSearchInput = document.getElementById('sidebar-search-input');
+    const sidebarSearchClear = document.getElementById('sidebar-search-clear');
 
     sidebarSearchInput.addEventListener('input', (e) => {
       state.searchQuery = e.target.value;
@@ -13829,6 +14895,9 @@
     }
 
     function deleteCreationById(spriteId) {
+      // Push full World + Creation snapshot so Ctrl+Z in the world restores the deleted creation AND all of its placed blocks!
+      pushWorldUndo();
+
       state.sprites = state.sprites.filter(s => s.id !== spriteId);
       rebuildSpriteLookup();
       invalidateSpriteCache(spriteId);
@@ -13993,6 +15062,7 @@
 
       state.worldUndoStack = [];
       state.worldRedoStack = [];
+      setEngineMode('play');
       respawnPlayer(false);
       updateBrushBar();
       renderSidebarSprites();
@@ -14006,30 +15076,30 @@
     }
 
     function updateTopWorldLabel() {
-      const label = document.getElementById('top-world-name-label');
-      if (!label) return;
-      const activeSlot = state.savedWorlds.find(w => w.id === state.activeWorldId);
-      label.textContent = activeSlot ? activeSlot.name : 'Worlds';
+      const lbl = document.getElementById('top-world-name-label');
+      if (!lbl) return;
+      const cur = state.savedWorlds.find(w => w.id === state.activeWorldId);
+      lbl.textContent = cur && cur.name ? cur.name : 'Worlds';
     }
 
     function saveAutoBackup() {
       try {
-        const snapshot = serializeCurrentState();
-        localStorage.setItem(STORAGE_KEY_AUTOSAVE, JSON.stringify(snapshot));
+        const snap = serializeCurrentState();
+        localStorage.setItem(STORAGE_KEY_AUTOSAVE, JSON.stringify(snap));
 
         if (!state.activeWorldId) {
           if (state.savedWorlds.length > 0) {
             state.activeWorldId = state.savedWorlds[0].id;
           } else {
-            const defaultSlot = {
-              id: 'world_' + Date.now(),
+            const firstId = 'world_' + Date.now();
+            state.activeWorldId = firstId;
+            state.savedWorlds.push({
+              id: firstId,
               name: 'World 1',
               updatedAt: Date.now(),
               tileCount: state.worldCells.size,
-              data: snapshot
-            };
-            state.savedWorlds.push(defaultSlot);
-            state.activeWorldId = defaultSlot.id;
+              data: snap
+            });
           }
         }
 
@@ -14037,78 +15107,187 @@
         if (activeSlot) {
           activeSlot.updatedAt = Date.now();
           activeSlot.tileCount = state.worldCells.size;
-          activeSlot.data = snapshot;
-          persistSavedWorldsToStorage();
+          activeSlot.data = snap;
         }
+        persistSavedWorldsToStorage();
         updateTopWorldLabel();
       } catch (err) {}
     }
 
-    function scheduleWorldAutoBackup(delayMs = 350) {
+    function scheduleWorldAutoBackup(delay = 350) {
       if (autoBackupTimer) clearTimeout(autoBackupTimer);
-      if (delayMs <= 0) {
+      if (delay <= 0) {
         saveAutoBackup();
-      } else {
-        autoBackupTimer = setTimeout(saveAutoBackup, delayMs);
+        return;
       }
+      autoBackupTimer = setTimeout(() => {
+        autoBackupTimer = null;
+        saveAutoBackup();
+      }, delay);
     }
 
-    function renderWorldMiniPreviewCanvas(wData, width = 148, height = 84) {
+    function renderWorldMiniPreviewCanvas(wData, width = 240, height = 112) {
       const c = document.createElement('canvas');
       c.width = width;
       c.height = height;
       const ctx = c.getContext('2d');
       ctx.fillStyle = '#121318';
       ctx.fillRect(0, 0, width, height);
-      if (!wData || !Array.isArray(wData.worldCells) || wData.worldCells.length === 0) return c;
+      if (!wData || !Array.isArray(wData.worldCells)) return c;
 
+      const spMap = new Map();
       const spColorMap = new Map();
       if (Array.isArray(wData.sprites)) {
         for (const s of wData.sprites) {
-          if (!s || !Array.isArray(s.frames) || !s.frames[0]) continue;
-          const f0 = s.frames[0];
-          for (let i = 0; i < f0.length; i += 4) {
-            if (f0[i + 3] > 30) {
-              spColorMap.set(s.id, rgbaToHex(f0[i], f0[i + 1], f0[i + 2]));
-              break;
+          if (!s) continue;
+          spMap.set(s.id, s);
+          if (Array.isArray(s.frames) && s.frames[0]) {
+            const f0 = s.frames[0];
+            let rSum = 0, gSum = 0, bSum = 0, count = 0;
+            for (let i = 0; i < f0.length; i += 4) {
+              if (f0[i + 3] > 30) {
+                rSum += f0[i];
+                gSum += f0[i + 1];
+                bSum += f0[i + 2];
+                count++;
+              }
+            }
+            if (count > 0) {
+              spColorMap.set(s.id, rgbaToHex(rSum / count, gSum / count, bSum / count));
             }
           }
         }
       }
 
+      // 1. Render Skylights (Fill Light, Top Light, Surround Light) placed in the world
+      const seenLights = new Set();
+      const fillLights = [];
+      const topLights = [];
+      const surroundLights = [];
+
+      for (const [, cell] of wData.worldCells) {
+        if (!cell || cell.type !== 'light') continue;
+        const sp = spMap.get(cell.spriteId) || getSpriteById(cell.spriteId);
+        if (!sp) continue;
+        const sub = cell.subtype || sp.subtype || 'Light';
+        const opt = sp.lightOption || 'Standard';
+        const key = `${sub}_${opt}_${sp.id}`;
+        if (seenLights.has(key)) continue;
+        seenLights.add(key);
+
+        const hex = sp.lightColor || spColorMap.get(sp.id) || '#ffe896';
+        const [r, g, b] = hexToRgba(hex);
+        const alpha = Math.max(0.08, Math.min(0.95, (sp.lightAlpha ?? 45) / 100));
+        if (sub === 'Fill Light') fillLights.push({ r, g, b, alpha, opt });
+        else if (sub === 'Top Light') topLights.push({ r, g, b, alpha, opt });
+        else if (sub === 'Surround Light') surroundLights.push({ r, g, b, alpha, opt });
+      }
+
+      for (const fl of fillLights) {
+        const { r, g, b, alpha, opt } = fl;
+        if (opt === 'Top Half') {
+          const grad = ctx.createLinearGradient(0, 0, 0, height * 0.55);
+          grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
+          grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, width, height * 0.55);
+        } else if (opt === 'Bottom Half') {
+          const grad = ctx.createLinearGradient(0, height * 0.45, 0, height);
+          grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
+          grad.addColorStop(1, `rgba(${r},${g},${b},${alpha})`);
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, height * 0.45, width, height * 0.55);
+        } else {
+          ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+          ctx.fillRect(0, 0, width, height);
+        }
+      }
+
+      for (const tl of topLights) {
+        const { r, g, b, alpha } = tl;
+        const gradH = Math.floor(height * 0.68);
+        const grad = ctx.createLinearGradient(0, 0, 0, gradH);
+        grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
+        grad.addColorStop(0.45, `rgba(${r},${g},${b},${(alpha * 0.65).toFixed(3)})`);
+        grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, gradH);
+      }
+
+      for (const sl of surroundLights) {
+        const { r, g, b, alpha } = sl;
+        const outerR = Math.hypot(width, height) * 0.55;
+        const grad = ctx.createRadialGradient(width / 2, height / 2, outerR * 0.35, width / 2, height / 2, outerR);
+        grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
+        grad.addColorStop(1, `rgba(${r},${g},${b},${alpha})`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+      }
+
+      if (wData.worldCells.length === 0) return c;
+
+      // 2. Compute bounding box of non-light blocks for framing the map
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
       for (const [, cell] of wData.worldCells) {
-        if (!cell) continue;
+        if (!cell || cell.type === 'light' || cell.type === 'environment') continue;
         if (cell.x < minX) minX = cell.x;
         if (cell.x + (cell.w || 19) > maxX) maxX = cell.x + (cell.w || 19);
         if (cell.y < minY) minY = cell.y;
         if (cell.y + (cell.h || 19) > maxY) maxY = cell.y + (cell.h || 19);
       }
-
+      if (!Number.isFinite(minX)) {
+        for (const [, cell] of wData.worldCells) {
+          if (!cell) continue;
+          if (cell.x < minX) minX = cell.x;
+          if (cell.x + (cell.w || 19) > maxX) maxX = cell.x + (cell.w || 19);
+          if (cell.y < minY) minY = cell.y;
+          if (cell.y + (cell.h || 19) > maxY) maxY = cell.y + (cell.h || 19);
+        }
+      }
       if (!Number.isFinite(minX)) return c;
-      const spanW = Math.max(19 * 8, maxX - minX + 38);
-      const spanH = Math.max(19 * 5, maxY - minY + 38);
-      const scale = Math.min((width - 12) / spanW, (height - 12) / spanH);
+
+      const spanW = Math.max(19 * 10, maxX - minX + 57);
+      const spanH = Math.max(19 * 6, maxY - minY + 57);
+      const scale = Math.min((width - 16) / spanW, (height - 16) / spanH);
       const cx = (minX + maxX) / 2;
       const cy = (minY + maxY) / 2;
 
-      for (const [, cell] of wData.worldCells) {
-        if (!cell) continue;
+      // Sort cells back-to-front so foreground blocks sit cleanly over background walls
+      const layerOrder = { farback: 0, back: 1, main: 2, front: 3 };
+      const sortedCells = wData.worldCells
+        .map(([, cell]) => cell)
+        .filter(Boolean)
+        .sort((a, b) => (layerOrder[a.layer] ?? 2) - (layerOrder[b.layer] ?? 2));
+
+      for (const cell of sortedCells) {
+        if (cell.type === 'light' || cell.type === 'environment') continue;
         const sx = Math.round(width / 2 + (cell.x - cx) * scale);
         const sy = Math.round(height / 2 + (cell.y - cy) * scale);
         const sw = Math.max(2, Math.round((cell.w || 19) * scale));
         const sh = Math.max(2, Math.round((cell.h || 19) * scale));
-        ctx.fillStyle = cell.spriteId === '__starter_ground__'
-          ? '#343442'
-          : (spColorMap.get(cell.spriteId) || '#71717a');
+        const liveSp = getSpriteById(cell.spriteId);
+        let fillHex = '#71717a';
+        if (cell.spriteId === '__starter_ground__') {
+          fillHex = '#343442';
+        } else if (spColorMap.has(cell.spriteId)) {
+          fillHex = spColorMap.get(cell.spriteId);
+        } else if (liveSp) {
+          fillHex = getPrimaryColorFromSprite(liveSp, '#71717a');
+        }
+        ctx.save();
+        if (cell.layer === 'farback') ctx.globalAlpha = 0.6;
+        else if (cell.layer === 'back') ctx.globalAlpha = 0.82;
+        else if (cell.type === 'liquid') ctx.globalAlpha = 0.65;
+        ctx.fillStyle = fillHex;
         ctx.fillRect(sx, sy, sw, sh);
+        ctx.restore();
       }
 
       if (wData.spawnPoint) {
         const spx = Math.round(width / 2 + (wData.spawnPoint.x - cx) * scale);
         const spy = Math.round(height / 2 + (wData.spawnPoint.y - cy) * scale);
         ctx.fillStyle = '#38bdf8';
-        ctx.fillRect(spx, spy, 3, 3);
+        ctx.fillRect(spx - 1, spy - 1, 4, 4);
       }
       return c;
     }
@@ -14123,52 +15302,75 @@
 
       list.forEach((wSlot) => {
         const isCurrent = wSlot.id === state.activeWorldId;
+        const snapshotData = isCurrent ? serializeCurrentState() : wSlot.data;
+        const tileCount = Array.isArray(snapshotData?.worldCells) ? snapshotData.worldCells.length : (wSlot.tileCount || 0);
+
         const card = document.createElement('div');
-        card.className = `rounded-sm border p-2 flex flex-col gap-2 transition-all ${
-          isCurrent ? 'bg-[#161e31] border-blue-500' : 'bg-[#15161e] border-[#282a36] hover:border-zinc-500'
+        card.className = `rounded-sm border p-3 flex flex-col gap-2.5 transition-all ${
+          isCurrent ? 'bg-[#161e31] border-blue-500 shadow-lg' : 'bg-[#15161e] border-[#282a36] hover:border-zinc-500'
         }`;
 
+        // 1. Skylight Minimap Preview
         const previewWrap = document.createElement('div');
-        previewWrap.className = 'relative w-full h-20 bg-[#0e0f14] border border-[#252733] rounded-xs overflow-hidden cursor-pointer flex items-center justify-center';
-        const miniCanvas = renderWorldMiniPreviewCanvas(isCurrent ? serializeCurrentState() : wSlot.data, 180, 80);
+        previewWrap.className = 'relative w-full h-28 bg-[#0e0f14] border border-[#252733] rounded-xs overflow-hidden cursor-pointer flex items-center justify-center group';
+        const miniCanvas = renderWorldMiniPreviewCanvas(snapshotData, 280, 112);
         miniCanvas.className = 'w-full h-full object-cover';
         previewWrap.appendChild(miniCanvas);
 
         if (isCurrent) {
           const badge = document.createElement('span');
-          badge.className = 'absolute top-1 left-1 px-1.5 py-0.5 bg-blue-600 text-white text-[8px] font-bold rounded-xs';
+          badge.className = 'absolute top-1.5 left-1.5 px-2 py-0.5 bg-blue-600 text-white text-[9px] font-bold rounded-xs shadow';
           badge.textContent = 'ACTIVE';
           previewWrap.appendChild(badge);
         }
 
+        const tilePill = document.createElement('span');
+        tilePill.className = 'absolute bottom-1.5 right-1.5 px-1.5 py-0.5 bg-black/75 border border-white/10 text-zinc-300 text-[9px] rounded-xs mono';
+        tilePill.textContent = `${tileCount} tiles`;
+        previewWrap.appendChild(tilePill);
+
         previewWrap.addEventListener('click', () => {
           if (!isCurrent) switchToWorldSlot(wSlot.id);
+          else setEngineMode('play');
           worldsVaultModal.classList.remove('open');
         });
 
-        const bottomRow = document.createElement('div');
-        bottomRow.className = 'flex items-center justify-between gap-1';
-
+        // 2. Full-Width Readable Area Name Row (never squished by buttons)
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
         nameInput.value = wSlot.name || 'Untitled World';
-        nameInput.className = 'flex-1 min-w-0 bg-[#0d0e13] border border-[#2a2c38] rounded-xs px-1.5 py-0.5 text-[10px] text-zinc-100 focus:outline-none focus:border-blue-500';
+        nameInput.className = 'w-full bg-[#0c0d12] border border-[#2c2e3c] rounded-xs px-2.5 py-1 text-xs font-semibold text-white tracking-wide focus:outline-none focus:border-blue-500';
         nameInput.addEventListener('change', () => {
           wSlot.name = nameInput.value.trim() || 'Untitled World';
           persistSavedWorldsToStorage();
           updateTopWorldLabel();
         });
 
-        const actions = document.createElement('div');
-        actions.className = 'flex items-center gap-1 shrink-0';
+        // 3. Dedicated Action Buttons Row
+        const actionsRow = document.createElement('div');
+        actionsRow.className = 'flex items-center justify-between gap-2 pt-0.5';
+
+        const enterBtn = document.createElement('button');
+        enterBtn.className = isCurrent
+          ? 'ase-btn active px-3 py-1 text-[10px] text-blue-300 font-semibold'
+          : 'ase-btn-primary px-3 py-1 text-[10px] font-semibold';
+        enterBtn.textContent = isCurrent ? 'Playing' : 'Load World';
+        enterBtn.addEventListener('click', () => {
+          if (!isCurrent) switchToWorldSlot(wSlot.id);
+          else setEngineMode('play');
+          worldsVaultModal.classList.remove('open');
+        });
+
+        const rightActions = document.createElement('div');
+        rightActions.className = 'flex items-center gap-1.5';
 
         const cloneBtn = document.createElement('button');
-        cloneBtn.className = 'ase-btn px-1.5 py-0.5 text-[9px] text-zinc-300';
+        cloneBtn.className = 'ase-btn px-2.5 py-1 text-[10px] text-zinc-200';
         cloneBtn.textContent = 'Clone';
         cloneBtn.addEventListener('click', () => cloneWorldSlot(wSlot.id));
 
         const jsonBtn = document.createElement('button');
-        jsonBtn.className = 'ase-btn px-1.5 py-0.5 text-[9px] text-zinc-300';
+        jsonBtn.className = 'ase-btn px-2.5 py-1 text-[10px] text-zinc-200';
         jsonBtn.textContent = 'JSON';
         jsonBtn.addEventListener('click', () => {
           const payload = isCurrent ? serializeCurrentState() : wSlot.data;
@@ -14180,8 +15382,8 @@
         });
 
         const delBtn = document.createElement('button');
-        delBtn.className = 'ase-btn px-1.5 py-0.5 text-[9px] text-red-400';
-        delBtn.textContent = 'X';
+        delBtn.className = 'ase-btn px-2.5 py-1 text-[10px] text-red-400 hover:text-red-300';
+        delBtn.textContent = 'Delete';
         delBtn.addEventListener('click', () => {
           if (delBtn.dataset.confirm === '1') {
             deleteWorldSlot(wSlot.id);
@@ -14191,21 +15393,22 @@
             setTimeout(() => {
               if (delBtn.isConnected) {
                 delBtn.dataset.confirm = '0';
-                delBtn.textContent = 'X';
+                delBtn.textContent = 'Delete';
               }
             }, 2200);
           }
         });
 
-        actions.appendChild(cloneBtn);
-        actions.appendChild(jsonBtn);
-        actions.appendChild(delBtn);
+        rightActions.appendChild(cloneBtn);
+        rightActions.appendChild(jsonBtn);
+        rightActions.appendChild(delBtn);
 
-        bottomRow.appendChild(nameInput);
-        bottomRow.appendChild(actions);
+        actionsRow.appendChild(enterBtn);
+        actionsRow.appendChild(rightActions);
 
         card.appendChild(previewWrap);
-        card.appendChild(bottomRow);
+        card.appendChild(nameInput);
+        card.appendChild(actionsRow);
         container.appendChild(card);
       });
     }
@@ -14216,29 +15419,73 @@
       if (!target || !target.data) return;
       state.activeWorldId = target.id;
       applySerializedData(target.data, true);
+      setEngineMode('play');
       saveAutoBackup();
       renderSavedWorldsList();
     }
 
-    function createNewWorldSlot() {
+    function createStarterWorldCellsSnapshot() {
+      const cells = [];
+      for (let gx = -5; gx <= 5; gx++) {
+        const x = gx * TILE_SIZE;
+        const y = 0;
+        cells.push([
+          `${x},${y},main`,
+          {
+            spriteId: '__starter_ground__',
+            x,
+            y,
+            w: TILE_SIZE,
+            h: TILE_SIZE,
+            type: 'solid',
+            subtype: 'Solid',
+            layer: 'main',
+            orient: 0,
+            rotation: 0,
+            frameIdx: 0,
+            timer: 0,
+            crumbleState: 0,
+            flexOffset: 0
+          }
+        ]);
+      }
+      return cells;
+    }
+
+    function createNewWorldSlot(switchImmediately = false) {
       saveAutoBackup();
-      state.worldCells.clear();
-      state.dynamicEntities = [];
-      state.spawnPoint = { x: 0, y: -38 };
-      createStarterPlatform();
-      respawnPlayer(false);
+      const starterCells = createStarterWorldCellsSnapshot();
+      const newSlotId = 'world_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5);
+      const newWorldData = {
+        version: 2,
+        activeWorldId: newSlotId,
+        sprites: state.sprites.map(serializeSprite),
+        worldCells: starterCells,
+        dynamicEntities: [],
+        spawnPoint: { x: 0, y: -38 },
+        hardFloorY0: false,
+        activeBodyId: state.activeBodyId,
+        activeWearableId: state.activeWearableId,
+        activeHoldableId: state.activeHoldableId,
+        activeMountId: state.activeMountId
+      };
 
       const newSlot = {
-        id: 'world_' + Date.now(),
+        id: newSlotId,
         name: `World ${state.savedWorlds.length + 1}`,
         updatedAt: Date.now(),
-        tileCount: state.worldCells.size,
-        data: serializeCurrentState()
+        tileCount: starterCells.length,
+        data: newWorldData
       };
+
       state.savedWorlds.unshift(newSlot);
-      state.activeWorldId = newSlot.id;
-      saveAutoBackup();
+      if (switchImmediately) {
+        state.activeWorldId = newSlot.id;
+        applySerializedData(newSlot.data, true);
+      }
+      persistSavedWorldsToStorage();
       renderSavedWorldsList();
+      sfx.createSuccess();
     }
 
     function cloneWorldSlot(slotId) {
@@ -14260,7 +15507,7 @@
 
     function deleteWorldSlot(slotId) {
       if (state.savedWorlds.length <= 1) {
-        createNewWorldSlot();
+        createNewWorldSlot(true);
       }
       state.savedWorlds = state.savedWorlds.filter(w => w.id !== slotId);
       if (state.activeWorldId === slotId && state.savedWorlds.length > 0) {
@@ -14287,7 +15534,7 @@
     });
 
     document.getElementById('modal-reset-world-btn').addEventListener('click', () => {
-      createNewWorldSlot();
+      createNewWorldSlot(false);
     });
 
     document.getElementById('worlds-search-input').addEventListener('input', (e) => {
@@ -14433,6 +15680,8 @@
 
       // Creation Editor Keyboard Shortcuts
       if (editor.isOpen) {
+        updateEditorSubbars();
+        updatePaintCanvasCursor(e);
         if (isTypingInInput()) return;
         if (e.repeat) return;
 
@@ -14447,6 +15696,21 @@
           redoEditor();
           return;
         }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+          e.preventDefault();
+          selectAllEditorCel();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+          e.preventDefault();
+          copyEditorSelectionOrCel();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
+          e.preventDefault();
+          cutEditorSelectionOrCel();
+          return;
+        }
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
           e.preventDefault();
           openTypePickerModal();
@@ -14458,16 +15722,57 @@
         else if (k === 'g') selectTool('fill');
         else if (k === 'i') selectTool('picker');
         else if (k === 'l') selectTool('line');
-        else if (k === 'k') selectTool('rect');
-        else if (k === 'c' && !e.ctrlKey && !e.metaKey) selectTool('ellipse');
-        else if (k === 'a' && !e.ctrlKey && !e.metaKey) selectTool('spray');
+        else if (k === 'k') {
+          if (editor.tool === 'rect') {
+            editor.shapeFilled = !editor.shapeFilled;
+            document.querySelectorAll('.sfill-btn').forEach(b => b.classList.toggle('active', (b.dataset.sfill === 'filled') === editor.shapeFilled));
+          }
+          selectTool('rect');
+        } else if (k === 'c' && !e.ctrlKey && !e.metaKey) {
+          if (editor.tool === 'ellipse') {
+            editor.shapeFilled = !editor.shapeFilled;
+            document.querySelectorAll('.sfill-btn').forEach(b => b.classList.toggle('active', (b.dataset.sfill === 'filled') === editor.shapeFilled));
+          }
+          selectTool('ellipse');
+        } else if (k === 'a' && !e.ctrlKey && !e.metaKey) selectTool('spray');
         else if (k === 'm') selectTool('marquee');
-        else if (k === 'v' && !e.ctrlKey && !e.metaKey) selectTool('move');
-        else if (k === 'f') {
+        else if (k === 'w') {
+          editor.marqueeType = 'wand';
+          document.querySelectorAll('.mtype-btn').forEach(b => b.classList.toggle('active', b.dataset.mtype === 'wand'));
+          selectTool('marquee');
+        } else if (k === 'v' && !e.ctrlKey && !e.metaKey) selectTool('move');
+        else if (k === 's' && !e.ctrlKey && !e.metaKey) {
+          document.getElementById('symmetry-x-btn').click();
+        } else if (k === 'o') {
+          document.getElementById('onion-skin-btn').click();
+        } else if (k === 'u') {
+          colorFxBtn.click();
+        } else if (k === 'p') {
+          editor.showPivotCoords = !editor.showPivotCoords;
+          renderPaintCanvas();
+        } else if (k === 'f') {
           if (e.shiftKey) flipActiveCelVertical();
           else flipActiveCelHorizontal();
         } else if (k === 'r') {
           rotateActiveCel90();
+        } else if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown'].includes(k)) {
+          e.preventDefault();
+          if (editor.marquee) {
+            liftMarqueeToFloating();
+            if (k === 'arrowleft') editor.marquee.x--;
+            else if (k === 'arrowright') editor.marquee.x++;
+            else if (k === 'arrowup') editor.marquee.y--;
+            else if (k === 'arrowdown') editor.marquee.y++;
+            renderPaintCanvas();
+          } else if (k === 'arrowleft' || k === 'arrowright') {
+            commitMarqueeSelection();
+            const dir = k === 'arrowright' ? 1 : -1;
+            editor.activeFrame = (editor.activeFrame + dir + editor.frames.length) % editor.frames.length;
+            syncActiveFrameDimensions();
+            populateCelStateDropdown();
+            renderFrameTabs();
+            renderPaintCanvas();
+          }
         } else if (k === 'delete' || k === 'backspace') {
           document.getElementById('clear-canvas-btn').click();
         } else if (k === 'escape') {
@@ -14655,7 +15960,10 @@
         state.keys.eLatch = false;
       }
       updateWorldCursor(e);
-      if (editor.isOpen) updateEditorSubbars();
+      if (editor.isOpen) {
+        updateEditorSubbars();
+        updatePaintCanvasCursor(e);
+      }
     });
 
     window.addEventListener('blur', () => {
@@ -14664,7 +15972,19 @@
       mouseWorld.downButton = null;
       mouseWorld.isRightErasing = false;
       mouseWorld.isCtrlLeftErasing = false;
+      mouseWorld.hasPushedStrokeUndo = false;
       mouseWorld.isPanning = false;
+      mouseWorld.dragStart = null;
+      mouseWorld.isSelectingBlocks = false;
+      mouseWorld.wireDragSource = null;
+      if (editor.isOpen) {
+        editor.isDrawing = false;
+        editor.isPanningCanvas = false;
+        editor.celMoveDrag = null;
+        updateEditorSubbars();
+        updatePaintCanvasCursor();
+      }
+      updateWorldCursor();
     });
 
     chatInput.addEventListener('keydown', (e) => {
@@ -14677,12 +15997,16 @@
           state.player.speechBubbles.push({
             text: msg,
             age: 0,
-            maxAge: 260,
+            maxAge: 280,
             floatOffset: 0
           });
-          sfx.ui(540);
+          if (state.player.speechBubbles.length > 5) {
+            state.player.speechBubbles.shift();
+          }
+          sfx.ui(520);
         }
         state.chatOpen = false;
+        chatInput.value = '';
         chatInput.classList.add('hidden');
         chatInput.blur();
       } else if (e.key === 'Escape') {
@@ -14694,13 +16018,9 @@
     });
 
     /********************************************************************
-     * BOOT RESTORE & MAIN 60HZ ENGINE LOOP
+     * BOOT LOADER & MAIN 60FPS ENGINE LOOP
      ********************************************************************/
-    (function bootLoomBitEngine() {
-      const bootFill = document.getElementById('boot-progress-fill');
-      const bootScreen = document.getElementById('boot-loading-screen');
-      if (bootFill) bootFill.style.width = '65%';
-
+    (function loadSavedStateOnBoot() {
       try {
         const rawWorlds = localStorage.getItem(STORAGE_KEY_WORLDS);
         if (rawWorlds) {
@@ -14712,46 +16032,50 @@
         const rawAuto = localStorage.getItem(STORAGE_KEY_AUTOSAVE);
         if (rawAuto) {
           const parsedAuto = JSON.parse(rawAuto);
-          if (parsedAuto && parsedAuto.activeWorldId) {
-            state.activeWorldId = parsedAuto.activeWorldId;
+          if (parsedAuto) {
+            state.activeWorldId = parsedAuto.activeWorldId || (state.savedWorlds[0] && state.savedWorlds[0].id) || null;
+            applySerializedData(parsedAuto, false);
           }
-          applySerializedData(parsedAuto, false);
         } else if (state.savedWorlds.length > 0 && state.savedWorlds[0].data) {
           state.activeWorldId = state.savedWorlds[0].id;
           applySerializedData(state.savedWorlds[0].data, false);
-        } else {
-          saveAutoBackup();
         }
       } catch (err) {}
 
+      saveAutoBackup();
       updateBrushBar();
       renderSidebarSprites();
       updateTopWorldLabel();
 
+      const bootScreen = document.getElementById('boot-loading-screen');
+      const bootFill = document.getElementById('boot-progress-fill');
       if (bootFill) bootFill.style.width = '100%';
       setTimeout(() => {
         if (bootScreen) bootScreen.classList.add('boot-hidden');
-      }, 220);
-
-      function engineFrame(now) {
-        const dt = Math.min(100, Math.max(0, now - lastTime));
-        lastTime = now;
-        accumulator += dt;
-
-        while (accumulator >= FIXED_DT) {
-          updatePhysicsTick();
-          if (editor.isOpen) {
-            renderEditorLivePreview();
-          }
-          accumulator -= FIXED_DT;
-        }
-
-        renderWorld();
-        requestAnimationFrame(engineFrame);
-      }
-
-      requestAnimationFrame(engineFrame);
+      }, 280);
     })();
+
+    function engineLoop(now) {
+      const dt = Math.min(100, Math.max(0, now - lastTime));
+      lastTime = now;
+      accumulator += dt;
+
+      let steps = 0;
+      while (accumulator >= FIXED_DT && steps < 4) {
+        updatePhysicsTick();
+        accumulator -= FIXED_DT;
+        steps++;
+      }
+      if (steps >= 4) accumulator = 0;
+
+      renderWorld();
+      if (editor.isOpen) {
+        renderEditorLivePreview();
+      }
+      requestAnimationFrame(engineLoop);
+    }
+
+    requestAnimationFrame(engineLoop);
   </script>
 </body>
 </html>

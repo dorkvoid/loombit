@@ -408,6 +408,22 @@
     </div>
   </div>
 
+  <!-- MULTI-TAB SESSION PAUSED OVERLAY (Prevents stale tabs from overwriting newer work) -->
+  <div id="multi-tab-overlay" class="smooth-modal fixed inset-0 z-[110] bg-black/90 flex items-center justify-center p-4 select-none">
+    <div class="smooth-modal-box studio-panel rounded-sm max-w-md w-full p-5 flex flex-col items-center text-center gap-3.5 border border-[#343746]">
+      <div class="px-2.5 py-0.5 bg-amber-500/20 border border-amber-400/50 text-amber-300 text-[10px] uppercase tracking-wider rounded-xs">
+        Session Paused
+      </div>
+      <h2 class="text-xs font-bold text-zinc-100 tracking-wide">LOOMBIT IS ACTIVE IN ANOTHER TAB</h2>
+      <p class="text-[10px] text-zinc-400 leading-relaxed">
+        This tab has been paused so it cannot overwrite the creations or world edits you are making in your other open tab.
+      </p>
+      <button id="takeover-session-btn" class="ase-btn-primary px-4 py-1.5 text-xs font-semibold mt-1">
+        Use LoomBit in This Tab
+      </button>
+    </div>
+  </div>
+
   <!-- MAIN WORLD VIEWPORT -->
   <div id="viewport-container" class="relative flex-1 h-full bg-[#0e0f13] overflow-hidden">
     <canvas id="world-canvas" class="block w-full h-full cursor-default"></canvas>
@@ -15371,7 +15387,106 @@
     const STORAGE_KEY_AUTOSAVE = 'loombit_autosave_v1';
     const STORAGE_KEY_WORLDS = 'loombit_saved_worlds_v1';
     const STORAGE_KEY_DELETED_SPRITES = 'loombit_deleted_sprites_v1';
+    const STORAGE_KEY_ACTIVE_TAB = 'loombit_active_tab_v1';
     let autoBackupTimer = null;
+
+    // Cross-Tab Session Lock: Prevents a stale background tab from overwriting newer work in localStorage
+    const CURRENT_TAB_ID = 'tab_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    let isSessionPausedByOtherTab = false;
+    const sessionChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('loombit_session_lock') : null;
+    const multiTabOverlay = document.getElementById('multi-tab-overlay');
+    const takeoverSessionBtn = document.getElementById('takeover-session-btn');
+
+    function isThisTabActiveSession() {
+      if (isSessionPausedByOtherTab) return false;
+      try {
+        const owner = localStorage.getItem(STORAGE_KEY_ACTIVE_TAB);
+        if (owner && owner !== CURRENT_TAB_ID) {
+          pauseThisTabSession();
+          return false;
+        }
+      } catch (err) {}
+      return true;
+    }
+
+    function pauseThisTabSession() {
+      if (isSessionPausedByOtherTab) return;
+      isSessionPausedByOtherTab = true;
+      if (autoBackupTimer) {
+        clearTimeout(autoBackupTimer);
+        autoBackupTimer = null;
+      }
+      resetAllHeldKeys();
+      if (ytPlayerReady && ytAmbiancePlayer && typeof ytAmbiancePlayer.pauseVideo === 'function') {
+        try { ytAmbiancePlayer.pauseVideo(); } catch (err) {}
+      }
+      if (multiTabOverlay) {
+        multiTabOverlay.classList.add('open');
+      }
+    }
+
+    function claimActiveTabSession(reloadLatestFromStorage = false) {
+      try {
+        localStorage.setItem(STORAGE_KEY_ACTIVE_TAB, CURRENT_TAB_ID);
+      } catch (err) {}
+      if (sessionChannel) {
+        try { sessionChannel.postMessage({ type: 'CLAIM_TAB', tabId: CURRENT_TAB_ID }); } catch (err) {}
+      }
+
+      if (reloadLatestFromStorage) {
+        try {
+          const rawWorlds = localStorage.getItem(STORAGE_KEY_WORLDS);
+          if (rawWorlds) {
+            const parsedWorlds = JSON.parse(rawWorlds);
+            if (Array.isArray(parsedWorlds)) state.savedWorlds = parsedWorlds;
+          }
+          const rawAuto = localStorage.getItem(STORAGE_KEY_AUTOSAVE);
+          if (rawAuto) {
+            const parsedAuto = JSON.parse(rawAuto);
+            if (parsedAuto) {
+              state.activeWorldId = parsedAuto.activeWorldId || (state.savedWorlds[0] && state.savedWorlds[0].id) || null;
+              applySerializedData(parsedAuto, false);
+            }
+          }
+        } catch (err) {}
+      }
+
+      isSessionPausedByOtherTab = false;
+      if (multiTabOverlay) {
+        multiTabOverlay.classList.remove('open');
+      }
+      if (state.ambianceEnabled && ytPlayerReady && ytAmbiancePlayer && typeof ytAmbiancePlayer.playVideo === 'function') {
+        try { ytAmbiancePlayer.playVideo(); } catch (err) {}
+      }
+      updateBrushBar();
+      renderSidebarSprites();
+      updateTopWorldLabel();
+      if (worldsVaultModal && worldsVaultModal.classList.contains('open')) {
+        renderSavedWorldsList();
+      }
+    }
+
+    if (sessionChannel) {
+      sessionChannel.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'CLAIM_TAB' && e.data.tabId !== CURRENT_TAB_ID) {
+          pauseThisTabSession();
+        }
+      });
+    }
+
+    window.addEventListener('storage', (e) => {
+      if (e.key === STORAGE_KEY_ACTIVE_TAB && e.newValue && e.newValue !== CURRENT_TAB_ID) {
+        pauseThisTabSession();
+      }
+    });
+
+    if (takeoverSessionBtn) {
+      takeoverSessionBtn.addEventListener('click', () => {
+        if (editor.isOpen) closeSpriteEditor();
+        claimActiveTabSession(true);
+        sfx.ui(540);
+      });
+    }
 
     function getDeletedSpriteIdsSet() {
       try {
@@ -15629,6 +15744,7 @@
     }
 
     function persistSavedWorldsToStorage() {
+      if (!isThisTabActiveSession()) return;
       try {
         localStorage.setItem(STORAGE_KEY_WORLDS, JSON.stringify(state.savedWorlds));
       } catch (err) {}
@@ -15642,6 +15758,7 @@
     }
 
     function saveAutoBackup() {
+      if (!isThisTabActiveSession()) return;
       const snap = serializeCurrentState();
 
       if (!state.activeWorldId) {
@@ -16666,6 +16783,7 @@
      * BOOT LOADER & MAIN 60FPS ENGINE LOOP
      ********************************************************************/
     (function loadSavedStateOnBoot() {
+      claimActiveTabSession(false);
       try {
         const rawWorlds = localStorage.getItem(STORAGE_KEY_WORLDS);
         if (rawWorlds) {
@@ -16703,6 +16821,13 @@
     function engineLoop(now) {
       const dt = Math.min(100, Math.max(0, now - lastTime));
       lastTime = now;
+
+      if (isSessionPausedByOtherTab) {
+        accumulator = 0;
+        requestAnimationFrame(engineLoop);
+        return;
+      }
+
       accumulator += dt;
 
       let steps = 0;

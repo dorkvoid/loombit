@@ -1486,8 +1486,8 @@
       <div class="px-4 py-2.5 bg-[#121319] border-t border-[#262834] flex flex-wrap items-center justify-between gap-2 text-[10px]">
         <span class="text-zinc-400">Changes auto-save to your active world.</span>
         <div class="flex items-center gap-1.5">
-          <button id="export-assets-only-btn" title="Export all Creations in your Vault as a .json pack" class="ase-btn px-2.5 py-1 text-emerald-300">Export Pack</button>
-          <label title="Import Creations from a .json pack into your Vault" class="ase-btn px-2.5 py-1 text-blue-300 cursor-pointer">
+          <button id="export-assets-only-btn" title="Export all Creations as a .json pack" class="ase-btn px-2.5 py-1 text-emerald-300">Export Pack</button>
+          <label title="Import Creations from a .json pack" class="ase-btn px-2.5 py-1 text-blue-300 cursor-pointer">
             Import Pack
             <input id="import-assets-merge-input" type="file" accept=".json" class="hidden" />
           </label>
@@ -2093,6 +2093,7 @@
       previewMode: 'walk',
       previewPlaying: true,
       previewLoopMode: 'loop', // 'loop' | 'pingpong'
+      previewTileGrid: '1x1',  // '1x1' | '3x3'
       previewFps: 8,
       stateFps: {
         Stand: 6,
@@ -13699,11 +13700,48 @@
           stateLabel.textContent = 'Back+Front';
           stateLabel.style.color = '#a5b4fc';
         }
+        const singleBtn = document.createElement('button');
+        singleBtn.className = `ase-btn px-2 py-0.5 text-[9px] ${editor.previewTileGrid !== '3x3' ? 'active text-blue-300' : 'text-zinc-400'}`;
+        singleBtn.textContent = '1x1';
+        singleBtn.addEventListener('click', () => {
+          editor.previewTileGrid = '1x1';
+          renderPreviewControlsForType();
+        });
+        const tileBtn = document.createElement('button');
+        tileBtn.className = `ase-btn px-2 py-0.5 text-[9px] ${editor.previewTileGrid === '3x3' ? 'active text-blue-300' : 'text-zinc-400'}`;
+        tileBtn.textContent = '3x3';
+        tileBtn.addEventListener('click', () => {
+          editor.previewTileGrid = '3x3';
+          renderPreviewControlsForType();
+        });
+        previewControlsBar.appendChild(singleBtn);
+        previewControlsBar.appendChild(tileBtn);
       } else {
         const fixedCount = getFixedCelCountForType(editor.type, editor.subtype);
+        const canTilePreview = !['body', 'wearable', 'holdable', 'mountable'].includes(editor.type);
         if (stateLabel) {
-          stateLabel.textContent = fixedCount === 1 ? '1 Cel' : 'Loop';
+          stateLabel.textContent = canTilePreview && editor.previewTileGrid === '3x3'
+            ? '3x3 Tile'
+            : (fixedCount === 1 ? '1 Cel' : 'Loop');
           stateLabel.style.color = '';
+        }
+        if (canTilePreview) {
+          const singleBtn = document.createElement('button');
+          singleBtn.className = `ase-btn px-2 py-0.5 text-[9px] ${editor.previewTileGrid !== '3x3' ? 'active text-blue-300' : 'text-zinc-400'}`;
+          singleBtn.textContent = '1x1';
+          singleBtn.addEventListener('click', () => {
+            editor.previewTileGrid = '1x1';
+            renderPreviewControlsForType();
+          });
+          const tileBtn = document.createElement('button');
+          tileBtn.className = `ase-btn px-2 py-0.5 text-[9px] ${editor.previewTileGrid === '3x3' ? 'active text-blue-300' : 'text-zinc-400'}`;
+          tileBtn.textContent = '3x3';
+          tileBtn.addEventListener('click', () => {
+            editor.previewTileGrid = '3x3';
+            renderPreviewControlsForType();
+          });
+          previewControlsBar.appendChild(singleBtn);
+          previewControlsBar.appendChild(tileBtn);
         }
         if (fixedCount !== 1) {
           const loopBtn = document.createElement('button');
@@ -13781,23 +13819,35 @@
       }
 
       // Continuous phase step: changing FPS smoothly changes future speed without jumping to a different frame!
+      const canTilePreview = !['body', 'wearable', 'holdable', 'mountable'].includes(editor.type);
+      const is3x3Tile = canTilePreview && editor.previewTileGrid === '3x3';
+
       if (
         ((editor.type === 'thing' && editor.subtype === 'Thing in Front') ||
          (editor.type === 'big_thing' && editor.subtype === 'Back + Front')) &&
         editor.frames.length >= 2
       ) {
         const dim0 = (editor.frameDims && editor.frameDims[0]) || { w: editor.w, h: editor.h };
-        const scale = Math.max(1, Math.min(Math.floor((W - 8) / dim0.w), Math.floor((H - 8) / dim0.h)));
-        const dw = dim0.w * scale;
-        const dh = dim0.h * scale;
-        const dx = Math.round((W - dw) / 2);
-        const dy = Math.round((H - dh) / 2);
-        if (editor.frames[0]) {
-          blitBufferToCtx(previewCtx, editor.frames[0], dim0.w, dim0.h, dx, dy, dw, dh);
-        }
         const dim1 = (editor.frameDims && editor.frameDims[1]) || dim0;
-        if (editor.frames[1]) {
-          blitBufferToCtx(previewCtx, editor.frames[1], dim1.w, dim1.h, dx, dy, dw, dh);
+        const gridCount = is3x3Tile ? 3 : 1;
+        const totalSrcW = dim0.w * gridCount;
+        const totalSrcH = dim0.h * gridCount;
+        const scale = Math.max(1, Math.min((W - 6) / totalSrcW, (H - 6) / totalSrcH));
+        const tileW = Math.max(1, Math.floor(dim0.w * scale));
+        const tileH = Math.max(1, Math.floor(dim0.h * scale));
+        const startX = Math.round((W - tileW * gridCount) / 2);
+        const startY = Math.round((H - tileH * gridCount) / 2);
+        for (let gy = 0; gy < gridCount; gy++) {
+          for (let gx = 0; gx < gridCount; gx++) {
+            const tx = startX + gx * tileW;
+            const ty = startY + gy * tileH;
+            if (editor.frames[0]) {
+              blitBufferToCtx(previewCtx, editor.frames[0], dim0.w, dim0.h, tx, ty, tileW, tileH);
+            }
+            if (editor.frames[1]) {
+              blitBufferToCtx(previewCtx, editor.frames[1], dim1.w, dim1.h, tx, ty, tileW, tileH);
+            }
+          }
         }
         return;
       }
@@ -13892,6 +13942,22 @@
       const dim = (editor.frameDims && editor.frameDims[fIdx]) || { w: editor.w, h: editor.h };
       const buf = editor.frames[fIdx];
       if (!buf) return;
+
+      if (is3x3Tile) {
+        const totalSrcW = dim.w * 3;
+        const totalSrcH = dim.h * 3;
+        const scale = Math.max(0.5, Math.min((W - 6) / totalSrcW, (H - 6) / totalSrcH));
+        const tileW = Math.max(1, Math.floor(dim.w * scale));
+        const tileH = Math.max(1, Math.floor(dim.h * scale));
+        const startX = Math.round((W - tileW * 3) / 2);
+        const startY = Math.round((H - tileH * 3) / 2);
+        for (let gy = 0; gy < 3; gy++) {
+          for (let gx = 0; gx < 3; gx++) {
+            blitBufferToCtx(previewCtx, buf, dim.w, dim.h, startX + gx * tileW, startY + gy * tileH, tileW, tileH);
+          }
+        }
+        return;
+      }
 
       const scale = Math.max(1, Math.min(Math.floor((W - 8) / dim.w), Math.floor((H - 8) / dim.h)));
       const dw = dim.w * scale;
@@ -15713,7 +15779,7 @@
           <div class="h-20 checkerboard flex items-center justify-center p-2 relative">
             <img src="${sp.thumbnail}" alt="${sp.name}" class="w-14 h-14 object-contain pointer-events-none" style="image-rendering: pixelated;" />
             <span class="absolute top-1 right-1 px-1.5 py-0.5 bg-[#111217]/90 border border-[#2c2e3a] rounded-xs text-[7px] text-blue-300 uppercase">${spec.name}</span>
-            <button data-action="edit" data-tooltip="Edit creation in The Forge" class="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-1 left-1 z-10 px-1.5 py-0.5 bg-[#14151b]/95 hover:bg-blue-600 text-zinc-200 hover:text-white text-[8px] rounded-xs border border-[#343746]">Edit</button>
+            <button data-action="edit" data-tooltip="Edit creation" class="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-1 left-1 z-10 px-1.5 py-0.5 bg-[#14151b]/95 hover:bg-blue-600 text-zinc-200 hover:text-white text-[8px] rounded-xs border border-[#343746]">Edit</button>
             <button data-action="delete" data-tooltip="Delete creation" class="opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-1 right-1 z-10 min-w-[22px] h-[20px] px-1.5 bg-[#14151b]/95 hover:bg-red-600 text-zinc-300 hover:text-white text-[9px] font-bold rounded-xs border border-[#343746] flex items-center justify-center">X</button>
           </div>
           <div class="px-2 py-1 bg-[#14151b] border-t border-[#262834] text-[9px] text-zinc-200 truncate text-center">${sp.name}</div>

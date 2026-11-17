@@ -10796,6 +10796,13 @@
       }
     }
 
+    function spawnBrushClearFeedback() {
+      sfx.poof(false);
+      const fxX = mouseWorld.inside ? mouseWorld.wx : (state.player.x + state.player.w / 2);
+      const fxY = mouseWorld.inside ? mouseWorld.wy : (state.player.y + state.player.h / 2);
+      spawnDustParticles(fxX, fxY, TILE_SIZE, TILE_SIZE, 9);
+    }
+
     function startHoldingWorldBlock(targetCell, mode, awaitingClickToPlace = false) {
       if (!targetCell) return;
       clearPendingHoldGrab();
@@ -10819,12 +10826,6 @@
       } else {
         spawnDustParticles(targetCell.x + targetCell.w / 2, targetCell.y + targetCell.h / 2, targetCell.w, targetCell.h, 4);
         sfx.ui(610);
-      }
-
-      const createBtn = document.getElementById('open-create-btn');
-      if (createBtn && sp) {
-        createBtn.textContent = '+ Clone';
-        createBtn.classList.add('ring-2', 'ring-amber-300');
       }
 
       const clonedCellData = { ...targetCell, orient: itemOrient, wires: preservedWires };
@@ -10895,41 +10896,21 @@
         }
       };
 
-      // If the user dragged a single held viewport block onto "+ Create" or into the Creation Menu drawer, clone it in the Creation Menu!
-      if (!cancelToOrigin && dropEvent && items.length === 1 && held.sprite) {
+      // Never place a field-grabbed block if the cursor is over the Vault (#right-drawer) or outside the world canvas
+      let droppedOutsideViewport = !mouseWorld.inside;
+      if (dropEvent) {
         const dropTarget = document.elementFromPoint(dropEvent.clientX, dropEvent.clientY);
-        const onCreateBtn = dropTarget && (dropTarget.id === 'open-create-btn' || dropTarget.closest('#open-create-btn'));
-        const onRightDrawer = dropTarget && dropTarget.closest('#right-drawer');
-
-        if (onCreateBtn || onRightDrawer) {
-          restoreMovedItemsToOrigin();
-          if (onCreateBtn) {
-            sfx.ui(640);
-            openSpriteEditor(held.sprite.id, true);
-          } else {
-            const src = held.sprite;
-            const newId = 'sp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-            const clonedSprite = {
-              ...src,
-              id: newId,
-              name: `${src.name} Copy`,
-              frames: src.frames.map(f => new Uint8ClampedArray(f)),
-              frameDims: src.frameDims ? src.frameDims.map(d => ({ ...d })) : [{ w: src.w, h: src.h }],
-              frameStates: src.frameStates ? [...src.frameStates] : ['Cell 1']
-            };
-            state.sprites.push(clonedSprite);
-            rebuildSpriteLookup();
-            updateBrushBar();
-            renderSidebarSprites();
-            saveAutoBackup();
-            sfx.createSuccess();
-          }
-          updateWorldCursor();
-          return;
+        if (
+          !dropTarget ||
+          dropTarget.closest('#right-drawer') ||
+          dropTarget.closest('#top-engine-bar') ||
+          dropTarget.closest('#world-motion-bar')
+        ) {
+          droppedOutsideViewport = true;
         }
       }
 
-      if (cancelToOrigin) {
+      if (cancelToOrigin || droppedOutsideViewport) {
         restoreMovedItemsToOrigin();
         scheduleWorldAutoBackup();
         updateWorldCursor();
@@ -11757,6 +11738,12 @@
 
       // If user clicked on a placed block with an open mouse and begins dragging, immediately start holding the clone!
       if (mouseWorld.pendingHoldGrab && mouseWorld.downButton === 0 && !state.heldWorldBlock) {
+        const overVault = e.target && e.target.closest && e.target.closest('#right-drawer');
+        if (overVault) {
+          clearPendingHoldGrab();
+          mouseWorld.downButton = null;
+          return;
+        }
         const dist = Math.hypot(e.clientX - mouseWorld.pendingHoldGrab.startX, e.clientY - mouseWorld.pendingHoldGrab.startY);
         if (dist >= 4) {
           const target = mouseWorld.pendingHoldGrab.targetCell;
@@ -11768,6 +11755,12 @@
 
       if (state.heldWorldBlock) {
         updateMouseWorldCoords(e);
+        const overVault = (e.target && e.target.closest && e.target.closest('#right-drawer')) || !mouseWorld.inside;
+        if (overVault) {
+          spawnBrushClearFeedback();
+          commitHeldWorldBlock(true);
+          mouseWorld.downButton = null;
+        }
         return;
       }
 
@@ -11848,15 +11841,21 @@
       }
 
       // If releasing Left-Click while holding a cloned/moved single block:
-      // - If dragged to a new grid cell (or dropped onto UI/drawer), place/clone it immediately!
+      // - If dragged to a new grid cell inside the viewport, place/clone it immediately!
+      // - If released over the Vault or outside the canvas, cancel the field grab so it never places under the Vault!
       // - If released on the exact same origin cell, keep it attached to the cursor so the next Left-Click places it!
       if (state.heldWorldBlock && e.button === 0 && !state.heldWorldBlock.awaitingClickToPlace) {
         updateMouseWorldCoords(e);
         const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
         const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
         const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
-        const droppedOnDrawerOrCreate = dropTarget && (dropTarget.id === 'open-create-btn' || dropTarget.closest('#open-create-btn') || dropTarget.closest('#right-drawer'));
-        if (droppedOnDrawerOrCreate || snapX !== state.heldWorldBlock.originX || snapY !== state.heldWorldBlock.originY) {
+        const droppedOnVaultOrUI =
+          !mouseWorld.inside ||
+          (dropTarget && (dropTarget.closest('#right-drawer') || dropTarget.closest('#top-engine-bar')));
+        if (droppedOnVaultOrUI) {
+          spawnBrushClearFeedback();
+          commitHeldWorldBlock(true);
+        } else if (snapX !== state.heldWorldBlock.originX || snapY !== state.heldWorldBlock.originY) {
           commitHeldWorldBlock(false, e);
         } else {
           state.heldWorldBlock.awaitingClickToPlace = true;
@@ -14720,6 +14719,7 @@
         if (state.activeBrushId === sp.id && !forceEquip) {
           state.activeBrushId = null;
           state.brushOrient = 0;
+          spawnBrushClearFeedback();
         } else {
           state.activeBrushId = sp.id;
           state.brushOrient = 0;
@@ -14765,6 +14765,9 @@
     });
 
     clearBrushBtn.addEventListener('click', () => {
+      if (state.activeBrushId) {
+        spawnBrushClearFeedback();
+      }
       state.activeBrushId = null;
       state.brushOrient = 0;
       updateBrushBar();
@@ -15511,15 +15514,69 @@
       });
     }
 
+    let worldTransitionTimer1 = null;
+    let worldTransitionTimer2 = null;
+
+    function transitionToWorld(worldName, onLoadCallback) {
+      const bootScreen = document.getElementById('boot-loading-screen');
+      const bootFill = document.getElementById('boot-progress-fill');
+      const bootStatus = document.getElementById('boot-status-text');
+
+      if (worldsVaultModal) {
+        worldsVaultModal.classList.remove('open');
+      }
+
+      if (!bootScreen) {
+        if (onLoadCallback) onLoadCallback();
+        return;
+      }
+
+      if (worldTransitionTimer1) clearTimeout(worldTransitionTimer1);
+      if (worldTransitionTimer2) clearTimeout(worldTransitionTimer2);
+
+      if (bootStatus) {
+        bootStatus.textContent = `Loading ${worldName || 'World'}...`;
+      }
+      if (bootFill) {
+        bootFill.style.transition = 'none';
+        bootFill.style.width = '18%';
+        void bootFill.offsetWidth;
+        bootFill.style.transition = 'width 0.3s ease-out';
+      }
+
+      bootScreen.style.transition = 'opacity 0.16s ease-out';
+      bootScreen.classList.remove('boot-hidden');
+      sfx.ui(440);
+
+      requestAnimationFrame(() => {
+        if (bootFill) bootFill.style.width = '74%';
+      });
+
+      worldTransitionTimer1 = setTimeout(() => {
+        if (onLoadCallback) onLoadCallback();
+        state.camera.x = state.player.x + state.player.w / 2;
+        state.camera.y = state.player.y + state.player.h / 2 - 28;
+        if (bootFill) bootFill.style.width = '100%';
+        sfx.poof(true);
+      }, 220);
+
+      worldTransitionTimer2 = setTimeout(() => {
+        bootScreen.style.transition = 'opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1)';
+        bootScreen.classList.add('boot-hidden');
+      }, 480);
+    }
+
     function switchToWorldSlot(slotId) {
       saveAutoBackup();
       const target = state.savedWorlds.find(w => w.id === slotId);
       if (!target || !target.data) return;
-      state.activeWorldId = target.id;
-      applySerializedData(target.data, true);
-      setEngineMode('play');
-      saveAutoBackup();
-      renderSavedWorldsList();
+      transitionToWorld(target.name || 'World', () => {
+        state.activeWorldId = target.id;
+        applySerializedData(target.data, true);
+        setEngineMode('play');
+        saveAutoBackup();
+        renderSavedWorldsList();
+      });
     }
 
     function createStarterWorldCellsSnapshot() {
@@ -15955,12 +16012,14 @@
 
       if (e.key === 'Escape' && !e.repeat) {
         if (state.heldWorldBlock) {
+          spawnBrushClearFeedback();
           commitHeldWorldBlock(true);
           return;
         }
         if (state.activeBrushId) {
           state.activeBrushId = null;
           state.brushOrient = 0;
+          spawnBrushClearFeedback();
           updateBrushBar();
           renderSidebarSprites();
           updateWorldCursor();

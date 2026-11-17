@@ -12059,8 +12059,14 @@
     function isTypingInInput() {
       const el = document.activeElement;
       if (!el) return false;
+      if (el.isContentEditable) return true;
       const tag = el.tagName;
-      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+      if (tag === 'TEXTAREA') return true;
+      if (tag === 'INPUT') {
+        const type = (el.type || 'text').toLowerCase();
+        return ['text', 'number', 'search', 'password', 'email', 'url', 'tel'].includes(type);
+      }
+      return false;
     }
 
     function handleWorldInteractAction() {
@@ -12901,6 +12907,9 @@
         blitBufferToCtx(mCtx, buf, dim.w, dim.h, 0, 0, 22, 22);
 
         col.addEventListener('click', () => {
+          if (document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+            document.activeElement.blur();
+          }
           commitMarqueeSelection();
           editor.activeFrame = idx;
           syncActiveFrameDimensions();
@@ -13257,6 +13266,9 @@
     // Allow Middle-Mouse or Space+Drag panning anywhere inside #paint-stage, plus Scroll-Wheel zooming
     paintStage.addEventListener('mousedown', (e) => {
       if (!editor.isOpen) return;
+      if (document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+        document.activeElement.blur();
+      }
       if (e.button === 1 || (e.button === 0 && editor.spaceHeld && e.target !== paintCanvas)) {
         e.preventDefault();
         editor.isPanningCanvas = true;
@@ -13302,6 +13314,9 @@
     paintCanvas.addEventListener('mousedown', (e) => {
       if (!editor.isOpen) return;
       e.preventDefault();
+      if (document.activeElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+        document.activeElement.blur();
+      }
       editor.ctrlHeld = Boolean(e.ctrlKey || e.metaKey);
       editor.shiftHeld = Boolean(e.shiftKey);
       editor.altHeld = Boolean(e.altKey);
@@ -14115,11 +14130,11 @@
             }
           }
         }
-        editor.clipboardSelection = { w: m.w, h: m.h, x: m.x, y: m.y, data: copyBuf };
+        editor.clipboardSelection = { w: m.w, h: m.h, x: m.x, y: m.y, data: copyBuf, isFullCel: false };
         editor.preferInternalClipboard = true;
       } else {
         editor.clipboardBuf = new Uint8ClampedArray(buf);
-        editor.clipboardSelection = { w: W, h: H, x: 0, y: 0, data: new Uint8ClampedArray(buf) };
+        editor.clipboardSelection = { w: W, h: H, x: 0, y: 0, data: new Uint8ClampedArray(buf), isFullCel: true };
         editor.preferInternalClipboard = true;
       }
       sfx.ui(560);
@@ -14156,8 +14171,11 @@
         commitMarqueeSelection();
         pushEditorUndo();
         const cs = editor.clipboardSelection;
-        if (cs.w === editor.w && cs.h === editor.h && editor.tool !== 'marquee') {
-          editor.frames[editor.activeFrame].set(cs.data.subarray(0, editor.frames[editor.activeFrame].length));
+        if (cs.isFullCel || (cs.w === editor.w && cs.h === editor.h && editor.tool !== 'marquee')) {
+          const srcData = (cs.w === editor.w && cs.h === editor.h)
+            ? cs.data
+            : resizeSingleBuffer(cs.data, cs.w, cs.h, editor.w, editor.h);
+          editor.frames[editor.activeFrame].set(srcData.subarray(0, editor.frames[editor.activeFrame].length));
         } else {
           selectTool('marquee');
           editor.marquee = {
@@ -14179,6 +14197,7 @@
         dst.set(editor.clipboardBuf.subarray(0, dst.length));
         renderFrameTabs();
         renderPaintCanvas();
+        sfx.ui(520);
       }
     }
 
@@ -14291,6 +14310,16 @@
 
     window.addEventListener('paste', (e) => {
       if (!editor.isOpen || isTypingInInput()) return;
+      if (editor._lastInternalPasteTime && (performance.now() - editor._lastInternalPasteTime) < 120) {
+        e.preventDefault();
+        return;
+      }
+      if (editor.preferInternalClipboard && (editor.clipboardSelection || editor.clipboardBuf)) {
+        e.preventDefault();
+        editor._lastInternalPasteTime = performance.now();
+        pasteEditorSelectionOrCel();
+        return;
+      }
       const items = e.clipboardData && e.clipboardData.items;
       if (items) {
         for (let i = 0; i < items.length; i++) {
@@ -14309,8 +14338,9 @@
           }
         }
       }
-      if (editor.preferInternalClipboard) {
+      if (editor.clipboardSelection || editor.clipboardBuf) {
         e.preventDefault();
+        editor._lastInternalPasteTime = performance.now();
         pasteEditorSelectionOrCel();
       }
     });
@@ -15706,6 +15736,25 @@
           cutEditorSelectionOrCel();
           return;
         }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+          if (editor.preferInternalClipboard && (editor.clipboardSelection || editor.clipboardBuf)) {
+            e.preventDefault();
+            editor._lastInternalPasteTime = performance.now();
+            pasteEditorSelectionOrCel();
+            return;
+          }
+          setTimeout(() => {
+            if (
+              editor.isOpen &&
+              (editor.clipboardSelection || editor.clipboardBuf) &&
+              (!editor._lastInternalPasteTime || (performance.now() - editor._lastInternalPasteTime) > 150)
+            ) {
+              editor._lastInternalPasteTime = performance.now();
+              pasteEditorSelectionOrCel();
+            }
+          }, 50);
+          return;
+        }
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
           e.preventDefault();
           openTypePickerModal();
@@ -15963,6 +16012,7 @@
 
     window.addEventListener('blur', () => {
       resetAllHeldKeys();
+      editor.preferInternalClipboard = false;
       clearPendingHoldGrab();
       mouseWorld.downButton = null;
       mouseWorld.isRightErasing = false;

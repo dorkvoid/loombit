@@ -553,6 +553,25 @@
       />
     </div>
 
+    <!-- In-World Viewable Content Overlay (Opens after standing in front of a Viewable for 1 second) -->
+    <div
+      id="world-viewable-overlay"
+      class="smooth-modal absolute inset-0 z-30 bg-black/65 flex items-center justify-center p-4 pointer-events-none"
+    >
+      <div class="smooth-modal-box studio-panel rounded-sm max-w-xl w-full max-h-[80vh] flex flex-col overflow-hidden border border-[#3f4254] shadow-2xl">
+        <div class="px-3.5 py-2 bg-[#111217] border-b border-[#282a36] flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <span id="world-viewable-badge" class="px-1.5 py-0.5 bg-blue-500/20 border border-blue-400/40 text-blue-300 text-[8px] uppercase rounded-xs shrink-0">VIEWABLE</span>
+            <span id="world-viewable-title" class="text-xs font-semibold text-zinc-100 truncate">Viewable</span>
+          </div>
+          <button id="close-world-viewable-btn" data-tooltip="Close Viewable (Esc or Walk Away)" class="ase-btn px-2 py-0.5 text-[10px] text-zinc-300 hover:text-white">X</button>
+        </div>
+        <div id="world-viewable-body" class="p-4 overflow-y-auto flex-1 flex flex-col items-center justify-center bg-[#0e0f14] text-zinc-100 min-h-[140px]">
+          <!-- Dynamically populated with Text, Image, or Video -->
+        </div>
+      </div>
+    </div>
+
     <!-- Offscreen YouTube IFrame Host for Soft Sandbox Ambiance -->
     <div class="fixed -bottom-20 -left-20 w-1 h-1 opacity-0 pointer-events-none overflow-hidden">
       <div id="yt-ambiance-player"></div>
@@ -847,6 +866,27 @@
             placeholder="Text / Speech..."
             class="hidden bg-[#121216] border border-[#34343e] rounded-sm px-2 py-1 text-xs text-zinc-100 w-40 mono focus:outline-none focus:border-blue-500"
           />
+
+          <!-- Manyland VIEWABLE Controls (Text, Image, or Video inside the Viewable) -->
+          <div id="viewable-controls-group" class="hidden items-center gap-1.5 bg-[#1b1e2b] border border-indigo-500/40 rounded-sm px-2 py-0.5">
+            <select
+              id="viewable-kind-select"
+              title="Viewable Content Type (Text, Image, or Video)"
+              class="bg-[#12141d] border border-[#34343e] rounded-sm px-1.5 py-0.5 text-xs text-indigo-300 focus:outline-none"
+            >
+              <option value="text">Content: Text</option>
+              <option value="image">Content: Image</option>
+              <option value="video">Content: Video</option>
+            </select>
+            <button
+              id="open-viewable-popup-btn"
+              type="button"
+              title="Edit Viewable Text, Image, or Video Content"
+              class="ase-btn px-2 py-0.5 text-[10px] text-indigo-200 font-medium flex items-center gap-1"
+            >
+              <span>Edit Content [...]</span>
+            </button>
+          </div>
 
           <!-- Grid Dimensions (Auto-applies on change, with easy-to-click - / + buttons) -->
           <div class="flex items-center gap-1 text-xs text-zinc-400 pl-1.5 border-l border-[#2a2a32]" title="Canvas Width x Height (Hold Shift on -/+ for ±5)">
@@ -1313,72 +1353,145 @@
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- MANYLAND 30-TYPE SELECTOR MODAL (SEARCH = CTRL+F) -->
-  <div id="type-picker-modal" class="smooth-modal fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-    <div class="smooth-modal-box bg-[#18181d] border-2 border-[#3f3f4a] rounded w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-      <div class="px-3 py-2 bg-[#0e0e11] border-b border-[#2e2e38] flex items-center justify-between">
-        <div class="flex items-center gap-2 flex-1">
-          <span class="mono text-xs text-zinc-400">SEARCH =</span>
-          <input
-            id="type-search-input"
-            type="text"
-            placeholder="CTRL+F"
-            class="bg-[#1b1b22] border border-[#32323c] rounded px-2 py-0.5 text-xs mono text-zinc-100 flex-1 focus:outline-none focus:border-blue-500"
-          />
-        </div>
-        <button id="close-type-picker-btn" class="ml-3 px-2 py-0.5 bg-[#2a2a32] hover:bg-[#3a3a44] text-zinc-200 mono text-xs rounded">X</button>
+    <!-- FLOATING VIEWABLE CONTENT EDITOR POPUP WINDOW -->
+    <div
+      id="viewable-content-popup"
+      class="hidden fixed z-50 w-[440px] bg-[#18181e] border-2 border-[#434352] rounded shadow-2xl flex-col overflow-hidden"
+      style="top: 90px; left: calc(50% - 220px);"
+    >
+      <div class="px-3 py-1.5 bg-[#0f0f14] border-b border-[#2e2e3a] flex items-center justify-between select-none">
+        <span class="text-xs text-indigo-300 font-semibold mono">VIEWABLE CONTENT</span>
+        <button id="close-viewable-popup-btn" class="px-2 py-0.5 bg-[#2a2a34] hover:bg-red-600 text-zinc-200 hover:text-white text-xs rounded mono">X</button>
       </div>
-      <div id="type-picker-grid" class="grid grid-cols-2 overflow-y-auto divide-x divide-[#26262e]">
-        <!-- Populated from MANYLAND_TYPES -->
+      <div class="p-3 bg-[#18181e] flex flex-col gap-3 text-xs">
+        <!-- Content Mode Tabs -->
+        <div class="grid grid-cols-3 gap-1 bg-[#111217] p-1 rounded-sm border border-[#2a2c38]">
+          <button type="button" data-vkind="text" class="vkind-tab ase-btn active py-1 text-[10px] font-medium">Text</button>
+          <button type="button" data-vkind="image" class="vkind-tab ase-btn py-1 text-[10px] font-medium">Image</button>
+          <button type="button" data-vkind="video" class="vkind-tab ase-btn py-1 text-[10px] font-medium">Video</button>
+        </div>
+
+        <!-- Text Content Pane -->
+        <div id="viewable-pane-text" class="flex flex-col gap-1.5">
+          <label class="text-[10px] text-zinc-400">Shown when a player stands in front of this Viewable for 1 second:</label>
+          <textarea
+            id="viewable-text-input"
+            rows="6"
+            placeholder="Write a story, sign, note, or message here..."
+            class="w-full bg-[#101014] border border-[#32323e] rounded p-2 text-xs mono text-zinc-100 focus:outline-none focus:border-blue-500 resize-y leading-relaxed"
+          ></textarea>
+        </div>
+
+        <!-- Image Content Pane -->
+        <div id="viewable-pane-image" class="hidden flex-col gap-2">
+          <div class="flex items-center gap-1.5">
+            <label class="ase-btn-primary px-2.5 py-1 text-[10px] cursor-pointer shrink-0">
+              Upload Image
+              <input id="viewable-image-file-input" type="file" accept="image/*" class="hidden" />
+            </label>
+            <input
+              id="viewable-image-url-input"
+              type="text"
+              placeholder="Or paste image URL (https://...)"
+              class="flex-1 min-w-0 bg-[#101014] border border-[#32323e] rounded px-2 py-1 text-[10px] text-zinc-100 mono focus:outline-none focus:border-blue-500"
+            />
+            <button id="viewable-image-clear-btn" type="button" class="ase-btn px-2 py-1 text-[10px] text-zinc-400">Clear</button>
+          </div>
+          <div class="h-36 bg-[#101014] border border-[#2a2c38] rounded flex items-center justify-center overflow-hidden p-2">
+            <img id="viewable-image-preview" src="" alt="Preview" class="hidden max-w-full max-h-full object-contain" />
+            <span id="viewable-image-empty" class="text-[10px] text-zinc-500">No image selected</span>
+          </div>
+        </div>
+
+        <!-- Video Content Pane -->
+        <div id="viewable-pane-video" class="hidden flex-col gap-2">
+          <label class="text-[10px] text-zinc-400">Paste a YouTube link / Video ID or direct video URL (.mp4 / .webm):</label>
+          <input
+            id="viewable-video-url-input"
+            type="text"
+            placeholder="https://www.youtube.com/watch?v=... or https://.../video.mp4"
+            class="w-full bg-[#101014] border border-[#32323e] rounded px-2.5 py-1.5 text-[11px] text-zinc-100 mono focus:outline-none focus:border-blue-500"
+          />
+          <span class="text-[9px] text-zinc-500">Plays automatically when a player stands in front of the Viewable for 1 second.</span>
+        </div>
+
+        <div class="flex items-center justify-end pt-1 border-t border-[#282a36]">
+          <button id="done-viewable-popup-btn" type="button" class="ase-btn-primary px-3.5 py-1 text-[11px] font-semibold">Done</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- SAVED WORLDS MODAL -->
-  <div id="worlds-vault-modal" class="smooth-modal fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-    <div class="smooth-modal-box studio-panel rounded-sm w-[92vw] max-w-4xl overflow-hidden flex flex-col max-h-[88vh]">
-      <!-- Clean Header with Primary Actions -->
-      <div class="px-4 py-3 bg-[#111217] border-b border-[#262834] flex flex-wrap items-center justify-between gap-3 shrink-0">
-        <div class="flex items-center gap-3">
-          <span class="text-xs font-bold text-zinc-100 tracking-wider">WORLDS</span>
+  <!-- MANYLAND OBJECT TYPE PICKER MODAL -->
+  <div id="type-picker-modal" class="smooth-modal fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+    <div class="smooth-modal-box studio-panel rounded-sm w-full max-w-2xl max-h-[82vh] flex flex-col overflow-hidden">
+      <div class="px-3.5 py-2 bg-[#111217] border-b border-[#282a36] flex items-center justify-between gap-2">
+        <span class="text-xs font-semibold text-blue-300 tracking-wide">SELECT CREATION TYPE</span>
+        <div class="flex items-center gap-2">
+          <input
+            id="type-search-input"
+            type="text"
+            placeholder="Filter types..."
+            class="bg-[#0c0d11] border border-[#2e303e] rounded-sm px-2.5 py-0.5 text-xs text-zinc-100 w-44 focus:outline-none focus:border-blue-500"
+          />
+          <button id="close-type-picker-btn" class="ase-btn px-2 py-0.5 text-xs text-zinc-300 hover:text-white">X</button>
+        </div>
+      </div>
+      <div id="type-picker-grid" class="grid grid-cols-2 overflow-y-auto flex-1 divide-x divide-[#26262e]"></div>
+    </div>
+  </div>
+
+  <!-- WORLDS MENU MODAL -->
+  <div id="worlds-vault-modal" class="smooth-modal fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4">
+    <div class="smooth-modal-box studio-panel rounded-sm w-full max-w-3xl max-h-[86vh] flex flex-col overflow-hidden">
+      <!-- Header -->
+      <div class="px-4 py-2.5 bg-[#111217] border-b border-[#262834] flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+          <img
+            src="loombit_logo.png"
+            alt="LoomBit"
+            width="470"
+            height="100"
+            class="h-4 w-auto block select-none"
+            style="image-rendering: pixelated;"
+            onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 47 10%22 width=%22470%22 height=%22100%22 shape-rendering=%22crispEdges%22><rect width=%2247%22 height=%2210%22 fill=%22%23000000%22/><path fill=%22%23ffffff%22 d=%22M1,1h2v6H1z M1,7h4v2H1z M8,1h4v1H8z M7,2h6v1H7z M7,3h2v3H7z M10,3h3v3h-3z M7,6h6v2H7z M8,8h4v1H8z M15,1h4v1h-4z M14,2h6v1h-6z M14,3h2v3h-2z M17,3h3v3h-3z M14,6h6v2h-6z M15,8h4v1h-4z M21,1h6v2h-6z M21,3h2v6h-2z M24,3h1v4h-1z M26,3h2v6h-2z M29,1h5v1h-5z M29,2h2v7h-2z M33,2h2v2h-2z M31,4h3v1h-3z M33,5h2v3h-2z M31,8h3v1h-3z M36,4h2v5h-2z M39,1h6v2h-6z M41,3h2v6h-2z%22/><rect x=%2236%22 y=%221%22 width=%222%22 height=%222%22 fill=%22%23639bff%22/><rect x=%2236%22 y=%223%22 width=%222%22 height=%221%22 fill=%22%23c7dcff%22/></svg>';"
+          />
+          <span class="text-xs font-bold text-zinc-200 tracking-wider">WORLDS</span>
+        </div>
+        <div class="flex items-center gap-2">
           <input
             id="worlds-search-input"
             type="text"
             placeholder="Search worlds..."
-            class="bg-[#0c0d11] border border-[#282a36] rounded-sm px-2.5 py-1 text-[11px] text-zinc-100 placeholder-zinc-500 w-48 focus:outline-none focus:border-blue-500"
+            class="bg-[#0c0d11] border border-[#282a36] rounded-sm px-2.5 py-1 text-[10px] text-zinc-100 w-40 focus:outline-none focus:border-blue-500"
           />
-        </div>
-        <div class="flex items-center gap-2">
-          <button id="modal-reset-world-btn" data-tooltip="Create a new starter world in your list" class="ase-btn-primary px-3.5 py-1 text-[11px] font-semibold">
+          <button id="modal-reset-world-btn" title="Add a new starter world to your list" class="ase-btn-primary px-3 py-1 text-[10px] font-semibold">
             + New World
           </button>
-          <label data-tooltip="Import a saved world file (.json)" class="ase-btn px-3 py-1 text-[11px] text-zinc-300 cursor-pointer">
+          <label title="Import a saved world (.json)" class="ase-btn px-2.5 py-1 text-[10px] text-emerald-300 cursor-pointer">
             Import
             <input id="import-world-slot-input" type="file" accept=".json" class="hidden" />
           </label>
-          <button id="close-worlds-modal-btn" data-tooltip="Close Worlds Menu (Esc)" class="ase-btn px-3 py-1 text-xs ml-1">X</button>
+          <button id="close-worlds-modal-btn" title="Close Worlds Menu" class="ase-btn px-2.5 py-1 text-xs text-zinc-300 hover:text-white">X</button>
         </div>
       </div>
 
-      <!-- Visual Worlds Grid -->
-      <div class="p-4 overflow-y-auto flex-1 bg-[#0e0f14]">
-        <div id="saved-worlds-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <!-- Populated dynamically -->
-        </div>
+      <!-- Worlds Cards Grid -->
+      <div class="p-4 overflow-y-auto flex-1 bg-[#101116]">
+        <div id="saved-worlds-list" class="grid grid-cols-1 md:grid-cols-2 gap-3.5"></div>
       </div>
 
-      <!-- Compact Footer for Creation Pack Backup -->
-      <div class="px-4 py-2.5 bg-[#111217] border-t border-[#262834] flex items-center justify-between gap-2 text-[10px] shrink-0">
-        <span class="text-zinc-400">Creations Backup</span>
-        <div class="flex items-center gap-2">
-          <button id="export-assets-only-btn" data-tooltip="Download all creations in your Vault as a .json pack" class="ase-btn px-2.5 py-1 text-[10px] text-zinc-200">Export Pack</button>
-          <label data-tooltip="Import and merge a creations pack (.json) into your Vault" class="ase-btn px-2.5 py-1 text-[10px] text-zinc-200 cursor-pointer">
+      <!-- Footer: Creation Pack Backup & Strip Export -->
+      <div class="px-4 py-2.5 bg-[#121319] border-t border-[#262834] flex flex-wrap items-center justify-between gap-2 text-[10px]">
+        <span class="text-zinc-400">Changes auto-save to your active world.</span>
+        <div class="flex items-center gap-1.5">
+          <button id="export-assets-only-btn" title="Export all Creations in your Vault as a .json pack" class="ase-btn px-2.5 py-1 text-emerald-300">Export Pack</button>
+          <label title="Import Creations from a .json pack into your Vault" class="ase-btn px-2.5 py-1 text-blue-300 cursor-pointer">
             Import Pack
             <input id="import-assets-merge-input" type="file" accept=".json" class="hidden" />
           </label>
-          <button id="export-all-strips-btn" data-tooltip="Download all creations as horizontal PNG spritesheet strips" class="ase-btn px-2.5 py-1 text-[10px] text-zinc-300">PNG Strips</button>
+          <button id="export-all-strips-btn" title="Download horizontal PNG spritesheet strips for every Creation" class="ase-btn px-2.5 py-1 text-amber-300">PNG Strips</button>
         </div>
       </div>
     </div>
@@ -1658,7 +1771,7 @@
       {
         id: 'viewable', name: 'VIEWABLE', category: 'back', defaultW: 19, defaultH: 19,
         frames: ['Cell 1'],
-        subtypes: ['Viewable', 'Medium']
+        subtypes: ['Viewable']
       },
       {
         id: 'pushing', name: 'PUSHING', category: 'solid', defaultW: 19, defaultH: 19,
@@ -1884,7 +1997,10 @@
         speechTimer: 0,
         speechBubbles: [],    // Floating spoken text bubbles above body pixel limit
         blinkTimer: 0,
-        downKeyLatch: false
+        downKeyLatch: false,
+        viewableStandTimer: 0,
+        activeViewableKey: null,
+        dismissedViewableKey: null
       },
 
       keys: {
@@ -1926,6 +2042,10 @@
       furryMode: 'many',      // 'many' | 'singular'
       furryFlow: 55,          // 0..100% ambient wind flow wave
       code: '',
+      viewableKind: 'text',   // 'text' | 'image' | 'video'
+      viewableText: '',
+      viewableImage: '',
+      viewableVideo: '',
       w: 19,
       h: 19,
       canvasZoom: 0,          // 0 = auto-fit, >0 = manual pixel zoom scale
@@ -2082,6 +2202,20 @@
     const furryModeBtn = document.getElementById('furry-mode-btn');
     const furryFlowSlider = document.getElementById('furry-flow-slider');
     const furryFlowLabel = document.getElementById('furry-flow-label');
+    const viewableControlsGroup = document.getElementById('viewable-controls-group');
+    const viewableKindSelect = document.getElementById('viewable-kind-select');
+    const openViewablePopupBtn = document.getElementById('open-viewable-popup-btn');
+    const viewableContentPopup = document.getElementById('viewable-content-popup');
+    const viewableTextInput = document.getElementById('viewable-text-input');
+    const viewableImageFileInput = document.getElementById('viewable-image-file-input');
+    const viewableImageUrlInput = document.getElementById('viewable-image-url-input');
+    const viewableImagePreview = document.getElementById('viewable-image-preview');
+    const viewableImageEmpty = document.getElementById('viewable-image-empty');
+    const viewableVideoUrlInput = document.getElementById('viewable-video-url-input');
+    const worldViewableOverlay = document.getElementById('world-viewable-overlay');
+    const worldViewableTitle = document.getElementById('world-viewable-title');
+    const worldViewableBadge = document.getElementById('world-viewable-badge');
+    const worldViewableBody = document.getElementById('world-viewable-body');
     const canvasWInput = document.getElementById('canvas-w-input');
     const canvasHInput = document.getElementById('canvas-h-input');
     const stripNoticeBar = document.getElementById('strip-notice-bar');
@@ -4004,6 +4138,139 @@
       });
     }
 
+    function syncViewablePopupUI() {
+      const kind = editor.viewableKind || 'text';
+      if (viewableKindSelect) viewableKindSelect.value = kind;
+      document.querySelectorAll('.vkind-tab').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.vkind === kind);
+      });
+      const paneText = document.getElementById('viewable-pane-text');
+      const paneImage = document.getElementById('viewable-pane-image');
+      const paneVideo = document.getElementById('viewable-pane-video');
+      if (paneText) {
+        paneText.classList.toggle('hidden', kind !== 'text');
+        paneText.classList.toggle('flex', kind === 'text');
+      }
+      if (paneImage) {
+        paneImage.classList.toggle('hidden', kind !== 'image');
+        paneImage.classList.toggle('flex', kind === 'image');
+      }
+      if (paneVideo) {
+        paneVideo.classList.toggle('hidden', kind !== 'video');
+        paneVideo.classList.toggle('flex', kind === 'video');
+      }
+      if (viewableTextInput) viewableTextInput.value = editor.viewableText || '';
+      if (viewableVideoUrlInput) viewableVideoUrlInput.value = editor.viewableVideo || '';
+      if (viewableImageUrlInput) {
+        viewableImageUrlInput.value = (editor.viewableImage && !editor.viewableImage.startsWith('data:'))
+          ? editor.viewableImage
+          : '';
+      }
+      if (viewableImagePreview && viewableImageEmpty) {
+        if (editor.viewableImage) {
+          viewableImagePreview.src = editor.viewableImage;
+          viewableImagePreview.classList.remove('hidden');
+          viewableImageEmpty.classList.add('hidden');
+        } else {
+          viewableImagePreview.src = '';
+          viewableImagePreview.classList.add('hidden');
+          viewableImageEmpty.classList.remove('hidden');
+        }
+      }
+    }
+
+    function populateViewableControls() {
+      if (!viewableControlsGroup) return;
+      if (editor.type !== 'viewable') {
+        viewableControlsGroup.classList.add('hidden');
+        viewableControlsGroup.classList.remove('flex');
+        if (viewableContentPopup) {
+          viewableContentPopup.classList.add('hidden');
+          viewableContentPopup.classList.remove('flex');
+        }
+        return;
+      }
+      viewableControlsGroup.classList.remove('hidden');
+      viewableControlsGroup.classList.add('flex');
+      syncViewablePopupUI();
+    }
+
+    if (viewableKindSelect) {
+      viewableKindSelect.addEventListener('change', (e) => {
+        editor.viewableKind = e.target.value || 'text';
+        syncViewablePopupUI();
+      });
+    }
+
+    if (openViewablePopupBtn && viewableContentPopup) {
+      openViewablePopupBtn.addEventListener('click', () => {
+        const isHidden = viewableContentPopup.classList.contains('hidden');
+        syncViewablePopupUI();
+        viewableContentPopup.classList.toggle('hidden', !isHidden);
+        viewableContentPopup.classList.toggle('flex', isHidden);
+      });
+    }
+
+    document.querySelectorAll('.vkind-tab').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        editor.viewableKind = btn.dataset.vkind || 'text';
+        syncViewablePopupUI();
+      });
+    });
+
+    if (viewableTextInput) {
+      viewableTextInput.addEventListener('input', (e) => {
+        editor.viewableText = e.target.value;
+      });
+    }
+
+    if (viewableImageFileInput) {
+      viewableImageFileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          editor.viewableImage = String(reader.result || '');
+          editor.viewableKind = 'image';
+          syncViewablePopupUI();
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+      });
+    }
+
+    if (viewableImageUrlInput) {
+      viewableImageUrlInput.addEventListener('input', (e) => {
+        editor.viewableImage = e.target.value.trim();
+        syncViewablePopupUI();
+      });
+    }
+
+    const viewableImageClearBtn = document.getElementById('viewable-image-clear-btn');
+    if (viewableImageClearBtn) {
+      viewableImageClearBtn.addEventListener('click', () => {
+        editor.viewableImage = '';
+        if (viewableImageUrlInput) viewableImageUrlInput.value = '';
+        syncViewablePopupUI();
+      });
+    }
+
+    if (viewableVideoUrlInput) {
+      viewableVideoUrlInput.addEventListener('input', (e) => {
+        editor.viewableVideo = e.target.value.trim();
+      });
+    }
+
+    ['close-viewable-popup-btn', 'done-viewable-popup-btn'].forEach((btnId) => {
+      const el = document.getElementById(btnId);
+      if (el && viewableContentPopup) {
+        el.addEventListener('click', () => {
+          viewableContentPopup.classList.add('hidden');
+          viewableContentPopup.classList.remove('flex');
+        });
+      }
+    });
+
     function getDefaultEnvLayerForSubtype(subtype) {
       if (subtype === 'Sky Stars' || subtype === 'Sun / Celestial') return 'sky';
       if (subtype === 'Moving Clouds') return 'farback';
@@ -4143,6 +4410,7 @@
       populateEnvironmentControls();
       populateLiquidControls();
       populateFurryControls();
+      populateViewableControls();
       updatePoseAndMotionDropdowns();
 
       // Show Movable Code Window button for Dynamic, Interacting, Textual, Places, or Body Motion
@@ -4387,7 +4655,6 @@
       const spec = getTypeSpec(typeId);
       if (typeId === 'wearable' && subtype === 'Smaller Wearable') return { w: 19, h: 19 };
       if (typeId === 'big_thing' && subtype === 'Very Big Thing') return { w: 57, h: 57 };
-      if (typeId === 'viewable' && subtype === 'Medium') return { w: 38, h: 38 };
       if (typeId === 'environment' && (subtype === 'Moving Clouds' || subtype === 'Sun / Celestial' || subtype === 'Environmental Mist')) return { w: 38, h: 38 };
       return { w: spec.defaultW, h: spec.defaultH };
     }
@@ -4439,6 +4706,7 @@
       populateLightOptionsDropdown();
       populateEnvironmentControls();
       populateFurryControls();
+      populateViewableControls();
       updatePoseAndMotionDropdowns();
 
       if (['dynamic', 'interacting', 'textual', 'places'].includes(editor.type) || (editor.type === 'body' && editor.subtype === 'Motion')) {
@@ -4842,6 +5110,7 @@
       p.poseSettleAnim = 0;
       p.activeMotionId = null;
       p.motionBarOpen = false;
+      closeWorldViewableOverlay(false);
       updateWorldMotionBarUI();
     }
 
@@ -5758,9 +6027,9 @@
       // Smoothly interpolate zoom level so zooming never hard-cuts
       state.renderZoom += (state.zoom - state.renderZoom) * 0.22;
       if (Math.abs(state.zoom - state.renderZoom) < 0.005) state.renderZoom = state.zoom;
-
-      // BUILD MODE: Keep dust particles, visual effects, and ambient animations running while pausing player & falling/roaming physics
+      //BUILD MODE: Keep dust particles, visual effects, and ambient animations running while pausing player & falling/roaming physics
       if (state.mode === 'build') {
+        if (p.activeViewableKey) closeWorldViewableOverlay(false);
         worldTickCount++;
         mouseWorld.keyPanActive = false;
 
@@ -6527,6 +6796,38 @@
         p.autoPoseTimer = 0;
       }
 
+      // Viewable 1-Second Stand-in-Front Trigger (60 ticks at 60Hz)
+      const viewableMatch = getViewableAtPlayer(p);
+      const isCalmInFrontOfViewable =
+        Boolean(viewableMatch) &&
+        Math.abs(p.vx) < 0.15 &&
+        Math.abs(p.vy) < 0.15 &&
+        !state.keys.left &&
+        !state.keys.right &&
+        !state.keys.up;
+
+      if (viewableMatch && isCalmInFrontOfViewable) {
+        viewableMatch.cell._interactTick = Math.max(viewableMatch.cell._interactTick || 0, 14);
+        if (p.activeViewableKey && p.activeViewableKey !== viewableMatch.key) {
+          closeWorldViewableOverlay(false);
+        }
+        if (!p.activeViewableKey && p.dismissedViewableKey !== viewableMatch.key) {
+          p.viewableStandTimer = (p.viewableStandTimer || 0) + 1;
+          if (p.viewableStandTimer >= 60) {
+            p.viewableStandTimer = 0;
+            openWorldViewableOverlay(viewableMatch.cell, viewableMatch.sp, viewableMatch.key);
+          }
+        }
+      } else {
+        p.viewableStandTimer = 0;
+        if (!viewableMatch) {
+          p.dismissedViewableKey = null;
+        }
+        if (p.activeViewableKey && (!viewableMatch || viewableMatch.key !== p.activeViewableKey || Math.abs(p.vx) > 0.25 || Math.abs(p.vy) > 0.25)) {
+          closeWorldViewableOverlay(false);
+        }
+      }
+
       // Holdable: Liner trail drawing
       const heldSp = getSpriteById(state.activeHoldableId);
       if (heldSp && heldSp.subtype === 'Liner' && p.usingHoldable > 0) {
@@ -6894,6 +7195,124 @@
         }
       }
       return foundPose;
+    }
+
+    function hasViewableContent(sp) {
+      if (!sp || sp.type !== 'viewable') return false;
+      const kind = sp.viewableKind || 'text';
+      if (kind === 'image') return Boolean(sp.viewableImage && sp.viewableImage.trim());
+      if (kind === 'video') return Boolean(sp.viewableVideo && sp.viewableVideo.trim());
+      const txt = sp.viewableText || sp.code || '';
+      return Boolean(txt.trim());
+    }
+
+    function getViewableAtPlayer(p) {
+      const pCx = p.x + p.w * 0.5;
+      const pCy = p.y + p.h * 0.5;
+      let bestMatch = null;
+      let bestDist = Infinity;
+
+      for (const [key, cell] of state.worldCells.entries()) {
+        if (cell.type !== 'viewable') continue;
+        const sp = getSpriteById(cell.spriteId);
+        if (!sp || !hasViewableContent(sp)) continue;
+
+        const horizOverlap = p.x + 2 < cell.x + cell.w && p.x + p.w - 2 > cell.x;
+        const vertOverlap = p.y - 4 < cell.y + cell.h && p.y + p.h + 4 > cell.y;
+        if (!horizOverlap || !vertOverlap) continue;
+
+        const d = Math.hypot(pCx - (cell.x + cell.w * 0.5), pCy - (cell.y + cell.h * 0.5));
+        if (d < bestDist) {
+          bestDist = d;
+          bestMatch = { key, cell, sp };
+        }
+      }
+      return bestMatch;
+    }
+
+    function openWorldViewableOverlay(cell, sp, cellKey) {
+      if (!worldViewableOverlay || !sp) return;
+      const p = state.player;
+      p.activeViewableKey = cellKey;
+      if (cell) cell._interactTick = 30;
+
+      const kind = sp.viewableKind || 'text';
+      if (worldViewableTitle) worldViewableTitle.textContent = sp.name || 'Viewable';
+      if (worldViewableBadge) {
+        worldViewableBadge.textContent = kind === 'image' ? 'IMAGE' : (kind === 'video' ? 'VIDEO' : 'TEXT');
+      }
+
+      if (worldViewableBody) {
+        worldViewableBody.innerHTML = '';
+        if (kind === 'image') {
+          const imgUrl = (sp.viewableImage || '').trim();
+          if (imgUrl) {
+            const img = document.createElement('img');
+            img.src = imgUrl;
+            img.alt = sp.name || 'Viewable Image';
+            img.className = 'max-w-full max-h-[60vh] object-contain rounded-xs border border-[#282a36]';
+            worldViewableBody.appendChild(img);
+          }
+        } else if (kind === 'video') {
+          const rawVideo = (sp.viewableVideo || '').trim();
+          const ytId = extractYouTubeId(rawVideo);
+          if (ytId) {
+            const iframe = document.createElement('iframe');
+            iframe.className = 'w-full aspect-video rounded-xs border border-[#282a36] bg-black';
+            iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0`;
+            iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+            iframe.allowFullscreen = true;
+            worldViewableBody.appendChild(iframe);
+          } else if (rawVideo) {
+            const video = document.createElement('video');
+            video.src = rawVideo;
+            video.controls = true;
+            video.autoplay = true;
+            video.className = 'max-w-full max-h-[60vh] rounded-xs border border-[#282a36] bg-black';
+            worldViewableBody.appendChild(video);
+          }
+        } else {
+          const textContent = (sp.viewableText || sp.code || '').trim();
+          const textBox = document.createElement('div');
+          textBox.className = 'w-full text-xs text-zinc-100 whitespace-pre-wrap leading-relaxed mono px-2 py-1 text-left';
+          textBox.textContent = textContent;
+          worldViewableBody.appendChild(textBox);
+        }
+      }
+
+      worldViewableOverlay.classList.add('open');
+      sfx.ui(580);
+    }
+
+    function closeWorldViewableOverlay(markDismissed = true) {
+      const p = state.player;
+      if (markDismissed && p.activeViewableKey) {
+        p.dismissedViewableKey = p.activeViewableKey;
+      }
+      p.activeViewableKey = null;
+      p.viewableStandTimer = 0;
+      if (worldViewableOverlay) {
+        worldViewableOverlay.classList.remove('open');
+      }
+      if (worldViewableBody) {
+        worldViewableBody.innerHTML = '';
+      }
+    }
+
+    const closeWorldViewableBtn = document.getElementById('close-world-viewable-btn');
+    if (closeWorldViewableBtn) {
+      closeWorldViewableBtn.addEventListener('click', () => {
+        closeWorldViewableOverlay(true);
+        sfx.ui(420);
+      });
+    }
+    if (worldViewableOverlay) {
+      worldViewableOverlay.addEventListener('mousedown', (e) => {
+        if (e.target === worldViewableOverlay) {
+          closeWorldViewableOverlay(true);
+          sfx.ui(420);
+        }
+      });
     }
 
     function checkOverlapTriggers(p) {
@@ -13508,7 +13927,9 @@
         editor.name = duplicate ? `${existing.name} Copy` : existing.name;
         editor.type = existing.type === 'furry' ? 'thing' : existing.type;
         const rawSub = existing.type === 'furry' ? 'Furry' : (existing.subtype || getTypeSpec(editor.type).subtypes[0]);
-        editor.subtype = (editor.type === 'thing' && rawSub === 'Falling Thing') ? 'Thing' : rawSub;
+        editor.subtype = (editor.type === 'thing' && rawSub === 'Falling Thing')
+          ? 'Thing'
+          : ((editor.type === 'viewable' && rawSub === 'Medium') ? 'Viewable' : rawSub);
         editor.poseType = existing.poseType || 'none';
         editor.surfaceType = existing.surfaceType || 'auto';
         editor.solidLayer = existing.solidLayer || 'over';
@@ -13525,6 +13946,10 @@
         editor.furryMode = existing.furryMode || 'many';
         editor.furryFlow = existing.furryFlow ?? 55;
         editor.code = existing.code || '';
+        editor.viewableKind = existing.viewableKind || 'text';
+        editor.viewableText = existing.viewableText !== undefined ? existing.viewableText : (existing.type === 'viewable' ? (existing.code || '') : '');
+        editor.viewableImage = existing.viewableImage || '';
+        editor.viewableVideo = existing.viewableVideo || '';
         editor.w = existing.w || 19;
         editor.h = existing.h || 19;
         editor.frames = existing.frames.map(f => new Uint8ClampedArray(f));
@@ -13585,6 +14010,10 @@
         editor.furryMode = 'many';
         editor.furryFlow = 55;
         editor.code = '';
+        editor.viewableKind = 'text';
+        editor.viewableText = '';
+        editor.viewableImage = '';
+        editor.viewableVideo = '';
         editor.w = 19;
         editor.h = 19;
         editor.frames = [new Uint8ClampedArray(19 * 19 * 4)];
@@ -13644,6 +14073,10 @@
       editorModal.classList.remove('open');
       dynamicCodePopup.classList.add('hidden');
       dynamicCodePopup.classList.remove('flex');
+      if (viewableContentPopup) {
+        viewableContentPopup.classList.add('hidden');
+        viewableContentPopup.classList.remove('flex');
+      }
     }
 
     function saveCurrentSprite(forceSaveAsNew = false) {
@@ -13688,6 +14121,10 @@
         furryMode: editor.furryMode,
         furryFlow: editor.furryFlow,
         code: editor.code,
+        viewableKind: editor.viewableKind || 'text',
+        viewableText: editor.viewableText || '',
+        viewableImage: editor.viewableImage || '',
+        viewableVideo: editor.viewableVideo || '',
         w: editor.w,
         h: editor.h,
         frames: editor.frames.map(f => new Uint8ClampedArray(f)),
@@ -15611,7 +16048,9 @@
     function deserializeSprite(raw) {
       const type = raw.type === 'furry' ? 'thing' : (raw.type || 'solid');
       const rawSub = raw.type === 'furry' ? 'Furry' : (raw.subtype || getTypeSpec(type).subtypes[0]);
-      const subtype = (type === 'thing' && rawSub === 'Falling Thing') ? 'Thing' : rawSub;
+      const subtype = (type === 'thing' && rawSub === 'Falling Thing')
+        ? 'Thing'
+        : ((type === 'viewable' && rawSub === 'Medium') ? 'Viewable' : rawSub);
       const w = raw.w || 19;
       const h = raw.h || 19;
       const rawFrames = Array.isArray(raw.frames) ? raw.frames : [];
@@ -16597,6 +17036,11 @@
       }
 
       if (e.key === 'Escape' && !e.repeat) {
+        if (state.player.activeViewableKey) {
+          closeWorldViewableOverlay(true);
+          sfx.ui(420);
+          return;
+        }
         if (state.heldWorldBlock) {
           spawnBrushClearFeedback();
           commitHeldWorldBlock(true);

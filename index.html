@@ -1967,8 +1967,6 @@
         Talk: 10
       },
       previewTick: 0,
-      previewPhase: 0,
-      previewElapsedSec: 0,
       lastPastedImage: null,
       isDrawing: false,
       lineStart: null,
@@ -4045,26 +4043,22 @@
         }
         return out;
       }
-      return Array.from({ length: frameCount }, () => getDimensionsForSubtype(typeId, subtype));
+      const base = getDimensionsForSubtype(typeId, subtype);
+      return Array.from({ length: frameCount }, () => ({ w: base.w, h: base.h }));
     }
 
-    function isSingleCelLockedType(typeId) {
-      return typeId === 'thing';
-    }
-
-    function syncCelAddRemoveButtonsUI() {
-      const addBtn = document.getElementById('add-frame-btn');
-      const delBtn = document.getElementById('del-frame-btn');
-      const moveLBtn = document.getElementById('move-cel-left-btn');
-      const moveRBtn = document.getElementById('move-cel-right-btn');
-      const sortBtn = document.getElementById('sort-cels-state-btn');
-      const locked = isSingleCelLockedType(editor.type);
-      [addBtn, delBtn, moveLBtn, moveRBtn, sortBtn].forEach((btn) => {
-        if (!btn) return;
-        btn.disabled = locked;
-        btn.classList.toggle('opacity-40', locked);
-        btn.classList.toggle('pointer-events-none', locked);
-      });
+    function syncActiveFrameDimensions() {
+      if (!editor.frameDims || !editor.frameDims[editor.activeFrame]) {
+        const d = getDimensionsForSubtype(editor.type, editor.subtype);
+        editor.w = d.w;
+        editor.h = d.h;
+      } else {
+        editor.w = editor.frameDims[editor.activeFrame].w;
+        editor.h = editor.frameDims[editor.activeFrame].h;
+      }
+      canvasWInput.value = editor.w;
+      canvasHInput.value = editor.h;
+      setupPaintCanvasSize();
     }
 
     function applyEditorCreationType(typeId, preserveFrames = false, adaptToTypeDims = false) {
@@ -4115,17 +4109,15 @@
       commitMarqueeSelection();
 
       const labels = getFrameLabelsForSubtype(spec.id, editor.subtype);
-      const isLockedSingleCel = isSingleCelLockedType(spec.id);
       if (!preserveFrames || !editor.frames || editor.frames.length === 0) {
-        const count = isLockedSingleCel ? 1 : labels.length;
-        editor.frameDims = getFrameDimsForSubtype(spec.id, editor.subtype, count);
+        editor.frameDims = getFrameDimsForSubtype(spec.id, editor.subtype, labels.length);
         editor.frames = editor.frameDims.map(d => new Uint8ClampedArray(d.w * d.h * 4));
-        editor.frameStates = labels.slice(0, count);
+        editor.frameStates = [...labels];
         editor.activeFrame = 0;
         syncActiveFrameDimensions();
       } else if (adaptToTypeDims) {
-        // Preserve drawn pixels when switching creation object types (and clamp to 1 cel if switching to THING)
-        const targetCount = isLockedSingleCel ? 1 : Math.max(labels.length, editor.frames.length);
+        // Preserve all drawn pixels when switching creation object types!
+        const targetCount = Math.max(labels.length, editor.frames.length);
         const targetDims = getFrameDimsForSubtype(spec.id, editor.subtype, targetCount);
         const nextFrames = [];
         const nextDims = [];
@@ -4158,12 +4150,6 @@
         }
         syncActiveFrameDimensions();
       } else {
-        if (isLockedSingleCel && editor.frames.length > 1) {
-          editor.frames = [editor.frames[0]];
-          editor.frameDims = [editor.frameDims && editor.frameDims[0] ? editor.frameDims[0] : { w: editor.w, h: editor.h }];
-          editor.frameStates = ['Cell 1'];
-          editor.activeFrame = 0;
-        }
         if (!editor.frameDims || editor.frameDims.length !== editor.frames.length) {
           editor.frameDims = editor.frames.map(() => ({ w: editor.w, h: editor.h }));
         }
@@ -4172,7 +4158,6 @@
         }
         syncActiveFrameDimensions();
       }
-      syncCelAddRemoveButtonsUI();
       populateCelStateDropdown();
       renderPreviewControlsForType();
       renderFrameTabs();
@@ -4331,8 +4316,8 @@
       if (typeId === 'body' && subtype === 'Motion') {
         return ['Motion 1', 'Motion 2', 'Motion 3', 'Motion 4'];
       }
-      if (typeId === 'thing') {
-        return ['Cell 1'];
+      if (typeId === 'thing' && (subtype === 'Furry' || subtype === 'Drifty')) {
+        return ['Cell 1', 'Cell 2'];
       }
       if (typeId === 'light') {
         if (subtype === 'Light Glow') return ['Source (19x19)', 'Glow (38x38)'];
@@ -4383,8 +4368,7 @@
       }
 
       const labels = getFrameLabelsForSubtype(editor.type, editor.subtype);
-      const isLockedSingleCel = isSingleCelLockedType(editor.type);
-      const targetCount = isLockedSingleCel ? 1 : Math.max(labels.length, editor.frames.length);
+      const targetCount = Math.max(labels.length, editor.frames.length);
       const targetFrameDims = getFrameDimsForSubtype(editor.type, editor.subtype, targetCount);
       const hasNamedStates = (editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable';
 
@@ -4407,7 +4391,6 @@
       editor.frameDims = targetFrameDims;
       editor.frameStates = newStates;
       if (editor.activeFrame >= editor.frames.length) editor.activeFrame = 0;
-      syncCelAddRemoveButtonsUI();
       syncActiveFrameDimensions();
       populateCelStateDropdown();
       renderPreviewControlsForType();
@@ -13139,13 +13122,10 @@
       }
     }
 
-    function renderEditorLivePreview(dtMs = 16.667) {
+    function renderEditorLivePreview() {
       if (!editor.isOpen) return;
-      const fps = Math.max(1, editor.previewFps || 8);
       if (editor.previewPlaying) {
-        const dtSec = Math.max(0, Math.min(0.1, dtMs / 1000));
-        editor.previewElapsedSec = (editor.previewElapsedSec || 0) + dtSec;
-        editor.previewPhase = ((editor.previewPhase || 0) + dtSec * fps) % 4096;
+        editor.previewTick++;
       }
       const W = previewCanvas.width;
       const H = previewCanvas.height;
@@ -13170,7 +13150,7 @@
           frames: editor.frames,
           frameDims: editor.frameDims
         };
-        const transforms = evaluateDynamicCellTransforms(tempSp, editor.previewElapsedSec || 0, 'start');
+        const transforms = evaluateDynamicCellTransforms(tempSp, editor.previewTick / 60, 'start');
         for (const tr of transforms) {
           if (!tr.show || tr.opacity <= 0.01) continue;
           const dim = (editor.frameDims && editor.frameDims[tr.index]) || { w: editor.w, h: editor.h };
@@ -13193,7 +13173,8 @@
         return;
       }
 
-      const step = Math.floor(editor.previewPhase || 0);
+      const fps = Math.max(1, editor.previewFps || 8);
+      const step = Math.floor(editor.previewTick / Math.max(1, Math.round(60 / fps)));
       let fIdx = editor.activeFrame;
       let flipPreviewX = false;
 
@@ -13312,8 +13293,6 @@
       editor.panX = 0;
       editor.panY = 0;
       editor.canvasZoom = 0;
-      editor.previewPhase = 0;
-      editor.previewElapsedSec = 0;
 
       if (existing) {
         editor.editingId = duplicate ? null : existing.id;
@@ -14264,28 +14243,6 @@
 
     // Cel Strip Frame Management Buttons
     document.getElementById('add-frame-btn').addEventListener('click', () => {
-      if (isSingleCelLockedType(editor.type)) {
-        sfx.buzzer();
-        return;
-      }
-      commitMarqueeSelection();
-      pushEditorUndo();
-      const nextBuf = new Uint8ClampedArray(editor.w * editor.h * 4);
-      const curState = (editor.frameStates && editor.frameStates[editor.activeFrame]) || `Cell ${editor.frames.length + 1}`;
-      editor.frames.splice(editor.activeFrame + 1, 0, nextBuf);
-      editor.frameDims.splice(editor.activeFrame + 1, 0, { w: editor.w, h: editor.h });
-      editor.frameStates.splice(editor.activeFrame + 1, 0, curState);
-      editor.activeFrame++;
-      populateCelStateDropdown();
-      renderFrameTabs();
-      renderPaintCanvas();
-    });
-
-    document.getElementById('del-frame-btn').addEventListener('click', () => {
-      if (isSingleCelLockedType(editor.type)) {
-        sfx.buzzer();
-        return;
-      }
       commitMarqueeSelection();
       pushEditorUndo();
       const nextBuf = new Uint8ClampedArray(editor.w * editor.h * 4);
@@ -14498,11 +14455,11 @@
       pushEditorUndo();
 
       const fitPaste = document.getElementById('auto-resize-paste')?.checked;
-      // Check if this is a multi-frame horizontal spritesheet strip (disabled for single-cel locked types like THING)
+      // Check if this is a multi-frame horizontal spritesheet strip
       const isMultipleOfW = img.width > editor.w && (img.width % editor.w === 0) && img.height === editor.h;
       const isSquareStrip = img.width >= img.height * 2 && (img.width % img.height === 0);
 
-      if (!isSingleCelLockedType(editor.type) && (isMultipleOfW || isSquareStrip)) {
+      if (isMultipleOfW || isSquareStrip) {
         editor.lastPastedImage = img;
         const frameW = isMultipleOfW ? editor.w : img.height;
         const count = Math.floor(img.width / frameW);
@@ -15317,14 +15274,11 @@
       const w = raw.w || 19;
       const h = raw.h || 19;
       const rawFrames = Array.isArray(raw.frames) ? raw.frames : [];
-      const effectiveRawFrames = isSingleCelLockedType(type) && rawFrames.length > 1
-        ? [rawFrames[0]]
-        : rawFrames;
-      const frameDims = Array.isArray(raw.frameDims) && raw.frameDims.length === effectiveRawFrames.length
+      const frameDims = Array.isArray(raw.frameDims) && raw.frameDims.length === rawFrames.length
         ? raw.frameDims.map(d => ({ w: d.w || w, h: d.h || h }))
-        : Array.from({ length: Math.max(1, effectiveRawFrames.length) }, () => ({ w, h }));
-      const frames = effectiveRawFrames.length > 0
-        ? effectiveRawFrames.map((f, idx) => {
+        : Array.from({ length: Math.max(1, rawFrames.length) }, () => ({ w, h }));
+      const frames = rawFrames.length > 0
+        ? rawFrames.map((f, idx) => {
             const d = frameDims[idx] || { w, h };
             return decodeFrameFromSerialized(f, d.w * d.h * 4);
           })
@@ -16522,7 +16476,7 @@
 
       renderWorld();
       if (editor.isOpen) {
-        renderEditorLivePreview(dt);
+        renderEditorLivePreview();
       }
       requestAnimationFrame(engineLoop);
     }

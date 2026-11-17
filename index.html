@@ -1045,13 +1045,20 @@
               <span id="fx-alpha-label" class="w-11 shrink-0 text-right mono text-zinc-200">100%</span>
             </div>
             <!-- Replace Specific Color (Manyland / Aseprite Color Replacement) -->
-            <div class="flex items-center justify-between gap-1.5 pt-1.5 border-t border-[#282a36] w-full">
-              <span class="text-zinc-300 shrink-0 text-[9px]">Replace</span>
-              <div class="flex items-center gap-1.5">
-                <input id="fx-replace-from" type="color" value="#ffffff" title="Color to Replace (Source)" class="w-5 h-5 bg-transparent border border-[#3f3f4a] rounded-xs cursor-pointer p-0 shrink-0" />
-                <span class="text-zinc-500 text-[9px]">-&gt;</span>
-                <input id="fx-replace-to" type="color" value="#3b82f6" title="New Replacement Color (Target)" class="w-5 h-5 bg-transparent border border-[#3f3f4a] rounded-xs cursor-pointer p-0 shrink-0" />
-                <button id="fx-replace-btn" type="button" class="ase-btn px-2 py-0.5 text-[9px] text-amber-300">Swap</button>
+            <div class="flex flex-col gap-1.5 pt-1.5 border-t border-[#282a36] w-full">
+              <div class="flex items-center justify-between gap-1.5 w-full">
+                <span class="text-zinc-300 shrink-0 text-[9px]">Replace</span>
+                <div class="flex items-center gap-1">
+                  <button id="fx-pick-from-btn" type="button" title="Click a pixel on the canvas to select the color to replace" class="ase-btn px-1.5 py-0.5 text-[9px] text-sky-300">Pick</button>
+                  <input id="fx-replace-from" type="color" value="#ffffff" title="Color to Replace (Source)" class="w-5 h-5 bg-transparent border border-[#3f3f4a] rounded-xs cursor-pointer p-0 shrink-0" />
+                  <span class="text-zinc-500 text-[9px]">-&gt;</span>
+                  <input id="fx-replace-to" type="color" value="#3b82f6" title="New Replacement Color (Target)" class="w-5 h-5 bg-transparent border border-[#3f3f4a] rounded-xs cursor-pointer p-0 shrink-0" />
+                  <button id="fx-use-brush-to-btn" type="button" title="Use current active brush color as Target color" class="ase-btn px-1.5 py-0.5 text-[9px] text-zinc-300">Brush</button>
+                  <button id="fx-replace-btn" type="button" title="Replace Source color with Target color" class="ase-btn-primary px-2 py-0.5 text-[9px] font-semibold">Swap</button>
+                </div>
+              </div>
+              <div class="flex items-center gap-1 flex-wrap min-h-[18px] bg-[#101116] border border-[#262834] rounded-xs px-1.5 py-1" id="fx-sprite-colors-bar" title="Click any color from your sprite to select it as the color to replace">
+                <span class="text-[8px] text-zinc-500">Sprite colors:</span>
               </div>
             </div>
             <!-- Scope & Actions -->
@@ -1241,8 +1248,8 @@
                 </div>
               </div>
             </div>
-            <div id="preview-box-bg" class="h-24 checkerboard border border-[#2e2e36] rounded flex items-center justify-center relative overflow-hidden">
-              <canvas id="preview-canvas" width="76" height="76" class="w-20 h-20"></canvas>
+            <div id="preview-box-bg" class="h-48 checkerboard border border-[#2e2e36] rounded flex items-center justify-center relative overflow-hidden">
+              <canvas id="preview-canvas" width="171" height="171" class="w-[171px] h-[171px]"></canvas>
               <span id="preview-box-type-badge" class="pointer-events-none absolute top-1 right-1 px-1.5 py-0.5 bg-[#121216]/90 border border-[#2e2e38] rounded-xs text-[8px] mono text-blue-300 uppercase tracking-wider">SOLID</span>
             </div>
             <!-- Dynamically populated per creation type -->
@@ -2121,7 +2128,8 @@
       isPanningCanvas: false,
       panStartMouse: { x: 0, y: 0 },
       panStartOffset: { x: 0, y: 0 },
-      fxSession: null
+      fxSession: null,
+      fxPickingFromColor: false
     };
 
     const DEFAULT_BODY_STATE_FPS = {
@@ -3832,6 +3840,16 @@
         }`;
         btn.style.backgroundColor = hex;
         btn.addEventListener('click', () => {
+          if (editor.fxPickingFromColor) {
+            const fxFromInput = document.getElementById('fx-replace-from');
+            if (fxFromInput) fxFromInput.value = hex;
+            editor.fxPickingFromColor = false;
+            const pickBtn = document.getElementById('fx-pick-from-btn');
+            if (pickBtn) pickBtn.classList.remove('active');
+            renderFxSpriteColorsBar();
+            updatePaintCanvasCursor();
+            return;
+          }
           if (editor.tool === 'eraser') selectTool('pencil');
           setEditorColor(hex, true);
         });
@@ -13057,13 +13075,13 @@
       }
       paintStage.style.cursor = 'default';
 
-      // Ctrl held (outside Marquee/Fill) activates Move Drawing cursor
-      if (editor.tool === 'move' || (isCtrl && editor.tool !== 'marquee' && editor.tool !== 'fill')) {
+      // Ctrl held (outside Fill) activates Move Drawing cursor
+      if (editor.tool === 'move' || (isCtrl && editor.tool !== 'fill')) {
         paintCanvas.style.cursor = 'move';
         return;
       }
-      // Shift held (in Pencil, Eraser, or Fill) activates Eyedropper cursor
-      if (editor.tool === 'picker' || (isShift && ['pencil', 'eraser', 'fill'].includes(editor.tool) && !editor.isDrawing)) {
+      // Shift held (in Pencil, Eraser, or Fill) or FX Replace Pick mode activates Eyedropper cursor
+      if (editor.fxPickingFromColor || editor.tool === 'picker' || (isShift && ['pencil', 'eraser', 'fill'].includes(editor.tool) && !editor.isDrawing)) {
         paintCanvas.style.cursor = EYEDROPPER_CURSOR;
         return;
       }
@@ -13832,7 +13850,8 @@
         const gridCount = is3x3Tile ? 3 : 1;
         const totalSrcW = dim0.w * gridCount;
         const totalSrcH = dim0.h * gridCount;
-        const scale = Math.max(1, Math.min((W - 6) / totalSrcW, (H - 6) / totalSrcH));
+        const pad = is3x3Tile ? 0 : 8;
+        const scale = Math.max(1, Math.min((W - pad) / totalSrcW, (H - pad) / totalSrcH));
         const tileW = Math.max(1, Math.floor(dim0.w * scale));
         const tileH = Math.max(1, Math.floor(dim0.h * scale));
         const startX = Math.round((W - tileW * gridCount) / 2);
@@ -13946,7 +13965,7 @@
       if (is3x3Tile) {
         const totalSrcW = dim.w * 3;
         const totalSrcH = dim.h * 3;
-        const scale = Math.max(0.5, Math.min((W - 6) / totalSrcW, (H - 6) / totalSrcH));
+        const scale = Math.max(0.5, Math.min(W / totalSrcW, H / totalSrcH));
         const tileW = Math.max(1, Math.floor(dim.w * scale));
         const tileH = Math.max(1, Math.floor(dim.h * scale));
         const startX = Math.round((W - tileW * 3) / 2);
@@ -14315,6 +14334,23 @@
       const W = editor.w;
       const H = editor.h;
 
+      // FX Replace Color Eyedropper Pick Mode
+      if (editor.fxPickingFromColor) {
+        const idx = (pt.y * W + pt.x) * 4;
+        if (buf[idx + 3] > 0) {
+          const pickedHex = rgbaToHex(buf[idx], buf[idx + 1], buf[idx + 2]);
+          const fxFromInput = document.getElementById('fx-replace-from');
+          if (fxFromInput) fxFromInput.value = pickedHex;
+          sfx.ui(580);
+        }
+        editor.fxPickingFromColor = false;
+        const pickBtn = document.getElementById('fx-pick-from-btn');
+        if (pickBtn) pickBtn.classList.remove('active');
+        renderFxSpriteColorsBar();
+        updatePaintCanvasCursor(e);
+        return;
+      }
+
       // Eyedropper (Picker tool or Shift + Click when using Pencil/Eraser/Fill)
       if (editor.tool === 'picker' || (e.shiftKey && ['pencil', 'eraser', 'fill'].includes(editor.tool))) {
         const idx = (pt.y * W + pt.x) * 4;
@@ -14330,8 +14366,15 @@
         return;
       }
 
-      // Whole-Cel Move Tool (or Ctrl + Drag)
-      if (editor.tool === 'move' || (e.ctrlKey && editor.tool !== 'marquee')) {
+      // Whole-Cel or Marquee Move Tool (V or Ctrl + Drag, except when Ctrl+Clicking with Bucket Fill to Replace Color)
+      if (editor.tool === 'move' || ((e.ctrlKey || e.metaKey) && editor.tool !== 'fill')) {
+        if (editor.marquee) {
+          liftMarqueeToFloating();
+          editor.marqueeAction = 'moving';
+          editor.marqueeDragOrigin = { x: pt.x - editor.marquee.x, y: pt.y - editor.marquee.y };
+          editor.isDrawing = true;
+          return;
+        }
         pushEditorUndo();
         editor.celMoveDrag = {
           startX: pt.x,
@@ -14872,6 +14915,41 @@
     document.getElementById('flip-h-btn').addEventListener('click', flipActiveCelHorizontal);
     document.getElementById('flip-v-btn').addEventListener('click', flipActiveCelVertical);
     document.getElementById('rotate-btn').addEventListener('click', rotateActiveCel90);
+
+    function nudgeActiveCelOrMarquee(dx, dy, isRepeat = false) {
+      if (editor.marquee) {
+        liftMarqueeToFloating();
+        editor.marquee.x += dx;
+        editor.marquee.y += dy;
+        renderPaintCanvas();
+        return;
+      }
+      const buf = editor.frames[editor.activeFrame];
+      if (!buf) return;
+      if (!isRepeat) {
+        pushEditorUndo();
+      }
+      const W = editor.w;
+      const H = editor.h;
+      const copy = new Uint8ClampedArray(buf);
+      buf.fill(0);
+      for (let y = 0; y < H; y++) {
+        const ny = y + dy;
+        if (ny < 0 || ny >= H) continue;
+        for (let x = 0; x < W; x++) {
+          const nx = x + dx;
+          if (nx < 0 || nx >= W) continue;
+          const sIdx = (y * W + x) * 4;
+          const dIdx = (ny * W + nx) * 4;
+          buf[dIdx] = copy[sIdx];
+          buf[dIdx + 1] = copy[sIdx + 1];
+          buf[dIdx + 2] = copy[sIdx + 2];
+          buf[dIdx + 3] = copy[sIdx + 3];
+        }
+      }
+      renderFrameTabs();
+      renderPaintCanvas();
+    }
 
     document.getElementById('undo-btn').addEventListener('click', (e) => {
       if (e.shiftKey) redoEditor();
@@ -15447,7 +15525,11 @@
     function openColorFxPopover() {
       commitMarqueeSelection();
       editor.fxSession = editor.frames.map(f => new Uint8ClampedArray(f));
+      editor.fxPickingFromColor = false;
       resetFxSlidersUI();
+      const fxToInput = document.getElementById('fx-replace-to');
+      if (fxToInput && editor.color) fxToInput.value = editor.color;
+      renderFxSpriteColorsBar();
       colorFxPopover.classList.remove('hidden');
       colorFxPopover.classList.add('flex');
       colorFxBtn.classList.add('active');
@@ -15460,10 +15542,97 @@
         renderPaintCanvas();
       }
       editor.fxSession = null;
+      editor.fxPickingFromColor = false;
+      const pickBtn = document.getElementById('fx-pick-from-btn');
+      if (pickBtn) pickBtn.classList.remove('active');
       colorFxPopover.classList.add('hidden');
       colorFxPopover.classList.remove('flex');
       colorFxBtn.classList.remove('active');
+      updatePaintCanvasCursor();
     }
+
+    function renderFxSpriteColorsBar() {
+      const bar = document.getElementById('fx-sprite-colors-bar');
+      const fxFromInput = document.getElementById('fx-replace-from');
+      if (!bar || !fxFromInput) return;
+      bar.innerHTML = '<span class="text-[8px] text-zinc-400 mr-0.5">From Sprite:</span>';
+
+      const sourceFrames = editor.fxSession || editor.frames;
+      const foundColors = [];
+      const seen = new Set();
+      const scanOrder = [editor.activeFrame, ...sourceFrames.map((_, i) => i)];
+
+      for (const fIdx of scanOrder) {
+        const buf = sourceFrames[fIdx];
+        if (!buf) continue;
+        for (let i = 0; i < buf.length && foundColors.length < 24; i += 4) {
+          if (buf[i + 3] > 20) {
+            const hex = rgbaToHex(buf[i], buf[i + 1], buf[i + 2]).toLowerCase();
+            if (!seen.has(hex)) {
+              seen.add(hex);
+              foundColors.push(hex);
+            }
+          }
+        }
+      }
+
+      if (foundColors.length === 0) {
+        const emptyMsg = document.createElement('span');
+        emptyMsg.className = 'text-[8px] text-zinc-500';
+        emptyMsg.textContent = 'No pixels drawn yet';
+        bar.appendChild(emptyMsg);
+        return;
+      }
+
+      // Default fx-replace-from to the first color in the sprite if current value isn't in the sprite
+      const curFrom = (fxFromInput.value || '').toLowerCase();
+      if (!seen.has(curFrom)) {
+        fxFromInput.value = foundColors[0];
+      }
+
+      foundColors.forEach((hex) => {
+        const isSelected = fxFromInput.value.toLowerCase() === hex;
+        const sw = document.createElement('button');
+        sw.type = 'button';
+        sw.setAttribute('data-tooltip', `Select ${hex.toUpperCase()} as color to replace`);
+        sw.className = `w-4 h-4 rounded-xs border transition-transform ${
+          isSelected ? 'border-white scale-110 ring-1 ring-amber-300' : 'border-black/60 hover:scale-110'
+        }`;
+        sw.style.backgroundColor = hex;
+        sw.addEventListener('click', () => {
+          fxFromInput.value = hex;
+          editor.fxPickingFromColor = false;
+          const pickBtn = document.getElementById('fx-pick-from-btn');
+          if (pickBtn) pickBtn.classList.remove('active');
+          renderFxSpriteColorsBar();
+          updatePaintCanvasCursor();
+        });
+        bar.appendChild(sw);
+      });
+    }
+
+    const fxPickFromBtn = document.getElementById('fx-pick-from-btn');
+    if (fxPickFromBtn) {
+      fxPickFromBtn.addEventListener('click', () => {
+        editor.fxPickingFromColor = !editor.fxPickingFromColor;
+        fxPickFromBtn.classList.toggle('active', editor.fxPickingFromColor);
+        updatePaintCanvasCursor();
+      });
+    }
+
+    const fxUseBrushToBtn = document.getElementById('fx-use-brush-to-btn');
+    if (fxUseBrushToBtn) {
+      fxUseBrushToBtn.addEventListener('click', () => {
+        const fxToInput = document.getElementById('fx-replace-to');
+        if (fxToInput && editor.color) {
+          fxToInput.value = editor.color;
+        }
+      });
+    }
+
+    document.getElementById('fx-replace-from').addEventListener('input', () => {
+      renderFxSpriteColorsBar();
+    });
 
     function previewColorFxChanges() {
       if (!editor.fxSession) {
@@ -15557,6 +15726,7 @@
       }
       editor.fxSession = editor.frames.map(f => new Uint8ClampedArray(f));
       resetFxSlidersUI();
+      renderFxSpriteColorsBar();
       renderFrameTabs();
       renderPaintCanvas();
     });
@@ -16929,6 +17099,26 @@
         updateEditorSubbars();
         updatePaintCanvasCursor(e);
         if (isTypingInInput()) return;
+
+        const k = e.key.toLowerCase();
+        if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown'].includes(k)) {
+          e.preventDefault();
+          const dx = k === 'arrowleft' ? -1 : (k === 'arrowright' ? 1 : 0);
+          const dy = k === 'arrowup' ? -1 : (k === 'arrowdown' ? 1 : 0);
+          if (e.ctrlKey || e.metaKey || editor.tool === 'move' || editor.marquee) {
+            nudgeActiveCelOrMarquee(dx, dy, e.repeat);
+          } else if (!e.repeat && (k === 'arrowleft' || k === 'arrowright')) {
+            commitMarqueeSelection();
+            const dir = k === 'arrowright' ? 1 : -1;
+            editor.activeFrame = (editor.activeFrame + dir + editor.frames.length) % editor.frames.length;
+            syncActiveFrameDimensions();
+            populateCelStateDropdown();
+            renderFrameTabs();
+            renderPaintCanvas();
+          }
+          return;
+        }
+
         if (e.repeat) return;
 
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
@@ -16981,7 +17171,6 @@
           openTypePickerModal();
           return;
         }
-        const k = e.key.toLowerCase();
         if (k === 'b') selectTool('pencil');
         else if (k === 'e') selectTool('eraser');
         else if (k === 'g') selectTool('fill');
@@ -17020,24 +17209,6 @@
           else flipActiveCelHorizontal();
         } else if (k === 'r') {
           rotateActiveCel90();
-        } else if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown'].includes(k)) {
-          e.preventDefault();
-          if (editor.marquee) {
-            liftMarqueeToFloating();
-            if (k === 'arrowleft') editor.marquee.x--;
-            else if (k === 'arrowright') editor.marquee.x++;
-            else if (k === 'arrowup') editor.marquee.y--;
-            else if (k === 'arrowdown') editor.marquee.y++;
-            renderPaintCanvas();
-          } else if (k === 'arrowleft' || k === 'arrowright') {
-            commitMarqueeSelection();
-            const dir = k === 'arrowright' ? 1 : -1;
-            editor.activeFrame = (editor.activeFrame + dir + editor.frames.length) % editor.frames.length;
-            syncActiveFrameDimensions();
-            populateCelStateDropdown();
-            renderFrameTabs();
-            renderPaintCanvas();
-          }
         } else if (k === 'delete' || k === 'backspace') {
           document.getElementById('clear-canvas-btn').click();
         } else if (k === 'escape') {

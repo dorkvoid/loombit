@@ -4397,31 +4397,28 @@
     }
 
     function restoreWorldSnapshot(snap) {
-      // Restore sprite library if creations were deleted or edited
+      // Only restore creations that were deleted from the Vault; never overwrite existing creations with older pre-edit snapshots
       if (Array.isArray(snap.sprites)) {
-        state.sprites = snap.sprites.map(cloneSpriteForHistory);
-        spriteCanvasCache.clear();
-        rebuildSpriteLookup();
-        try {
-          const delSet = getDeletedSpriteIdsSet();
-          let delChanged = false;
-          for (const sp of state.sprites) {
-            if (delSet.has(sp.id)) {
-              delSet.delete(sp.id);
-              delChanged = true;
-            }
+        const currentIds = new Set(state.sprites.map(s => s.id));
+        let restoredAnyDeleted = false;
+        const delSet = getDeletedSpriteIdsSet();
+        for (const oldSp of snap.sprites) {
+          if (oldSp && oldSp.id && !currentIds.has(oldSp.id)) {
+            state.sprites.push(cloneSpriteForHistory(oldSp));
+            currentIds.add(oldSp.id);
+            delSet.delete(oldSp.id);
+            restoredAnyDeleted = true;
           }
-          if (delChanged) {
+        }
+        if (restoredAnyDeleted) {
+          spriteCanvasCache.clear();
+          rebuildSpriteLookup();
+          try {
             localStorage.setItem(STORAGE_KEY_DELETED_SPRITES, JSON.stringify(Array.from(delSet)));
-          }
-        } catch (err) {}
-        if (snap.activeBrushId !== undefined) state.activeBrushId = hasSpriteId(snap.activeBrushId) ? snap.activeBrushId : null;
-        if (snap.activeBodyId !== undefined) state.activeBodyId = hasSpriteId(snap.activeBodyId) ? snap.activeBodyId : null;
-        if (snap.activeWearableId !== undefined) state.activeWearableId = hasSpriteId(snap.activeWearableId) ? snap.activeWearableId : null;
-        if (snap.activeHoldableId !== undefined) state.activeHoldableId = hasSpriteId(snap.activeHoldableId) ? snap.activeHoldableId : null;
-        if (snap.activeMountId !== undefined) state.activeMountId = hasSpriteId(snap.activeMountId) ? snap.activeMountId : null;
-        updateBrushBar();
-        renderSidebarSprites();
+          } catch (err) {}
+          updateBrushBar();
+          renderSidebarSprites();
+        }
       }
 
       const nextCellsMap = new Map(snap.cells.map(([k, v]) => [k, { ...v, wires: Array.isArray(v.wires) ? v.wires.map(w => ({ ...w })) : undefined }]));
@@ -5664,7 +5661,8 @@
           !isTypingInInput() &&
           (state.keys.left || state.keys.right || state.keys.up || state.keys.down);
         if (isKeyScrolling) {
-          const panSpeed = 4.5 / Math.max(1, state.renderZoom * 0.4);
+          const basePanSpeed = 4.5 / Math.max(1, state.renderZoom * 0.4);
+          const panSpeed = editor.shiftHeld ? basePanSpeed * 0.35 : basePanSpeed;
           if (state.keys.left) state.camera.x -= panSpeed;
           if (state.keys.right) state.camera.x += panSpeed;
           if (state.keys.up) state.camera.y -= panSpeed;
@@ -11500,6 +11498,11 @@
       mouseWorld.inside = false;
       // Do not clear mouseWorld.downButton or dragStart on mouseleave so rectangle/line drags near HUD edges never abort
     });
+    worldCanvas.addEventListener('auxclick', (e) => {
+      if (e.button === 1 || e.button === 2) {
+        e.preventDefault();
+      }
+    });
 
     worldCanvas.addEventListener('mousedown', (e) => {
       if (editor.isOpen) return;
@@ -11508,6 +11511,19 @@
         document.activeElement.blur();
       }
       updateMouseWorldCoords(e);
+
+      // Middle-Mouse Click (button === 1) in Build Mode drags/pans the camera
+      if (e.button === 1) {
+        if (state.mode === 'build') {
+          clearPendingHoldGrab();
+          mouseWorld.downButton = 1;
+          mouseWorld.isPanning = true;
+          mouseWorld.panStartScreen = { x: e.clientX, y: e.clientY };
+          mouseWorld.panStartCam = { x: state.camera.x, y: state.camera.y };
+          updateWorldCursor(e);
+        }
+        return;
+      }
 
       const hoveredItem = getHoveredWorldCell(mouseWorld.wx, mouseWorld.wy);
       const brushSp = getSpriteById(state.activeBrushId);
@@ -11796,6 +11812,15 @@
     });
 
     window.addEventListener('mouseup', (e) => {
+      if (mouseWorld.isPanning && (e.button === 1 || e.button === 0)) {
+        mouseWorld.isPanning = false;
+        if (mouseWorld.downButton === e.button) {
+          mouseWorld.downButton = null;
+        }
+        updateWorldCursor(e);
+        return;
+      }
+
       // If a pending hold-grab was released before the hold timer fired:
       if (mouseWorld.pendingHoldGrab && e.button === 0) {
         const pending = mouseWorld.pendingHoldGrab;
@@ -13053,6 +13078,9 @@
     }
 
     function openSpriteEditor(spriteId = null, duplicate = false) {
+      if (editor.fxSession) {
+        closeColorFxPopover(false);
+      }
       const existing = spriteId ? getSpriteById(spriteId) : null;
       editor.isOpen = true;
       editor.undoStack = [];
@@ -13167,6 +13195,9 @@
     }
 
     function closeSpriteEditor() {
+      if (editor.fxSession) {
+        closeColorFxPopover(true);
+      }
       commitMarqueeSelection();
       editor.isOpen = false;
       editorModal.classList.remove('open');
@@ -13175,6 +13206,9 @@
     }
 
     function saveCurrentSprite(forceSaveAsNew = false) {
+      if (editor.fxSession) {
+        closeColorFxPopover(false);
+      }
       commitMarqueeSelection();
       const targetEditingId = forceSaveAsNew ? null : editor.editingId;
       let cleanName = spriteNameInput.value.trim() || `Creation ${state.sprites.length + 1}`;
@@ -13184,11 +13218,6 @@
         if (orig && cleanName === orig.name) {
           cleanName = `${cleanName} Copy`;
         }
-      }
-
-      // Push a full World + Sprite undo snapshot before mutating an existing creation so Ctrl+Z in the world can revert accidental edits!
-      if (existingObj) {
-        pushWorldUndo();
       }
 
       const id = targetEditingId || ('sp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
@@ -13227,18 +13256,21 @@
         thumbnail: thumb
       };
 
+      let savedRef = spriteData;
       if (existingObj) {
+        Object.assign(existingObj, spriteData);
         const idx = state.sprites.findIndex(s => s.id === id);
-        if (idx !== -1) state.sprites[idx] = spriteData;
+        if (idx !== -1) state.sprites[idx] = existingObj;
+        savedRef = existingObj;
         invalidateSpriteCache(id);
-        syncPlacedWorldInstancesForSprite(spriteData);
+        syncPlacedWorldInstancesForSprite(existingObj);
       } else {
         state.sprites.push(spriteData);
       }
 
       rebuildSpriteLookup();
-      equipOrSelectSprite(spriteData, true);
-      updateSpriteAcrossSavedWorlds(spriteData);
+      equipOrSelectSprite(savedRef, true);
+      updateSpriteAcrossSavedWorlds(savedRef);
       saveAutoBackup();
       sfx.createSuccess();
       closeSpriteEditor();
@@ -14941,48 +14973,80 @@
     }
 
     function purgeDeletedSpriteFromSavedWorlds(spriteId) {
-      let changed = false;
       for (const wSlot of state.savedWorlds) {
         if (!wSlot || !wSlot.data) continue;
         if (Array.isArray(wSlot.data.sprites)) {
-          const before = wSlot.data.sprites.length;
-          wSlot.data.sprites = wSlot.data.sprites.filter(s => s.id !== spriteId);
-          if (wSlot.data.sprites.length !== before) changed = true;
+          wSlot.data.sprites = wSlot.data.sprites.filter(s => s && s.id !== spriteId);
         }
         if (Array.isArray(wSlot.data.worldCells)) {
           wSlot.data.worldCells = wSlot.data.worldCells.filter(([, c]) => c && c.spriteId !== spriteId);
+          wSlot.tileCount = wSlot.data.worldCells.length;
         }
         if (Array.isArray(wSlot.data.dynamicEntities)) {
           wSlot.data.dynamicEntities = wSlot.data.dynamicEntities.filter(e => e && e.spriteId !== spriteId);
         }
       }
-      if (changed) {
-        persistSavedWorldsToStorage();
-      }
+      persistSavedWorldsToStorage();
     }
 
-    function updateSpriteAcrossSavedWorlds(sp) {
-      if (!sp || !sp.id) return;
-      const serializedSp = serializeSprite(sp);
-      let changed = false;
+    function updateSpriteAcrossSavedWorlds(updatedSprite) {
+      if (!updatedSprite || !updatedSprite.id) return;
+      const serialized = serializeSprite(updatedSprite);
       for (const wSlot of state.savedWorlds) {
         if (!wSlot || !wSlot.data || !Array.isArray(wSlot.data.sprites)) continue;
-        const idx = wSlot.data.sprites.findIndex(s => s.id === sp.id);
+        const idx = wSlot.data.sprites.findIndex(s => s && s.id === updatedSprite.id);
         if (idx !== -1) {
-          wSlot.data.sprites[idx] = serializedSp;
-          changed = true;
+          wSlot.data.sprites[idx] = serialized;
+        } else {
+          wSlot.data.sprites.push(serialized);
         }
       }
-      if (changed) {
-        persistSavedWorldsToStorage();
+      persistSavedWorldsToStorage();
+    }
+
+    function encodeFrameToBase64(u8) {
+      if (!u8 || u8.length === 0) return '';
+      let binary = '';
+      const chunk = 8192;
+      for (let i = 0; i < u8.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, u8.subarray(i, i + chunk));
       }
+      return btoa(binary);
+    }
+
+    function decodeFrameFromSerialized(rawFrame, expectedLen) {
+      if (typeof rawFrame === 'string') {
+        try {
+          const bin = atob(rawFrame);
+          const out = new Uint8ClampedArray(expectedLen || bin.length);
+          const len = Math.min(out.length, bin.length);
+          for (let i = 0; i < len; i++) {
+            out[i] = bin.charCodeAt(i);
+          }
+          return out;
+        } catch (err) {
+          return new Uint8ClampedArray(expectedLen || 1444);
+        }
+      }
+      if (Array.isArray(rawFrame) || ArrayBuffer.isView(rawFrame)) {
+        return new Uint8ClampedArray(rawFrame);
+      }
+      return new Uint8ClampedArray(expectedLen || 1444);
     }
 
     function serializeSprite(sp) {
-      return {
-        ...sp,
-        frames: sp.frames.map(f => Array.from(f))
-      };
+      const clean = { ...sp };
+      delete clean._cachedPrimaryColor;
+      delete clean._cachedTopPixelRow;
+      delete clean._cachedDynAttrs;
+      delete clean._cachedCodeRef;
+      delete clean._cachedNameRef;
+      delete clean._cachedInferredSurface;
+      delete clean._cachedParsedDynamic;
+      delete clean._cachedParsedCode;
+      delete clean._cachedParsedCount;
+      clean.frames = (sp.frames || []).map(f => encodeFrameToBase64(f));
+      return clean;
     }
 
     function deserializeSprite(raw) {
@@ -14990,12 +15054,16 @@
       const subtype = raw.type === 'furry' ? 'Furry' : (raw.subtype || getTypeSpec(type).subtypes[0]);
       const w = raw.w || 19;
       const h = raw.h || 19;
-      const frames = Array.isArray(raw.frames)
-        ? raw.frames.map(f => new Uint8ClampedArray(f))
-        : [new Uint8ClampedArray(w * h * 4)];
-      const frameDims = Array.isArray(raw.frameDims) && raw.frameDims.length === frames.length
+      const rawFrames = Array.isArray(raw.frames) ? raw.frames : [];
+      const frameDims = Array.isArray(raw.frameDims) && raw.frameDims.length === rawFrames.length
         ? raw.frameDims.map(d => ({ w: d.w || w, h: d.h || h }))
-        : frames.map(() => ({ w, h }));
+        : Array.from({ length: Math.max(1, rawFrames.length) }, () => ({ w, h }));
+      const frames = rawFrames.length > 0
+        ? rawFrames.map((f, idx) => {
+            const d = frameDims[idx] || { w, h };
+            return decodeFrameFromSerialized(f, d.w * d.h * 4);
+          })
+        : [new Uint8ClampedArray(w * h * 4)];
       const thumb = raw.thumbnail || createThumbnailDataUrl(frames, w, h, frameDims);
       return {
         ...raw,
@@ -15102,35 +15170,37 @@
     }
 
     function saveAutoBackup() {
+      const snap = serializeCurrentState();
+
+      if (!state.activeWorldId) {
+        if (state.savedWorlds.length > 0) {
+          state.activeWorldId = state.savedWorlds[0].id;
+        } else {
+          const firstId = 'world_' + Date.now();
+          state.activeWorldId = firstId;
+          state.savedWorlds.push({
+            id: firstId,
+            name: 'World 1',
+            updatedAt: Date.now(),
+            tileCount: state.worldCells.size,
+            data: snap
+          });
+        }
+      }
+
+      const activeSlot = state.savedWorlds.find(w => w.id === state.activeWorldId);
+      if (activeSlot) {
+        activeSlot.updatedAt = Date.now();
+        activeSlot.tileCount = state.worldCells.size;
+        activeSlot.data = snap;
+      }
+
+      updateTopWorldLabel();
+
       try {
-        const snap = serializeCurrentState();
         localStorage.setItem(STORAGE_KEY_AUTOSAVE, JSON.stringify(snap));
-
-        if (!state.activeWorldId) {
-          if (state.savedWorlds.length > 0) {
-            state.activeWorldId = state.savedWorlds[0].id;
-          } else {
-            const firstId = 'world_' + Date.now();
-            state.activeWorldId = firstId;
-            state.savedWorlds.push({
-              id: firstId,
-              name: 'World 1',
-              updatedAt: Date.now(),
-              tileCount: state.worldCells.size,
-              data: snap
-            });
-          }
-        }
-
-        const activeSlot = state.savedWorlds.find(w => w.id === state.activeWorldId);
-        if (activeSlot) {
-          activeSlot.updatedAt = Date.now();
-          activeSlot.tileCount = state.worldCells.size;
-          activeSlot.data = snap;
-        }
-        persistSavedWorldsToStorage();
-        updateTopWorldLabel();
       } catch (err) {}
+      persistSavedWorldsToStorage();
     }
 
     function scheduleWorldAutoBackup(delay = 350) {
@@ -15161,7 +15231,10 @@
           if (!s) continue;
           spMap.set(s.id, s);
           if (Array.isArray(s.frames) && s.frames[0]) {
-            const f0 = s.frames[0];
+            const rawF0 = s.frames[0];
+            const f0 = typeof rawF0 === 'string'
+              ? decodeFrameFromSerialized(rawF0, (s.w || 19) * (s.h || 19) * 4)
+              : rawF0;
             let rSum = 0, gSum = 0, bSum = 0, count = 0;
             for (let i = 0; i < f0.length; i += 4) {
               if (f0[i + 3] > 30) {

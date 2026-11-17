@@ -1565,7 +1565,7 @@
       {
         id: 'thing', name: 'THING', category: 'back', defaultW: 19, defaultH: 19,
         frames: ['Cell 1'],
-        subtypes: ['Thing', 'Thing in Front', 'Falling Thing', 'Furry', 'Drifty']
+        subtypes: ['Thing', 'Thing in Front', 'Furry', 'Drifty']
       },
       {
         id: 'light', name: 'LIGHT', category: 'dynamic', defaultW: 19, defaultH: 19,
@@ -1967,6 +1967,8 @@
         Talk: 10
       },
       previewTick: 0,
+      previewPhase: 0,
+      previewElapsedSec: 0,
       lastPastedImage: null,
       isDrawing: false,
       lineStart: null,
@@ -4047,6 +4049,44 @@
       return Array.from({ length: frameCount }, () => ({ w: base.w, h: base.h }));
     }
 
+    function getFixedCelCountForType(typeId = editor.type, subtype = editor.subtype) {
+      if (typeId === 'thing') {
+        return subtype === 'Thing in Front' ? 2 : 1;
+      }
+      return null;
+    }
+
+    function isSingleCelLockedType(typeId = editor.type, subtype = editor.subtype) {
+      return getFixedCelCountForType(typeId, subtype) !== null;
+    }
+
+    function syncSingleCelToolbarUI() {
+      const fixedCount = getFixedCelCountForType(editor.type, editor.subtype);
+      const lockedAddDel = fixedCount !== null;
+      const lockedOrder = fixedCount === 1;
+      const addBtn = document.getElementById('add-frame-btn');
+      const delBtn = document.getElementById('del-frame-btn');
+      const leftBtn = document.getElementById('move-cel-left-btn');
+      const rightBtn = document.getElementById('move-cel-right-btn');
+      const sortBtn = document.getElementById('sort-cels-state-btn');
+      [addBtn, delBtn, sortBtn].forEach((btn) => {
+        if (!btn) return;
+        btn.disabled = lockedAddDel;
+        btn.classList.toggle('opacity-40', lockedAddDel);
+        btn.classList.toggle('pointer-events-none', lockedAddDel);
+      });
+      [leftBtn, rightBtn].forEach((btn) => {
+        if (!btn) return;
+        btn.disabled = lockedOrder;
+        btn.classList.toggle('opacity-40', lockedOrder);
+        btn.classList.toggle('pointer-events-none', lockedOrder);
+      });
+      if (fixedCount === 1 && stripNoticeBar) {
+        stripNoticeBar.classList.add('hidden');
+        stripNoticeBar.classList.remove('flex');
+      }
+    }
+
     function syncActiveFrameDimensions() {
       if (!editor.frameDims || !editor.frameDims[editor.activeFrame]) {
         const d = getDimensionsForSubtype(editor.type, editor.subtype);
@@ -4109,15 +4149,17 @@
       commitMarqueeSelection();
 
       const labels = getFrameLabelsForSubtype(spec.id, editor.subtype);
+      const fixedCount = getFixedCelCountForType(spec.id, editor.subtype);
       if (!preserveFrames || !editor.frames || editor.frames.length === 0) {
-        editor.frameDims = getFrameDimsForSubtype(spec.id, editor.subtype, labels.length);
+        const initCount = fixedCount !== null ? fixedCount : labels.length;
+        editor.frameDims = getFrameDimsForSubtype(spec.id, editor.subtype, initCount);
         editor.frames = editor.frameDims.map(d => new Uint8ClampedArray(d.w * d.h * 4));
-        editor.frameStates = [...labels];
+        editor.frameStates = labels.slice(0, initCount);
         editor.activeFrame = 0;
         syncActiveFrameDimensions();
       } else if (adaptToTypeDims) {
-        // Preserve all drawn pixels when switching creation object types!
-        const targetCount = Math.max(labels.length, editor.frames.length);
+        // Preserve drawn pixels when switching creation object types
+        const targetCount = fixedCount !== null ? fixedCount : Math.max(labels.length, editor.frames.length);
         const targetDims = getFrameDimsForSubtype(spec.id, editor.subtype, targetCount);
         const nextFrames = [];
         const nextDims = [];
@@ -4129,7 +4171,6 @@
           if (i < editor.frames.length) {
             const oldDim = (editor.frameDims && editor.frameDims[i]) || { w: editor.w, h: editor.h };
             const hasArt = isBufferNonEmpty(editor.frames[i]);
-            // Keep frame if it's within the new type's frame count OR if the user drew pixels on it
             if (i < labels.length || hasArt) {
               nextFrames.push(resizeSingleBuffer(editor.frames[i], oldDim.w, oldDim.h, td.w, td.h));
               nextDims.push({ w: td.w, h: td.h });
@@ -4150,6 +4191,27 @@
         }
         syncActiveFrameDimensions();
       } else {
+        if (fixedCount !== null && editor.frames.length !== fixedCount) {
+          const targetDims = getFrameDimsForSubtype(spec.id, editor.subtype, fixedCount);
+          const nextFrames = [];
+          const nextDims = [];
+          const nextStates = [];
+          for (let i = 0; i < fixedCount; i++) {
+            const td = targetDims[i] || targetDims[0];
+            if (i < editor.frames.length) {
+              const oldDim = (editor.frameDims && editor.frameDims[i]) || { w: editor.w, h: editor.h };
+              nextFrames.push(resizeSingleBuffer(editor.frames[i], oldDim.w, oldDim.h, td.w, td.h));
+            } else {
+              nextFrames.push(new Uint8ClampedArray(td.w * td.h * 4));
+            }
+            nextDims.push({ w: td.w, h: td.h });
+            nextStates.push(labels[i] || `Cell ${i + 1}`);
+          }
+          editor.frames = nextFrames;
+          editor.frameDims = nextDims;
+          editor.frameStates = nextStates;
+          if (editor.activeFrame >= editor.frames.length) editor.activeFrame = 0;
+        }
         if (!editor.frameDims || editor.frameDims.length !== editor.frames.length) {
           editor.frameDims = editor.frames.map(() => ({ w: editor.w, h: editor.h }));
         }
@@ -4158,6 +4220,7 @@
         }
         syncActiveFrameDimensions();
       }
+      syncSingleCelToolbarUI();
       populateCelStateDropdown();
       renderPreviewControlsForType();
       renderFrameTabs();
@@ -4313,11 +4376,12 @@
 
     function getFrameLabelsForSubtype(typeId, subtype) {
       const spec = getTypeSpec(typeId);
+      if (typeId === 'thing') {
+        if (subtype === 'Thing in Front') return ['Back Cell', 'Front Cell'];
+        return ['Cell 1'];
+      }
       if (typeId === 'body' && subtype === 'Motion') {
         return ['Motion 1', 'Motion 2', 'Motion 3', 'Motion 4'];
-      }
-      if (typeId === 'thing' && (subtype === 'Furry' || subtype === 'Drifty')) {
-        return ['Cell 1', 'Cell 2'];
       }
       if (typeId === 'light') {
         if (subtype === 'Light Glow') return ['Source (19x19)', 'Glow (38x38)'];
@@ -4368,7 +4432,8 @@
       }
 
       const labels = getFrameLabelsForSubtype(editor.type, editor.subtype);
-      const targetCount = Math.max(labels.length, editor.frames.length);
+      const fixedCount = getFixedCelCountForType(editor.type, editor.subtype);
+      const targetCount = fixedCount !== null ? fixedCount : Math.max(labels.length, editor.frames.length);
       const targetFrameDims = getFrameDimsForSubtype(editor.type, editor.subtype, targetCount);
       const hasNamedStates = (editor.type === 'body' && editor.subtype === 'Body') || editor.type === 'wearable';
 
@@ -4391,6 +4456,7 @@
       editor.frameDims = targetFrameDims;
       editor.frameStates = newStates;
       if (editor.activeFrame >= editor.frames.length) editor.activeFrame = 0;
+      syncSingleCelToolbarUI();
       syncActiveFrameDimensions();
       populateCelStateDropdown();
       renderPreviewControlsForType();
@@ -5324,12 +5390,50 @@
       'AND Gate'
     ]);
 
+    const WIRE_TARGET_ACTIVATOR_SUBTYPES = new Set([
+      'Open on Activate',
+      'Change on Activate',
+      'Sound Block',
+      'Relay / Delay',
+      'NOT / Inverter',
+      'AND Gate',
+      'Timer / Clock'
+    ]);
+
     function isWireSourceCell(cell) {
-      if (!cell) return false;
+      if (!cell || cell.spriteId === '__starter_ground__') return false;
       if (cell.type === 'activator' && WIRE_SOURCE_SUBTYPES.has(cell.subtype)) return true;
       if (cell.type === 'transporting' || cell.type === 'interacting') return true;
       if (cell.type === 'changing_thing' && cell.subtype === 'Changing on Touch') return true;
       return false;
+    }
+
+    function isWireTargetCell(cell) {
+      if (!cell || cell.spriteId === '__starter_ground__') return false;
+      if (cell.type === 'activator' && WIRE_TARGET_ACTIVATOR_SUBTYPES.has(cell.subtype)) return true;
+      if (cell.type === 'moving' && ['Piston / Pusher', 'Elevator', 'Conveyor', 'Mover'].includes(cell.subtype)) return true;
+      if (cell.type === 'pushing') return true;
+      if (cell.type === 'harmful') return true;
+      if (cell.type === 'crumbling' && cell.subtype !== 'Flexible') return true;
+      if (cell.type === 'light') return true;
+      if (cell.type === 'environment' && cell.subtype === 'Environmental Wind') return true;
+      if (cell.type === 'changing_thing') return true;
+      return false;
+    }
+
+    function isWireableCell(cell) {
+      return isWireSourceCell(cell) || isWireTargetCell(cell);
+    }
+
+    function resolveWirePair(cellA, cellB) {
+      if (!cellA || !cellB || cellA === cellB) return null;
+      if (isWireSourceCell(cellA) && isWireTargetCell(cellB)) {
+        return { sourceCell: cellA, targetCell: cellB };
+      }
+      if (isWireSourceCell(cellB) && isWireTargetCell(cellA)) {
+        return { sourceCell: cellB, targetCell: cellA };
+      }
+      return null;
     }
 
     function getWorldCellAtWireRef(w) {
@@ -7648,7 +7752,6 @@
           entOrSp.subtype === 'Falling Solid' ||
           entOrSp.subtype === 'Bouncy Sphere'
         )) ||
-        (entOrSp.type === 'thing' && entOrSp.subtype === 'Falling Thing') ||
         (entOrSp.type === 'pushing' && entOrSp.subtype === 'Bouncy Sphere')
       );
     }
@@ -8881,6 +8984,8 @@
           farBackCells.push(cell);
         } else if (cell.layer === 'back') {
           backCells.push(cell);
+        } else if (cell.type === 'thing' && cell.subtype === 'Thing in Front') {
+          underPlayerMainCells.push(cell);
         } else if (cell.layer === 'front') {
           frontCells.push(cell);
         } else if (isSolidOverPlayerCell(cell)) {
@@ -9273,21 +9378,31 @@
               glowAlpha *= (0.75 + 0.25 * Math.sin(worldTickCount * 0.37));
             }
             const fcGlow = getCachedFrameCanvas(sp, 1);
-            const gw = fcGlow.width * zoom;
-            const gh = fcGlow.height * zoom;
+            const gw = Math.round(fcGlow.width * zoom);
+            const gh = Math.round(fcGlow.height * zoom);
             const gx = Math.round(sx + (sw - gw) / 2);
             const gy = Math.round(sy + (sh - gh) / 2);
             worldCtx.save();
-            worldCtx.globalAlpha = glowAlpha;
-            drawImageWithOrient(worldCtx, fcGlow, gx, gy, gw, gh, cellOrient, 1);
+            worldCtx.globalAlpha = Math.max(0, Math.min(1, glowAlpha * placeAlpha));
+            drawImageWithOrient(worldCtx, fcGlow, gx, gy, gw, gh, cellOrient, placeScale);
             worldCtx.restore();
           }
 
-          // Big Thing: Back + Front renders Cell 2+ in front of player later
-          if (cell.type === 'big_thing' && cell.subtype === 'Back + Front' && sp.frames.length >= 2) {
+          // Thing in Front & Big Thing: Back + Front render Cell 1 behind player and Cell 2+ in front of player
+          if (
+            ((cell.type === 'thing' && cell.subtype === 'Thing in Front') ||
+             (cell.type === 'big_thing' && cell.subtype === 'Back + Front')) &&
+            sp.frames.length >= 2
+          ) {
             const extraCount = sp.frames.length - 1;
-            const frontCellIdx = 1 + (spAnimStep % extraCount);
-            frontCells.push({ ...cell, _frontOverlayOnly: true, _frontCellIdx: frontCellIdx });
+            const frontCellIdx = cell.type === 'thing' ? 1 : (1 + (spAnimStep % extraCount));
+            frontCells.push({
+              ...cell,
+              _frontOverlayOnly: true,
+              _frontCellIdx: frontCellIdx,
+              _placeScale: placeScale,
+              _placeAlpha: placeAlpha
+            });
           }
 
           // Textual / Places / Interacting sign text when player is nearby
@@ -9388,29 +9503,6 @@
       }
 
       // 4. Render Dynamic Entities (Falling / Physics Solids, Moving platforms, Living NPCs) & Delete/Erase Animations
-      for (const da of state.deleteAnimations) {
-        const sx = Math.round(camScreenX + da.x * zoom);
-        const sy = Math.round(camScreenY + da.y * zoom);
-        const sw = Math.max(1, Math.round(da.w * zoom));
-        const sh = Math.max(1, Math.round(da.h * zoom));
-        const easeP = 1 - Math.pow(1 - Math.min(1, da.progress), 2);
-        const scale = Math.max(0.08, 1 - easeP * 0.78);
-        worldCtx.save();
-        worldCtx.globalAlpha = Math.max(0, 1 - easeP);
-        worldCtx.translate(sx + sw / 2, sy + sh / 2);
-        worldCtx.scale(scale, scale);
-        if (da.sprite) {
-          const fc = getCachedFrameCanvas(da.sprite, 0);
-          worldCtx.drawImage(fc, -sw / 2, -sh / 2, sw, sh);
-        } else {
-          worldCtx.fillStyle = '#23232b';
-          worldCtx.fillRect(-sw / 2, -sh / 2, sw, sh);
-        }
-        worldCtx.strokeStyle = da.isUndo ? '#60a5fa' : '#f87171';
-        worldCtx.strokeRect(-sw / 2, -sh / 2, sw, sh);
-        worldCtx.restore();
-      }
-
       for (const ent of state.dynamicEntities) {
         const sp = getSpriteById(ent.spriteId);
         if (!sp) continue;
@@ -9994,7 +10086,12 @@
           : (sp.frames.length > 1 ? (spAnimStep % sp.frames.length) : 0);
         const fc = getCachedFrameCanvas(sp, frontIdx);
         const cellOrient = (cell.orient ?? cell.rotation ?? 0) % 8;
-        drawImageWithOrient(worldCtx, fc, sx, sy, Math.max(1, sxEnd - sx), Math.max(1, syEnd - sy), cellOrient, 1);
+        const pScale = cell._placeScale ?? 1;
+        const pAlpha = cell._placeAlpha ?? 1;
+        worldCtx.save();
+        if (pAlpha < 1) worldCtx.globalAlpha = pAlpha;
+        drawImageWithOrient(worldCtx, fc, sx, sy, Math.max(1, sxEnd - sx), Math.max(1, syEnd - sy), cellOrient, pScale);
+        worldCtx.restore();
       }
 
       // Render 'front' Layer Lights & Environments (Overlapping in front of Player and Foreground)
@@ -10166,6 +10263,14 @@
             } else {
               const fc = getCachedFrameCanvas(sp, cData.frameIdx || 0);
               drawImageWithOrient(heldBlockOverlayCtx, fc, ix, iy, iw, ih, cData.orient || 0, 1);
+              if (
+                ((sp.type === 'thing' && sp.subtype === 'Thing in Front') ||
+                 (sp.type === 'big_thing' && sp.subtype === 'Back + Front')) &&
+                sp.frames.length >= 2
+              ) {
+                const fcFront = getCachedFrameCanvas(sp, 1);
+                drawImageWithOrient(heldBlockOverlayCtx, fcFront, ix, iy, iw, ih, cData.orient || 0, 1);
+              }
             }
           }
           heldBlockOverlayCtx.restore();
@@ -10365,12 +10470,9 @@
         }
 
         const isSource = isWireSourceCell(cell) || (Array.isArray(cell.wires) && cell.wires.length > 0);
+        const isTarget = isWireTargetCell(cell);
         const isWiredTarget = isTargetWiredByAnyActivator(cell);
-        const isMachinePart =
-          isSource ||
-          isWiredTarget ||
-          ['activator', 'moving', 'pushing', 'transporting', 'harmful', 'crumbling'].includes(cell.type) ||
-          (cell.type === 'changing_thing' && (cell.subtype === 'Item Thrower' || cell.subtype === 'Changing on Touch'));
+        const isMachinePart = isSource || isTarget || isWiredTarget;
 
         if (isMachinePart) {
           worldCtx.fillStyle = isSource
@@ -10646,8 +10748,9 @@
 
       for (const [, cell] of state.worldCells.entries()) {
         const isSource = isWireSourceCell(cell);
+        const isTarget = isWireTargetCell(cell);
         const hasWires = Array.isArray(cell.wires) && cell.wires.length > 0;
-        if (!isSource && !hasWires && cell.type !== 'activator') continue;
+        if (!isSource && !isTarget && !hasWires) continue;
 
         const sx = Math.round(camScreenX + (cell.x + cell.w / 2) * zoom);
         const sy = Math.round(camScreenY + (cell.y + cell.h / 2) * zoom);
@@ -10658,7 +10761,10 @@
           const isSignalOn = (cell.activeTimer || 0) > 0 || (cell._wireActiveTimer || 0) > 0;
 
           if (Array.isArray(cell.wires)) {
-            cell.wires = cell.wires.filter(w => Boolean(getWorldCellAtWireRef(w)));
+            cell.wires = cell.wires.filter(w => {
+              const tCell = getWorldCellAtWireRef(w);
+              return Boolean(tCell && isWireTargetCell(tCell));
+            });
             for (let wIdx = 0; wIdx < cell.wires.length; wIdx++) {
               const w = cell.wires[wIdx];
               const tCell = getWorldCellAtWireRef(w);
@@ -10670,8 +10776,8 @@
             }
           }
 
-          // Draw a connector socket on wire-capable source blocks in Build Mode
-          if (cell.type === 'activator' || hasWires || state.worldTool === 'wire') {
+          // Draw a connector socket on wire-capable source blocks in Wire Mode
+          if (isSource || hasWires) {
             worldCtx.save();
             worldCtx.fillStyle = '#09090b';
             worldCtx.fillRect(sx - 4, sy - 4, 8, 8);
@@ -10679,8 +10785,8 @@
             worldCtx.fillRect(sx - 2.5, sy - 2.5, 5, 5);
             worldCtx.restore();
           }
-        } else {
-          // Draw a receiver socket on Open on Activate / Change on Activate / Sound Block
+        } else if (isTarget) {
+          // Draw a receiver socket on valid wire target blocks
           worldCtx.save();
           worldCtx.fillStyle = '#09090b';
           worldCtx.fillRect(sx - 3.5, sy - 3.5, 7, 7);
@@ -10690,19 +10796,22 @@
         }
       }
 
-      // Live spaghetti wire being dragged from a source block to the cursor
+      // Live spaghetti wire being dragged from a wireable block to the cursor
       if (mouseWorld.wireDragSource) {
         const src = mouseWorld.wireDragSource;
         const sx = Math.round(camScreenX + (src.x + src.w / 2) * zoom);
         const sy = Math.round(camScreenY + (src.y + src.h / 2) * zoom);
         const hoveredTarget = getHoveredWorldCell(mouseWorld.wx, mouseWorld.wy);
-        const mx = (hoveredTarget && hoveredTarget !== src && !state.dynamicEntities.includes(hoveredTarget))
+        const validPair = (hoveredTarget && hoveredTarget !== src && !state.dynamicEntities.includes(hoveredTarget))
+          ? resolveWirePair(src, hoveredTarget)
+          : null;
+        const mx = validPair
           ? Math.round(camScreenX + (hoveredTarget.x + hoveredTarget.w / 2) * zoom)
           : Math.round(mouseWorld.sx);
-        const my = (hoveredTarget && hoveredTarget !== src && !state.dynamicEntities.includes(hoveredTarget))
+        const my = validPair
           ? Math.round(camScreenY + (hoveredTarget.y + hoveredTarget.h / 2) * zoom)
           : Math.round(mouseWorld.sy);
-        drawSpaghettiCurve(worldCtx, sx, sy, mx, my, '#fbbf24', false, true);
+        drawSpaghettiCurve(worldCtx, sx, sy, mx, my, validPair ? '#4ade80' : '#fbbf24', Boolean(validPair), true);
       }
     }
 
@@ -10736,6 +10845,14 @@
             const fc = getCachedFrameCanvas(brushSp, 0);
             worldCtx.globalAlpha = 0.55;
             drawImageWithOrient(worldCtx, fc, sx, sy, drawW * zoom, drawH * zoom, state.brushOrient || 0, 1);
+            if (
+              ((brushSp.type === 'thing' && brushSp.subtype === 'Thing in Front') ||
+               (brushSp.type === 'big_thing' && brushSp.subtype === 'Back + Front')) &&
+              brushSp.frames.length >= 2
+            ) {
+              const fcFront = getCachedFrameCanvas(brushSp, 1);
+              drawImageWithOrient(worldCtx, fcFront, sx, sy, drawW * zoom, drawH * zoom, state.brushOrient || 0, 1);
+            }
             worldCtx.globalAlpha = 0.85;
             worldCtx.strokeStyle = 'rgba(96, 165, 250, 0.7)';
             worldCtx.strokeRect(sx + 0.5, sy + 0.5, drawW * zoom - 1, drawH * zoom - 1);
@@ -10752,6 +10869,14 @@
         worldCtx.save();
         worldCtx.globalAlpha = 0.48;
         drawImageWithOrient(worldCtx, fc, sx, sy, drawW * zoom, drawH * zoom, state.brushOrient || 0, 1);
+        if (
+          ((brushSp.type === 'thing' && brushSp.subtype === 'Thing in Front') ||
+           (brushSp.type === 'big_thing' && brushSp.subtype === 'Back + Front')) &&
+          brushSp.frames.length >= 2
+        ) {
+          const fcFront = getCachedFrameCanvas(brushSp, 1);
+          drawImageWithOrient(worldCtx, fcFront, sx, sy, drawW * zoom, drawH * zoom, state.brushOrient || 0, 1);
+        }
         worldCtx.restore();
       } else if (state.mode === 'build') {
         const sx = Math.round(camScreenX + snapX * zoom);
@@ -11631,18 +11756,30 @@
           pushWorldUndo();
           state.spawnPoint = { x: snapX, y: snapY };
           respawnPlayer(false);
-          scheduleWorldAutoBackup(0);
+          sfx.place();
+          scheduleWorldAutoBackup();
           return;
         }
 
-        // Spaghetti Wire Dragging is strictly active ONLY when the Wire tool is selected
+        // Spaghetti Wire Dragging is strictly active ONLY when the Wire tool is selected and on a valid wireable block
         if (state.mode === 'build' && activeTool === 'wire') {
-          if (hoveredItem && !state.dynamicEntities.includes(hoveredItem)) {
+          if (hoveredItem && !state.dynamicEntities.includes(hoveredItem) && isWireableCell(hoveredItem)) {
             mouseWorld.wireDragSource = hoveredItem;
             sfx.ui(590);
             updateWorldCursor(e);
           } else {
             sfx.buzzer();
+            if (hoveredItem) {
+              state.floatingTexts.push({
+                x: hoveredItem.x + (hoveredItem.w || TILE_SIZE) / 2,
+                y: hoveredItem.y - 6,
+                vy: -0.4,
+                text: 'NOT WIREABLE',
+                color: '#f87171',
+                life: 36,
+                maxLife: 36
+              });
+            }
           }
           return;
         }
@@ -11904,12 +12041,7 @@
         return;
       }
 
-      state.player.grappleTarget = null;
-      if (mouseWorld.isPanning) {
-        mouseWorld.isPanning = false;
-      }
-
-      // Complete Spaghetti Wire drag connection if active
+      // Complete Spaghetti Wire drag connection if active (only between a valid Wire Source and Wire Target)
       if (mouseWorld.wireDragSource && e.button === 0) {
         updateMouseWorldCoords(e);
         const src = mouseWorld.wireDragSource;
@@ -11917,15 +12049,23 @@
         const target = getHoveredWorldCell(mouseWorld.wx, mouseWorld.wy);
 
         if (target && target !== src && !state.dynamicEntities.includes(target)) {
-          let sourceCell = null;
-          let targetCell = null;
-          if (isWireSourceCell(src) || !isWireSourceCell(target)) {
-            sourceCell = src;
-            targetCell = target;
-          } else {
-            sourceCell = target;
-            targetCell = src;
+          const pair = resolveWirePair(src, target);
+          if (!pair) {
+            sfx.buzzer();
+            state.floatingTexts.push({
+              x: target.x + (target.w || TILE_SIZE) / 2,
+              y: target.y - 6,
+              vy: -0.4,
+              text: 'NEEDS SWITCH -> TARGET',
+              color: '#f87171',
+              life: 42,
+              maxLife: 42
+            });
+            mouseWorld.downButton = null;
+            updateWorldCursor(e);
+            return;
           }
+          const { sourceCell, targetCell } = pair;
           pushWorldUndo();
           if (!Array.isArray(sourceCell.wires)) sourceCell.wires = [];
           const existingIdx = sourceCell.wires.findIndex(
@@ -12272,7 +12412,7 @@
       return next;
     }
 
-    function createThumbnailDataUrl(frames, w, h, frameDims) {
+    function createThumbnailDataUrl(frames, w, h, frameDims, compositeBackFront = false) {
       const f0 = frames && frames[0];
       const dim = (frameDims && frameDims[0]) || { w: w || 19, h: h || 19 };
       const cw = Math.max(1, dim.w || 19);
@@ -12285,6 +12425,16 @@
         const safe = new Uint8ClampedArray(cw * ch * 4);
         safe.set(f0.subarray(0, safe.length));
         ctx.putImageData(new ImageData(safe, cw, ch), 0, 0);
+      }
+      if (compositeBackFront && frames && frames[1]) {
+        const dim1 = (frameDims && frameDims[1]) || { w: cw, h: ch };
+        const tmp = document.createElement('canvas');
+        tmp.width = Math.max(1, dim1.w || cw);
+        tmp.height = Math.max(1, dim1.h || ch);
+        const safe1 = new Uint8ClampedArray(tmp.width * tmp.height * 4);
+        safe1.set(frames[1].subarray(0, safe1.length));
+        tmp.getContext('2d').putImageData(new ImageData(safe1, tmp.width, tmp.height), 0, 0);
+        ctx.drawImage(tmp, 0, 0, cw, ch);
       }
       return c.toDataURL('image/png');
     }
@@ -12793,6 +12943,12 @@
               onionIdx = primaryIdleIdx;
             }
           }
+        } else if (
+          ((editor.type === 'thing' && editor.subtype === 'Thing in Front') ||
+           (editor.type === 'big_thing' && editor.subtype === 'Back + Front')) &&
+          editor.frames.length >= 2
+        ) {
+          onionIdx = editor.activeFrame === 0 ? 1 : 0;
         } else if (editor.activeFrame > 0) {
           onionIdx = editor.activeFrame - 1;
         }
@@ -13098,34 +13254,48 @@
         wearStates.forEach((st) => {
           previewControlsBar.appendChild(makeBtn(st, st));
         });
-      } else {
+      } else if (
+        (editor.type === 'thing' && editor.subtype === 'Thing in Front') ||
+        (editor.type === 'big_thing' && editor.subtype === 'Back + Front')
+      ) {
         if (stateLabel) {
-          stateLabel.textContent = 'Loop';
+          stateLabel.textContent = 'Back+Front';
+          stateLabel.style.color = '#a5b4fc';
+        }
+      } else {
+        const fixedCount = getFixedCelCountForType(editor.type, editor.subtype);
+        if (stateLabel) {
+          stateLabel.textContent = fixedCount === 1 ? '1 Cel' : 'Loop';
           stateLabel.style.color = '';
         }
-        const loopBtn = document.createElement('button');
-        loopBtn.className = `ase-btn px-2 py-0.5 text-[9px] ${editor.previewLoopMode === 'loop' ? 'active text-blue-300' : 'text-zinc-400'}`;
-        loopBtn.textContent = 'Cycle';
-        loopBtn.addEventListener('click', () => {
-          editor.previewLoopMode = 'loop';
-          renderPreviewControlsForType();
-        });
-        const pingBtn = document.createElement('button');
-        pingBtn.className = `ase-btn px-2 py-0.5 text-[9px] ${editor.previewLoopMode === 'pingpong' ? 'active text-blue-300' : 'text-zinc-400'}`;
-        pingBtn.textContent = 'Ping-Pong';
-        pingBtn.addEventListener('click', () => {
-          editor.previewLoopMode = 'pingpong';
-          renderPreviewControlsForType();
-        });
-        previewControlsBar.appendChild(loopBtn);
-        previewControlsBar.appendChild(pingBtn);
+        if (fixedCount !== 1) {
+          const loopBtn = document.createElement('button');
+          loopBtn.className = `ase-btn px-2 py-0.5 text-[9px] ${editor.previewLoopMode === 'loop' ? 'active text-blue-300' : 'text-zinc-400'}`;
+          loopBtn.textContent = 'Cycle';
+          loopBtn.addEventListener('click', () => {
+            editor.previewLoopMode = 'loop';
+            renderPreviewControlsForType();
+          });
+          const pingBtn = document.createElement('button');
+          pingBtn.className = `ase-btn px-2 py-0.5 text-[9px] ${editor.previewLoopMode === 'pingpong' ? 'active text-blue-300' : 'text-zinc-400'}`;
+          pingBtn.textContent = 'Ping-Pong';
+          pingBtn.addEventListener('click', () => {
+            editor.previewLoopMode = 'pingpong';
+            renderPreviewControlsForType();
+          });
+          previewControlsBar.appendChild(loopBtn);
+          previewControlsBar.appendChild(pingBtn);
+        }
       }
     }
 
-    function renderEditorLivePreview() {
+    function renderEditorLivePreview(dtMs = 16.67) {
       if (!editor.isOpen) return;
+      const fps = Math.max(1, editor.previewFps || 8);
       if (editor.previewPlaying) {
-        editor.previewTick++;
+        const clampedDt = Math.max(0, Math.min(100, dtMs));
+        editor.previewPhase = (editor.previewPhase || 0) + (clampedDt / 1000) * fps;
+        editor.previewElapsedSec = (editor.previewElapsedSec || 0) + (clampedDt / 1000);
       }
       const W = previewCanvas.width;
       const H = previewCanvas.height;
@@ -13150,7 +13320,7 @@
           frames: editor.frames,
           frameDims: editor.frameDims
         };
-        const transforms = evaluateDynamicCellTransforms(tempSp, editor.previewTick / 60, 'start');
+        const transforms = evaluateDynamicCellTransforms(tempSp, editor.previewElapsedSec || 0, 'start');
         for (const tr of transforms) {
           if (!tr.show || tr.opacity <= 0.01) continue;
           const dim = (editor.frameDims && editor.frameDims[tr.index]) || { w: editor.w, h: editor.h };
@@ -13173,8 +13343,29 @@
         return;
       }
 
-      const fps = Math.max(1, editor.previewFps || 8);
-      const step = Math.floor(editor.previewTick / Math.max(1, Math.round(60 / fps)));
+      // Continuous phase step: changing FPS smoothly changes future speed without jumping to a different frame!
+      if (
+        ((editor.type === 'thing' && editor.subtype === 'Thing in Front') ||
+         (editor.type === 'big_thing' && editor.subtype === 'Back + Front')) &&
+        editor.frames.length >= 2
+      ) {
+        const dim0 = (editor.frameDims && editor.frameDims[0]) || { w: editor.w, h: editor.h };
+        const scale = Math.max(1, Math.min(Math.floor((W - 8) / dim0.w), Math.floor((H - 8) / dim0.h)));
+        const dw = dim0.w * scale;
+        const dh = dim0.h * scale;
+        const dx = Math.round((W - dw) / 2);
+        const dy = Math.round((H - dh) / 2);
+        if (editor.frames[0]) {
+          blitBufferToCtx(previewCtx, editor.frames[0], dim0.w, dim0.h, dx, dy, dw, dh);
+        }
+        const dim1 = (editor.frameDims && editor.frameDims[1]) || dim0;
+        if (editor.frames[1]) {
+          blitBufferToCtx(previewCtx, editor.frames[1], dim1.w, dim1.h, dx, dy, dw, dh);
+        }
+        return;
+      }
+
+      const step = Math.floor(editor.previewPhase || 0);
       let fIdx = editor.activeFrame;
       let flipPreviewX = false;
 
@@ -13298,7 +13489,8 @@
         editor.editingId = duplicate ? null : existing.id;
         editor.name = duplicate ? `${existing.name} Copy` : existing.name;
         editor.type = existing.type === 'furry' ? 'thing' : existing.type;
-        editor.subtype = existing.type === 'furry' ? 'Furry' : (existing.subtype || getTypeSpec(editor.type).subtypes[0]);
+        const rawSub = existing.type === 'furry' ? 'Furry' : (existing.subtype || getTypeSpec(editor.type).subtypes[0]);
+        editor.subtype = (editor.type === 'thing' && rawSub === 'Falling Thing') ? 'Thing' : rawSub;
         editor.poseType = existing.poseType || 'none';
         editor.surfaceType = existing.surfaceType || 'auto';
         editor.solidLayer = existing.solidLayer || 'over';
@@ -13336,8 +13528,22 @@
             editor.frameStates = filteredIndices.map(i => editor.frameStates[i]);
           }
         }
+        const fixedCount = getFixedCelCountForType(editor.type, editor.subtype);
+        if (fixedCount === 1 && editor.frames.length > 1) {
+          editor.frames = [editor.frames[0]];
+          editor.frameDims = [editor.frameDims[0] || { w: editor.w, h: editor.h }];
+          editor.frameStates = ['Cell 1'];
+        } else if (fixedCount === 2 && editor.frames.length !== 2) {
+          const f0 = editor.frames[0] || new Uint8ClampedArray(editor.w * editor.h * 4);
+          const f1 = editor.frames[1] || new Uint8ClampedArray(editor.w * editor.h * 4);
+          editor.frames = [f0, f1];
+          editor.frameDims = [{ w: editor.w, h: editor.h }, { w: editor.w, h: editor.h }];
+          editor.frameStates = ['Back Cell', 'Front Cell'];
+        }
         editor.activeFrame = 0;
         editor.previewFps = existing.animFps || 8;
+        editor.previewPhase = 0;
+        editor.previewElapsedSec = 0;
         editor.previewLoopMode = existing.loopMode || 'loop';
         editor.stateFps = existing.stateFps ? { ...DEFAULT_BODY_STATE_FPS, ...existing.stateFps } : { ...DEFAULT_BODY_STATE_FPS };
       } else {
@@ -13368,6 +13574,8 @@
         editor.frameStates = ['Cell 1'];
         editor.activeFrame = 0;
         editor.previewFps = 8;
+        editor.previewPhase = 0;
+        editor.previewElapsedSec = 0;
         editor.previewLoopMode = 'loop';
         editor.stateFps = { ...DEFAULT_BODY_STATE_FPS };
       }
@@ -13436,7 +13644,10 @@
       }
 
       const id = targetEditingId || ('sp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
-      const thumb = createThumbnailDataUrl(editor.frames, editor.w, editor.h, editor.frameDims);
+      const isBackFrontComposite =
+        (editor.type === 'thing' && editor.subtype === 'Thing in Front') ||
+        (editor.type === 'big_thing' && editor.subtype === 'Back + Front');
+      const thumb = createThumbnailDataUrl(editor.frames, editor.w, editor.h, editor.frameDims, isBackFrontComposite);
 
       const spriteData = {
         id,
@@ -14243,6 +14454,10 @@
 
     // Cel Strip Frame Management Buttons
     document.getElementById('add-frame-btn').addEventListener('click', () => {
+      if (isSingleCelLockedType(editor.type)) {
+        sfx.buzzer();
+        return;
+      }
       commitMarqueeSelection();
       pushEditorUndo();
       const nextBuf = new Uint8ClampedArray(editor.w * editor.h * 4);
@@ -14257,6 +14472,10 @@
     });
 
     document.getElementById('del-frame-btn').addEventListener('click', () => {
+      if (isSingleCelLockedType(editor.type)) {
+        sfx.buzzer();
+        return;
+      }
       commitMarqueeSelection();
       pushEditorUndo();
       if (editor.frames.length <= 1) {
@@ -14281,7 +14500,9 @@
       const i = editor.activeFrame;
       [editor.frames[i - 1], editor.frames[i]] = [editor.frames[i], editor.frames[i - 1]];
       [editor.frameDims[i - 1], editor.frameDims[i]] = [editor.frameDims[i], editor.frameDims[i - 1]];
-      [editor.frameStates[i - 1], editor.frameStates[i]] = [editor.frameStates[i], editor.frameStates[i - 1]];
+      if (!(editor.type === 'thing' && editor.subtype === 'Thing in Front')) {
+        [editor.frameStates[i - 1], editor.frameStates[i]] = [editor.frameStates[i], editor.frameStates[i - 1]];
+      }
       editor.activeFrame--;
       renderFrameTabs();
       renderPaintCanvas();
@@ -14294,7 +14515,9 @@
       const i = editor.activeFrame;
       [editor.frames[i + 1], editor.frames[i]] = [editor.frames[i], editor.frames[i + 1]];
       [editor.frameDims[i + 1], editor.frameDims[i]] = [editor.frameDims[i], editor.frameDims[i + 1]];
-      [editor.frameStates[i + 1], editor.frameStates[i]] = [editor.frameStates[i], editor.frameStates[i + 1]];
+      if (!(editor.type === 'thing' && editor.subtype === 'Thing in Front')) {
+        [editor.frameStates[i + 1], editor.frameStates[i]] = [editor.frameStates[i], editor.frameStates[i + 1]];
+      }
       editor.activeFrame++;
       renderFrameTabs();
       renderPaintCanvas();
@@ -14455,11 +14678,11 @@
       pushEditorUndo();
 
       const fitPaste = document.getElementById('auto-resize-paste')?.checked;
-      // Check if this is a multi-frame horizontal spritesheet strip
+      // Check if this is a multi-frame horizontal spritesheet strip (disabled for 1-cel locked THING subtypes)
       const isMultipleOfW = img.width > editor.w && (img.width % editor.w === 0) && img.height === editor.h;
       const isSquareStrip = img.width >= img.height * 2 && (img.width % img.height === 0);
 
-      if (isMultipleOfW || isSquareStrip) {
+      if (getFixedCelCountForType(editor.type, editor.subtype) !== 1 && (isMultipleOfW || isSquareStrip)) {
         editor.lastPastedImage = img;
         const frameW = isMultipleOfW ? editor.w : img.height;
         const count = Math.floor(img.width / frameW);
@@ -15270,7 +15493,8 @@
 
     function deserializeSprite(raw) {
       const type = raw.type === 'furry' ? 'thing' : (raw.type || 'solid');
-      const subtype = raw.type === 'furry' ? 'Furry' : (raw.subtype || getTypeSpec(type).subtypes[0]);
+      const rawSub = raw.type === 'furry' ? 'Furry' : (raw.subtype || getTypeSpec(type).subtypes[0]);
+      const subtype = (type === 'thing' && rawSub === 'Falling Thing') ? 'Thing' : rawSub;
       const w = raw.w || 19;
       const h = raw.h || 19;
       const rawFrames = Array.isArray(raw.frames) ? raw.frames : [];
@@ -15286,7 +15510,19 @@
       let finalFrames = frames;
       let finalDims = frameDims;
       let finalStates = Array.isArray(raw.frameStates) ? [...raw.frameStates] : undefined;
-      if (type === 'body' && subtype === 'Body' && Array.isArray(finalStates) && finalFrames.length > 1) {
+      if (type === 'thing') {
+        if (subtype === 'Thing in Front') {
+          const f0 = finalFrames[0] || new Uint8ClampedArray(w * h * 4);
+          const f1 = finalFrames[1] || new Uint8ClampedArray(w * h * 4);
+          finalFrames = [f0, f1];
+          finalDims = [{ w, h }, { w, h }];
+          finalStates = ['Back Cell', 'Front Cell'];
+        } else if (finalFrames.length > 1) {
+          finalFrames = [finalFrames[0]];
+          finalDims = [finalDims[0] || { w, h }];
+          finalStates = ['Cell 1'];
+        }
+      } else if (type === 'body' && subtype === 'Body' && Array.isArray(finalStates) && finalFrames.length > 1) {
         const keep = finalStates
           .map((st, idx) => (String(st).toLowerCase() === 'create' ? -1 : idx))
           .filter(idx => idx !== -1);
@@ -15296,7 +15532,8 @@
           finalStates = keep.map(i => finalStates[i]);
         }
       }
-      const thumb = raw.thumbnail || createThumbnailDataUrl(finalFrames, w, h, finalDims);
+      const isBackFront = (type === 'thing' && subtype === 'Thing in Front') || (type === 'big_thing' && subtype === 'Back + Front');
+      const thumb = raw.thumbnail || createThumbnailDataUrl(finalFrames, w, h, finalDims, isBackFront);
       return {
         ...raw,
         type,
@@ -16476,7 +16713,7 @@
 
       renderWorld();
       if (editor.isOpen) {
-        renderEditorLivePreview();
+        renderEditorLivePreview(dt);
       }
       requestAnimationFrame(engineLoop);
     }

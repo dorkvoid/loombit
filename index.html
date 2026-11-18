@@ -1008,7 +1008,7 @@
         <!-- Center Drawing Surface (Grab-and-Drag Panning, No Scrollbars) -->
         <div id="paint-stage" class="flex-1 bg-[#121215] flex flex-col items-center justify-center relative p-4 overflow-hidden select-none">
           <!-- Floating Color / Hue / Saturation / Opacity FX Popover -->
-          <div id="color-fx-popover" class="hidden studio-panel absolute top-11 left-3 z-30 w-72 p-3 rounded-sm flex-col gap-2.5 text-[10px] overflow-hidden">
+          <div id="color-fx-popover" class="hidden studio-panel absolute top-11 left-3 z-30 w-[348px] p-3 rounded-sm flex-col gap-2.5 text-[10px] overflow-hidden">
             <div class="flex items-center justify-between border-b border-[#282a36] pb-1.5">
               <span class="text-amber-300 font-semibold tracking-wide">COLOR & OPACITY FX</span>
               <button id="color-fx-close-btn" class="ase-btn px-1.5 py-0.5 text-[9px] text-zinc-400 hover:text-white">X</button>
@@ -1044,38 +1044,65 @@
               <input id="fx-alpha-slider" type="range" min="0" max="200" value="100" class="flex-1 min-w-0" />
               <span id="fx-alpha-label" class="w-11 shrink-0 text-right mono text-zinc-200">100%</span>
             </div>
-            <!-- Replace Specific Color (Manyland / Aseprite Color Replacement) -->
-            <div class="flex flex-col gap-1.5 pt-1.5 border-t border-[#282a36] w-full">
+            <!-- Aseprite-Style Replace Color (Live Preview + Canvas Eyedropper Pickers for From & To) -->
+            <div class="flex flex-col gap-2 pt-2 border-t border-[#282a36] w-full">
+              <div class="flex items-center justify-between">
+                <span class="text-zinc-200 font-semibold text-[9px] tracking-wide">REPLACE COLOR</span>
+                <span id="fx-pick-hint" class="text-[8px] text-sky-300">Click eyedropper then click canvas</span>
+              </div>
               <div class="flex items-center justify-between gap-1.5 w-full">
-                <span class="text-zinc-300 shrink-0 text-[9px]">Replace</span>
-                <div class="flex items-center gap-1">
-                  <button id="fx-pick-from-btn" type="button" title="Click a pixel on the canvas to select the color to replace" class="ase-btn px-1.5 py-0.5 text-[9px] text-sky-300">Pick</button>
-                  <input id="fx-replace-from" type="color" value="#ffffff" title="Color to Replace (Source)" class="w-5 h-5 bg-transparent border border-[#3f3f4a] rounded-xs cursor-pointer p-0 shrink-0" />
-                  <span class="text-zinc-500 text-[9px]">-&gt;</span>
-                  <input id="fx-replace-to" type="color" value="#3b82f6" title="New Replacement Color (Target)" class="w-5 h-5 bg-transparent border border-[#3f3f4a] rounded-xs cursor-pointer p-0 shrink-0" />
-                  <button id="fx-use-brush-to-btn" type="button" title="Use current active brush color as Target color" class="ase-btn px-1.5 py-0.5 text-[9px] text-zinc-300">Brush</button>
-                  <button id="fx-replace-btn" type="button" title="Replace Source color with Target color" class="ase-btn-primary px-2 py-0.5 text-[9px] font-semibold">Swap</button>
+                <!-- FROM Color Box + Eyedropper -->
+                <div class="flex items-center gap-1 flex-1 min-w-0 bg-[#101116] border border-[#2e303e] rounded-xs p-1">
+                  <span class="text-[8px] text-zinc-400 shrink-0">From</span>
+                  <div class="relative w-5 h-5 rounded-xs border border-[#464a5e] overflow-hidden shrink-0 checkerboard" title="Click to choose From color">
+                    <div id="fx-from-swatch" class="w-full h-full" style="background: transparent;"></div>
+                    <input id="fx-replace-from" type="color" value="#ffffff" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                  </div>
+                  <span id="fx-from-hex" class="text-[8px] mono text-zinc-300 truncate flex-1">None</span>
+                  <button id="fx-pick-from-btn" type="button" title="Pick 'From' color directly from the canvas" class="ase-btn p-1 text-sky-300 shrink-0 flex items-center justify-center">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/></svg>
+                  </button>
+                </div>
+
+                <button id="fx-swap-from-to-btn" type="button" title="Swap From and To colors" class="ase-btn px-1.5 py-1 text-[9px] text-zinc-300 shrink-0 mono">&lt;-&gt;</button>
+
+                <!-- TO Color Box + Eyedropper -->
+                <div class="flex items-center gap-1 flex-1 min-w-0 bg-[#101116] border border-[#2e303e] rounded-xs p-1">
+                  <span class="text-[8px] text-zinc-400 shrink-0">To</span>
+                  <div class="relative w-5 h-5 rounded-xs border border-[#464a5e] overflow-hidden shrink-0 checkerboard" title="Click to choose To color">
+                    <div id="fx-to-swatch" class="w-full h-full" style="background: #3b82f6;"></div>
+                    <input id="fx-replace-to" type="color" value="#3b82f6" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                  </div>
+                  <span id="fx-to-hex" class="text-[8px] mono text-zinc-300 truncate flex-1">#3B82F6</span>
+                  <button id="fx-pick-to-btn" type="button" title="Pick 'To' color from the canvas or palette" class="ase-btn p-1 text-amber-300 shrink-0 flex items-center justify-center">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/></svg>
+                  </button>
                 </div>
               </div>
-              <div class="flex items-center gap-1 flex-wrap min-h-[18px] bg-[#101116] border border-[#262834] rounded-xs px-1.5 py-1" id="fx-sprite-colors-bar" title="Click any color from your sprite to select it as the color to replace">
-                <span class="text-[8px] text-zinc-500">Sprite colors:</span>
+
+              <!-- Tolerance Slider -->
+              <div class="flex items-center gap-2 w-full">
+                <span class="w-14 text-zinc-400 shrink-0 text-[9px]">Tolerance</span>
+                <input id="fx-replace-tolerance" type="range" min="0" max="128" value="0" class="flex-1 min-w-0" />
+                <span id="fx-replace-tol-label" class="w-11 shrink-0 text-right mono text-zinc-300 text-[9px]">0</span>
               </div>
             </div>
-            <!-- Scope & Actions -->
-            <div class="flex items-center justify-between pt-1.5 border-t border-[#282a36]">
-              <div class="flex items-center gap-1.5">
-                <label class="flex items-center gap-1 text-[9px] text-zinc-300 cursor-pointer">
+
+            <!-- Scope & Actions (Two clean rows so buttons never clip) -->
+            <div class="flex flex-col gap-2 pt-2 border-t border-[#282a36] w-full">
+              <div class="flex items-center justify-between gap-2 w-full">
+                <label class="flex items-center gap-1.5 text-[9px] text-zinc-300 cursor-pointer shrink-0">
                   <input id="fx-all-cels-toggle" type="checkbox" class="accent-blue-500" />
-                  <span>All Cels</span>
+                  <span class="whitespace-nowrap">All Cels</span>
                 </label>
-                <div class="flex items-center gap-1 bg-[#121318] border border-[#2e303e] rounded-xs px-1 py-0.5">
-                  <input id="fx-outline-color" type="color" value="#000000" title="Outline Color (Defaults to Active Brush Color)" class="w-4 h-4 bg-transparent border-0 cursor-pointer p-0 shrink-0" />
-                  <button id="fx-outline-btn" type="button" title="Add 1px Outline (Ctrl+Z to Undo)" class="ase-btn px-1.5 py-0.5 text-[9px] text-sky-300">+Outline</button>
+                <div class="flex items-center gap-1 bg-[#121318] border border-[#2e303e] rounded-xs px-1.5 py-0.5 shrink-0">
+                  <input id="fx-outline-color" type="color" value="#000000" title="Outline Color" class="w-4 h-4 bg-transparent border-0 cursor-pointer p-0 shrink-0" />
+                  <button id="fx-outline-btn" type="button" title="Add 1px Outline (Ctrl+Z to Undo)" class="ase-btn px-2 py-0.5 text-[9px] text-sky-300 whitespace-nowrap">+Outline</button>
                 </div>
               </div>
-              <div class="flex items-center gap-1.5">
-                <button id="fx-reset-btn" class="ase-btn px-2 py-0.5 text-[9px] text-zinc-300">Reset</button>
-                <button id="fx-apply-btn" class="ase-btn-primary px-2.5 py-0.5 text-[9px] font-semibold">Apply</button>
+              <div class="flex items-center justify-end gap-1.5 w-full">
+                <button id="fx-reset-btn" type="button" class="ase-btn px-3 py-1 text-[9px] text-zinc-300">Reset</button>
+                <button id="fx-apply-btn" type="button" class="ase-btn-primary px-4 py-1 text-[9px] font-semibold">Apply</button>
               </div>
             </div>
           </div>
@@ -2129,7 +2156,9 @@
       panStartMouse: { x: 0, y: 0 },
       panStartOffset: { x: 0, y: 0 },
       fxSession: null,
-      fxPickingFromColor: false
+      fxPickingMode: null,    // 'from' | 'to' | null
+      fxReplaceActive: false,
+      hasUnsavedChanges: false
     };
 
     const DEFAULT_BODY_STATE_FPS = {
@@ -3840,14 +3869,8 @@
         }`;
         btn.style.backgroundColor = hex;
         btn.addEventListener('click', () => {
-          if (editor.fxPickingFromColor) {
-            const fxFromInput = document.getElementById('fx-replace-from');
-            if (fxFromInput) fxFromInput.value = hex;
-            editor.fxPickingFromColor = false;
-            const pickBtn = document.getElementById('fx-pick-from-btn');
-            if (pickBtn) pickBtn.classList.remove('active');
-            renderFxSpriteColorsBar();
-            updatePaintCanvasCursor();
+          if (editor.fxPickingMode) {
+            setFxReplaceColorEndpoint(editor.fxPickingMode, hex, true);
             return;
           }
           if (editor.tool === 'eraser') selectTool('pencil');
@@ -12934,6 +12957,8 @@
       });
       if (editor.undoStack.length > 50) editor.undoStack.shift();
       editor.redoStack = [];
+      editor.hasUnsavedChanges = true;
+      scheduleForgeDraftSave();
     }
 
     function restoreEditorSnapshot(snap) {
@@ -12946,6 +12971,7 @@
       populateCelStateDropdown();
       renderFrameTabs();
       renderPaintCanvas();
+      scheduleForgeDraftSave();
     }
 
     function undoEditor() {
@@ -13081,7 +13107,7 @@
         return;
       }
       // Shift held (in Pencil, Eraser, or Fill) or FX Replace Pick mode activates Eyedropper cursor
-      if (editor.fxPickingFromColor || editor.tool === 'picker' || (isShift && ['pencil', 'eraser', 'fill'].includes(editor.tool) && !editor.isDrawing)) {
+      if (editor.fxPickingMode || editor.tool === 'picker' || (isShift && ['pencil', 'eraser', 'fill'].includes(editor.tool) && !editor.isDrawing)) {
         paintCanvas.style.cursor = EYEDROPPER_CURSOR;
         return;
       }
@@ -13321,8 +13347,8 @@
         }
       }
     }
-
-    function replaceColorInBuffer(buf, tr, tg, tb, ta, fillR, fillG, fillB, fillA) {
+    function replaceColorInBuffer(buf, tr, tg, tb, ta, fillR, fillG, fillB, fillA, tolerance = 4) {
+      const tol = Math.max(0, tolerance);
       for (let i = 0; i < buf.length; i += 4) {
         if (ta === 0 && buf[i + 3] === 0) {
           buf[i] = fillR;
@@ -13332,9 +13358,9 @@
         } else if (
           ta > 0 &&
           buf[i + 3] > 0 &&
-          Math.abs(buf[i] - tr) <= 4 &&
-          Math.abs(buf[i + 1] - tg) <= 4 &&
-          Math.abs(buf[i + 2] - tb) <= 4
+          Math.abs(buf[i] - tr) <= tol &&
+          Math.abs(buf[i + 1] - tg) <= tol &&
+          Math.abs(buf[i + 2] - tb) <= tol
         ) {
           buf[i] = fillR;
           buf[i + 1] = fillG;
@@ -14006,6 +14032,7 @@
       editor.panX = 0;
       editor.panY = 0;
       editor.canvasZoom = 0;
+      editor.hasUnsavedChanges = Boolean(duplicate);
 
       if (existing) {
         editor.editingId = duplicate ? null : existing.id;
@@ -14143,18 +14170,23 @@
       editorModal.classList.add('open');
       applyEditorCreationType(editor.type, true, false);
       updatePaintCanvasCursor();
+      scheduleForgeDraftSave();
       setTimeout(() => {
         setupPaintCanvasSize();
         renderPaintCanvas();
       }, 20);
     }
 
-    function closeSpriteEditor() {
+    function closeSpriteEditor(clearDraft = true) {
       if (editor.fxSession) {
         closeColorFxPopover(true);
       }
       commitMarqueeSelection();
       editor.isOpen = false;
+      editor.hasUnsavedChanges = false;
+      if (clearDraft) {
+        clearForgeDraftFromStorage();
+      }
       editorModal.classList.remove('open');
       dynamicCodePopup.classList.add('hidden');
       dynamicCodePopup.classList.remove('flex');
@@ -14237,13 +14269,14 @@
       rebuildSpriteLookup();
       equipOrSelectSprite(savedRef, true);
       updateSpriteAcrossSavedWorlds(savedRef);
+      clearForgeDraftFromStorage();
       saveAutoBackup();
       sfx.createSuccess();
-      closeSpriteEditor();
+      closeSpriteEditor(true);
     }
 
     document.getElementById('open-create-btn').addEventListener('click', () => openSpriteEditor(null));
-    document.getElementById('cancel-editor-btn').addEventListener('click', closeSpriteEditor);
+    document.getElementById('cancel-editor-btn').addEventListener('click', () => closeSpriteEditor(true));
     document.getElementById('save-sprite-btn').addEventListener('click', () => saveCurrentSprite(false));
     const saveAsNewSpriteBtn = document.getElementById('save-as-new-sprite-btn');
     if (saveAsNewSpriteBtn) {
@@ -14334,20 +14367,15 @@
       const W = editor.w;
       const H = editor.h;
 
-      // FX Replace Color Eyedropper Pick Mode
-      if (editor.fxPickingFromColor) {
+      // Aseprite-style FX Replace Color Eyedropper Pick Mode (Samples from original un-replaced cel so you can pick freely)
+      if (editor.fxPickingMode) {
+        const srcBuf = (editor.fxSession && editor.fxSession[editor.activeFrame]) ? editor.fxSession[editor.activeFrame] : buf;
         const idx = (pt.y * W + pt.x) * 4;
-        if (buf[idx + 3] > 0) {
-          const pickedHex = rgbaToHex(buf[idx], buf[idx + 1], buf[idx + 2]);
-          const fxFromInput = document.getElementById('fx-replace-from');
-          if (fxFromInput) fxFromInput.value = pickedHex;
+        if (srcBuf[idx + 3] > 0) {
+          const pickedHex = rgbaToHex(srcBuf[idx], srcBuf[idx + 1], srcBuf[idx + 2]);
+          setFxReplaceColorEndpoint(editor.fxPickingMode, pickedHex, true);
           sfx.ui(580);
         }
-        editor.fxPickingFromColor = false;
-        const pickBtn = document.getElementById('fx-pick-from-btn');
-        if (pickBtn) pickBtn.classList.remove('active');
-        renderFxSpriteColorsBar();
-        updatePaintCanvasCursor(e);
         return;
       }
 
@@ -14557,11 +14585,9 @@
         const snap = editor.celMoveDrag.snapshot;
         buf.fill(0);
         for (let y = 0; y < H; y++) {
-          const ny = y + dy;
-          if (ny < 0 || ny >= H) continue;
+          const ny = ((y + dy) % H + H) % H;
           for (let x = 0; x < W; x++) {
-            const nx = x + dx;
-            if (nx < 0 || nx >= W) continue;
+            const nx = ((x + dx) % W + W) % W;
             const sIdx = (y * W + x) * 4;
             const dIdx = (ny * W + nx) * 4;
             buf[dIdx] = snap[sIdx];
@@ -14934,11 +14960,9 @@
       const copy = new Uint8ClampedArray(buf);
       buf.fill(0);
       for (let y = 0; y < H; y++) {
-        const ny = y + dy;
-        if (ny < 0 || ny >= H) continue;
+        const ny = ((y + dy) % H + H) % H;
         for (let x = 0; x < W; x++) {
-          const nx = x + dx;
-          if (nx < 0 || nx >= W) continue;
+          const nx = ((x + dx) % W + W) % W;
           const sIdx = (y * W + x) * 4;
           const dIdx = (ny * W + nx) * 4;
           buf[dIdx] = copy[sIdx];
@@ -15508,6 +15532,63 @@
     const fxTintSlider = document.getElementById('fx-tint-slider');
     const fxAlphaSlider = document.getElementById('fx-alpha-slider');
     const fxAllCelsToggle = document.getElementById('fx-all-cels-toggle');
+    const fxReplaceFromInput = document.getElementById('fx-replace-from');
+    const fxReplaceToInput = document.getElementById('fx-replace-to');
+    const fxReplaceTolSlider = document.getElementById('fx-replace-tolerance');
+    const fxReplaceTolLabel = document.getElementById('fx-replace-tol-label');
+    const fxFromSwatch = document.getElementById('fx-from-swatch');
+    const fxToSwatch = document.getElementById('fx-to-swatch');
+    const fxFromHexLabel = document.getElementById('fx-from-hex');
+    const fxToHexLabel = document.getElementById('fx-to-hex');
+    const fxPickFromBtn = document.getElementById('fx-pick-from-btn');
+    const fxPickToBtn = document.getElementById('fx-pick-to-btn');
+    const fxPickHint = document.getElementById('fx-pick-hint');
+
+    function syncFxReplaceEndpointUI() {
+      const fromHex = (fxReplaceFromInput?.value || '#ffffff').toUpperCase();
+      const toHex = (fxReplaceToInput?.value || '#3b82f6').toUpperCase();
+      if (fxFromSwatch) {
+        fxFromSwatch.style.background = editor.fxReplaceActive ? fromHex : 'transparent';
+      }
+      if (fxFromHexLabel) {
+        fxFromHexLabel.textContent = editor.fxReplaceActive ? fromHex : 'Pick...';
+      }
+      if (fxToSwatch) fxToSwatch.style.background = toHex;
+      if (fxToHexLabel) fxToHexLabel.textContent = toHex;
+      if (fxPickFromBtn) fxPickFromBtn.classList.toggle('active', editor.fxPickingMode === 'from');
+      if (fxPickToBtn) fxPickToBtn.classList.toggle('active', editor.fxPickingMode === 'to');
+      if (fxPickHint) {
+        if (editor.fxPickingMode === 'from') {
+          fxPickHint.textContent = 'Click a pixel on canvas to pick FROM color';
+          fxPickHint.className = 'text-[8px] text-amber-300 font-semibold';
+        } else if (editor.fxPickingMode === 'to') {
+          fxPickHint.textContent = 'Click canvas or palette to pick TO color';
+          fxPickHint.className = 'text-[8px] text-amber-300 font-semibold';
+        } else if (editor.fxReplaceActive) {
+          fxPickHint.textContent = 'Live preview active — click Apply to commit';
+          fxPickHint.className = 'text-[8px] text-emerald-300';
+        } else {
+          fxPickHint.textContent = 'Click eyedropper then click canvas';
+          fxPickHint.className = 'text-[8px] text-sky-300';
+        }
+      }
+    }
+
+    function setFxReplaceColorEndpoint(which, hexValue, exitPickMode = true) {
+      const clean = (hexValue || '#ffffff').toLowerCase();
+      if (which === 'from' && fxReplaceFromInput) {
+        fxReplaceFromInput.value = clean;
+        editor.fxReplaceActive = true;
+      } else if (which === 'to' && fxReplaceToInput) {
+        fxReplaceToInput.value = clean;
+      }
+      if (exitPickMode) {
+        editor.fxPickingMode = null;
+      }
+      syncFxReplaceEndpointUI();
+      updatePaintCanvasCursor();
+      previewColorFxChanges();
+    }
 
     function resetFxSlidersUI() {
       fxHueSlider.value = 0;
@@ -15515,24 +15596,32 @@
       fxValSlider.value = 0;
       fxTintSlider.value = 0;
       fxAlphaSlider.value = 100;
+      if (fxReplaceTolSlider) fxReplaceTolSlider.value = 0;
+      if (fxReplaceTolLabel) fxReplaceTolLabel.textContent = '0';
+      editor.fxReplaceActive = false;
+      editor.fxPickingMode = null;
       document.getElementById('fx-hue-label').textContent = '0';
       document.getElementById('fx-sat-label').textContent = '0%';
       document.getElementById('fx-val-label').textContent = '0%';
       document.getElementById('fx-tint-label').textContent = '0%';
       document.getElementById('fx-alpha-label').textContent = '100%';
+      syncFxReplaceEndpointUI();
     }
 
     function openColorFxPopover() {
       commitMarqueeSelection();
       editor.fxSession = editor.frames.map(f => new Uint8ClampedArray(f));
-      editor.fxPickingFromColor = false;
       resetFxSlidersUI();
-      const fxToInput = document.getElementById('fx-replace-to');
-      if (fxToInput && editor.color) fxToInput.value = editor.color;
-      renderFxSpriteColorsBar();
+      if (fxReplaceToInput && editor.color) {
+        fxReplaceToInput.value = editor.color;
+      }
+      // Arm the 'From' eyedropper automatically so the user can immediately click any pixel on the canvas just like Aseprite
+      editor.fxPickingMode = 'from';
+      syncFxReplaceEndpointUI();
       colorFxPopover.classList.remove('hidden');
       colorFxPopover.classList.add('flex');
       colorFxBtn.classList.add('active');
+      updatePaintCanvasCursor();
     }
 
     function closeColorFxPopover(revertPreview = true) {
@@ -15542,97 +15631,62 @@
         renderPaintCanvas();
       }
       editor.fxSession = null;
-      editor.fxPickingFromColor = false;
-      const pickBtn = document.getElementById('fx-pick-from-btn');
-      if (pickBtn) pickBtn.classList.remove('active');
+      editor.fxPickingMode = null;
+      editor.fxReplaceActive = false;
+      syncFxReplaceEndpointUI();
       colorFxPopover.classList.add('hidden');
       colorFxPopover.classList.remove('flex');
       colorFxBtn.classList.remove('active');
       updatePaintCanvasCursor();
     }
 
-    function renderFxSpriteColorsBar() {
-      const bar = document.getElementById('fx-sprite-colors-bar');
-      const fxFromInput = document.getElementById('fx-replace-from');
-      if (!bar || !fxFromInput) return;
-      bar.innerHTML = '<span class="text-[8px] text-zinc-400 mr-0.5">From Sprite:</span>';
-
-      const sourceFrames = editor.fxSession || editor.frames;
-      const foundColors = [];
-      const seen = new Set();
-      const scanOrder = [editor.activeFrame, ...sourceFrames.map((_, i) => i)];
-
-      for (const fIdx of scanOrder) {
-        const buf = sourceFrames[fIdx];
-        if (!buf) continue;
-        for (let i = 0; i < buf.length && foundColors.length < 24; i += 4) {
-          if (buf[i + 3] > 20) {
-            const hex = rgbaToHex(buf[i], buf[i + 1], buf[i + 2]).toLowerCase();
-            if (!seen.has(hex)) {
-              seen.add(hex);
-              foundColors.push(hex);
-            }
-          }
-        }
-      }
-
-      if (foundColors.length === 0) {
-        const emptyMsg = document.createElement('span');
-        emptyMsg.className = 'text-[8px] text-zinc-500';
-        emptyMsg.textContent = 'No pixels drawn yet';
-        bar.appendChild(emptyMsg);
-        return;
-      }
-
-      // Default fx-replace-from to the first color in the sprite if current value isn't in the sprite
-      const curFrom = (fxFromInput.value || '').toLowerCase();
-      if (!seen.has(curFrom)) {
-        fxFromInput.value = foundColors[0];
-      }
-
-      foundColors.forEach((hex) => {
-        const isSelected = fxFromInput.value.toLowerCase() === hex;
-        const sw = document.createElement('button');
-        sw.type = 'button';
-        sw.setAttribute('data-tooltip', `Select ${hex.toUpperCase()} as color to replace`);
-        sw.className = `w-4 h-4 rounded-xs border transition-transform ${
-          isSelected ? 'border-white scale-110 ring-1 ring-amber-300' : 'border-black/60 hover:scale-110'
-        }`;
-        sw.style.backgroundColor = hex;
-        sw.addEventListener('click', () => {
-          fxFromInput.value = hex;
-          editor.fxPickingFromColor = false;
-          const pickBtn = document.getElementById('fx-pick-from-btn');
-          if (pickBtn) pickBtn.classList.remove('active');
-          renderFxSpriteColorsBar();
-          updatePaintCanvasCursor();
-        });
-        bar.appendChild(sw);
-      });
-    }
-
-    const fxPickFromBtn = document.getElementById('fx-pick-from-btn');
     if (fxPickFromBtn) {
       fxPickFromBtn.addEventListener('click', () => {
-        editor.fxPickingFromColor = !editor.fxPickingFromColor;
-        fxPickFromBtn.classList.toggle('active', editor.fxPickingFromColor);
+        editor.fxPickingMode = editor.fxPickingMode === 'from' ? null : 'from';
+        syncFxReplaceEndpointUI();
         updatePaintCanvasCursor();
       });
     }
 
-    const fxUseBrushToBtn = document.getElementById('fx-use-brush-to-btn');
-    if (fxUseBrushToBtn) {
-      fxUseBrushToBtn.addEventListener('click', () => {
-        const fxToInput = document.getElementById('fx-replace-to');
-        if (fxToInput && editor.color) {
-          fxToInput.value = editor.color;
-        }
+    if (fxPickToBtn) {
+      fxPickToBtn.addEventListener('click', () => {
+        editor.fxPickingMode = editor.fxPickingMode === 'to' ? null : 'to';
+        syncFxReplaceEndpointUI();
+        updatePaintCanvasCursor();
       });
     }
 
-    document.getElementById('fx-replace-from').addEventListener('input', () => {
-      renderFxSpriteColorsBar();
-    });
+    if (fxReplaceFromInput) {
+      fxReplaceFromInput.addEventListener('input', (e) => {
+        setFxReplaceColorEndpoint('from', e.target.value, true);
+      });
+    }
+
+    if (fxReplaceToInput) {
+      fxReplaceToInput.addEventListener('input', (e) => {
+        setFxReplaceColorEndpoint('to', e.target.value, true);
+      });
+    }
+
+    const fxSwapFromToBtn = document.getElementById('fx-swap-from-to-btn');
+    if (fxSwapFromToBtn) {
+      fxSwapFromToBtn.addEventListener('click', () => {
+        if (!fxReplaceFromInput || !fxReplaceToInput) return;
+        const tmp = fxReplaceFromInput.value;
+        fxReplaceFromInput.value = fxReplaceToInput.value;
+        fxReplaceToInput.value = tmp;
+        editor.fxReplaceActive = true;
+        syncFxReplaceEndpointUI();
+        previewColorFxChanges();
+      });
+    }
+
+    if (fxReplaceTolSlider) {
+      fxReplaceTolSlider.addEventListener('input', (e) => {
+        if (fxReplaceTolLabel) fxReplaceTolLabel.textContent = e.target.value;
+        if (editor.fxReplaceActive) previewColorFxChanges();
+      });
+    }
 
     function previewColorFxChanges() {
       if (!editor.fxSession) {
@@ -15644,6 +15698,9 @@
       const tintAmt = (parseInt(fxTintSlider.value, 10) || 0) / 100;
       const alphaScale = (parseInt(fxAlphaSlider.value, 10) ?? 100) / 100;
       const [tr, tg, tb] = hexToRgba(fxTintColor.value || '#3b82f6');
+      const [repFromR, repFromG, repFromB] = hexToRgba(fxReplaceFromInput?.value || '#ffffff');
+      const [repToR, repToG, repToB] = hexToRgba(fxReplaceToInput?.value || '#3b82f6');
+      const repTol = parseInt(fxReplaceTolSlider?.value || '0', 10) || 0;
 
       document.getElementById('fx-hue-label').textContent = `${hueShift}°`;
       document.getElementById('fx-sat-label').textContent = `${Math.round(satShift * 100)}%`;
@@ -15657,13 +15714,19 @@
           return new Uint8ClampedArray(origBuf);
         }
         const out = new Uint8ClampedArray(origBuf);
+        if (editor.fxReplaceActive) {
+          replaceColorInBuffer(out, repFromR, repFromG, repFromB, 255, repToR, repToG, repToB, 255, repTol);
+        }
         for (let i = 0; i < out.length; i += 4) {
           if (out[i + 3] === 0) continue;
-          let { h, s, v } = rgbToHsv(out[i], out[i + 1], out[i + 2]);
-          h = (h + hueShift + 360) % 360;
-          s = Math.max(0, Math.min(1, s + satShift));
-          v = Math.max(0, Math.min(1, v + valShift));
-          let [nr, ng, nb] = hsvToRgb(h, s, v);
+          let nr = out[i], ng = out[i + 1], nb = out[i + 2];
+          if (hueShift !== 0 || satShift !== 0 || valShift !== 0) {
+            let { h, s, v } = rgbToHsv(nr, ng, nb);
+            h = (h + hueShift + 360) % 360;
+            s = Math.max(0, Math.min(1, s + satShift));
+            v = Math.max(0, Math.min(1, v + valShift));
+            [nr, ng, nb] = hsvToRgb(h, s, v);
+          }
           if (tintAmt > 0) {
             nr = Math.round(nr * (1 - tintAmt) + tr * tintAmt);
             ng = Math.round(ng * (1 - tintAmt) + tg * tintAmt);
@@ -15707,26 +15770,6 @@
         editor.frames = currentTransformed;
       }
       closeColorFxPopover(false);
-      renderFrameTabs();
-      renderPaintCanvas();
-    });
-
-    document.getElementById('fx-replace-btn').addEventListener('click', () => {
-      if (editor.fxSession) {
-        editor.frames = editor.fxSession.map(f => new Uint8ClampedArray(f));
-      }
-      pushEditorUndo();
-      const [sr, sg, sb] = hexToRgba(document.getElementById('fx-replace-from').value);
-      const [tr, tg, tb] = hexToRgba(document.getElementById('fx-replace-to').value);
-      const indices = fxAllCelsToggle.checked
-        ? editor.frames.map((_, i) => i)
-        : [editor.activeFrame];
-      for (const idx of indices) {
-        replaceColorInBuffer(editor.frames[idx], sr, sg, sb, 255, tr, tg, tb, 255);
-      }
-      editor.fxSession = editor.frames.map(f => new Uint8ClampedArray(f));
-      resetFxSlidersUI();
-      renderFxSpriteColorsBar();
       renderFrameTabs();
       renderPaintCanvas();
     });
@@ -16061,7 +16104,156 @@
     const STORAGE_KEY_WORLDS = 'loombit_saved_worlds_v1';
     const STORAGE_KEY_DELETED_SPRITES = 'loombit_deleted_sprites_v1';
     const STORAGE_KEY_ACTIVE_TAB = 'loombit_active_tab_v1';
+    const STORAGE_KEY_FORGE_DRAFT = 'loombit_forge_draft_v1';
     let autoBackupTimer = null;
+    let forgeDraftTimer = null;
+
+    function saveForgeDraftToStorage() {
+      if (!editor.isOpen || !isThisTabActiveSession()) return;
+      const anyPixelsDrawn = editor.frames && editor.frames.some(f => isBufferNonEmpty(f));
+      if (!editor.hasUnsavedChanges && !anyPixelsDrawn && !editor.editingId) return;
+      try {
+        const draft = {
+          savedAt: Date.now(),
+          editingId: editor.editingId || null,
+          name: spriteNameInput.value || editor.name || 'Untitled',
+          type: editor.type,
+          subtype: editor.subtype,
+          poseType: editor.poseType,
+          surfaceType: editor.surfaceType,
+          solidLayer: editor.solidLayer,
+          motionEffect: editor.motionEffect,
+          lightOption: editor.lightOption,
+          lightColor: editor.lightColor,
+          lightAlpha: editor.lightAlpha,
+          lightLayer: editor.lightLayer,
+          envLayer: editor.envLayer,
+          envSpeed: editor.envSpeed,
+          envAlpha: editor.envAlpha,
+          liquidAlpha: editor.liquidAlpha,
+          liquidViscosity: editor.liquidViscosity,
+          furryMode: editor.furryMode,
+          furryFlow: editor.furryFlow,
+          code: editor.code,
+          viewableKind: editor.viewableKind,
+          viewableText: editor.viewableText,
+          viewableImage: editor.viewableImage,
+          viewableVideo: editor.viewableVideo,
+          w: editor.w,
+          h: editor.h,
+          activeFrame: editor.activeFrame,
+          previewFps: editor.previewFps,
+          previewLoopMode: editor.previewLoopMode,
+          stateFps: { ...editor.stateFps },
+          frameDims: editor.frameDims.map(d => ({ ...d })),
+          frameStates: [...editor.frameStates],
+          frames: editor.frames.map(f => encodeFrameToBase64(f))
+        };
+        localStorage.setItem(STORAGE_KEY_FORGE_DRAFT, JSON.stringify(draft));
+      } catch (err) {}
+    }
+
+    function scheduleForgeDraftSave() {
+      if (!editor.isOpen) return;
+      if (forgeDraftTimer) clearTimeout(forgeDraftTimer);
+      forgeDraftTimer = setTimeout(() => {
+        forgeDraftTimer = null;
+        saveForgeDraftToStorage();
+      }, 250);
+    }
+
+    function clearForgeDraftFromStorage() {
+      if (forgeDraftTimer) {
+        clearTimeout(forgeDraftTimer);
+        forgeDraftTimer = null;
+      }
+      try {
+        localStorage.removeItem(STORAGE_KEY_FORGE_DRAFT);
+      } catch (err) {}
+    }
+
+    function restoreForgeDraftFromStorageIfAny() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_FORGE_DRAFT);
+        if (!raw) return false;
+        const draft = JSON.parse(raw);
+        if (!draft || !Array.isArray(draft.frames) || draft.frames.length === 0) return false;
+        const w = draft.w || 19;
+        const h = draft.h || 19;
+        const frameDims = Array.isArray(draft.frameDims) && draft.frameDims.length === draft.frames.length
+          ? draft.frameDims.map(d => ({ w: d.w || w, h: d.h || h }))
+          : draft.frames.map(() => ({ w, h }));
+        const frames = draft.frames.map((f, idx) => {
+          const d = frameDims[idx] || { w, h };
+          return decodeFrameFromSerialized(f, d.w * d.h * 4);
+        });
+        const hasAnyArt = frames.some(f => isBufferNonEmpty(f));
+        if (!hasAnyArt && !draft.code && !draft.viewableText && !draft.viewableImage && !draft.viewableVideo) {
+          clearForgeDraftFromStorage();
+          return false;
+        }
+
+        openSpriteEditor(draft.editingId || null, false);
+        editor.editingId = draft.editingId || null;
+        editor.name = draft.name || 'Restored Creation';
+        spriteNameInput.value = editor.name;
+        editor.type = draft.type || 'solid';
+        editor.subtype = draft.subtype || getTypeSpec(editor.type).subtypes[0];
+        editor.poseType = draft.poseType || 'none';
+        editor.surfaceType = draft.surfaceType || 'auto';
+        editor.solidLayer = draft.solidLayer || 'over';
+        editor.motionEffect = draft.motionEffect || 'none';
+        editor.lightOption = draft.lightOption || 'Standard';
+        editor.lightColor = draft.lightColor || '#ffe896';
+        editor.lightAlpha = draft.lightAlpha ?? 45;
+        editor.lightLayer = draft.lightLayer || 'sky';
+        editor.envLayer = draft.envLayer || 'sky';
+        editor.envSpeed = draft.envSpeed ?? 100;
+        editor.envAlpha = draft.envAlpha ?? 80;
+        editor.liquidAlpha = draft.liquidAlpha ?? 65;
+        editor.liquidViscosity = draft.liquidViscosity || 'normal';
+        editor.furryMode = draft.furryMode || 'many';
+        editor.furryFlow = draft.furryFlow ?? 55;
+        editor.code = draft.code || '';
+        dynamicCodeTextarea.value = editor.code;
+        dynamicCodeInput.value = editor.code;
+        editor.viewableKind = draft.viewableKind || 'text';
+        editor.viewableText = draft.viewableText || '';
+        editor.viewableImage = draft.viewableImage || '';
+        editor.viewableVideo = draft.viewableVideo || '';
+        editor.w = w;
+        editor.h = h;
+        editor.frames = frames;
+        editor.frameDims = frameDims;
+        editor.frameStates = Array.isArray(draft.frameStates) ? [...draft.frameStates] : ['Cell 1'];
+        editor.activeFrame = Math.max(0, Math.min(frames.length - 1, draft.activeFrame || 0));
+        editor.previewFps = draft.previewFps || 8;
+        editor.previewLoopMode = draft.previewLoopMode || 'loop';
+        if (draft.stateFps) editor.stateFps = { ...DEFAULT_BODY_STATE_FPS, ...draft.stateFps };
+        editor.hasUnsavedChanges = true;
+        document.getElementById('preview-fps-input').value = editor.previewFps;
+        applyEditorCreationType(editor.type, true, false);
+        setTimeout(() => {
+          setupPaintCanvasSize();
+          renderPaintCanvas();
+        }, 30);
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+
+    window.addEventListener('pagehide', () => {
+      if (editor.isOpen) {
+        saveForgeDraftToStorage();
+      }
+    });
+
+    window.addEventListener('beforeunload', () => {
+      if (editor.isOpen) {
+        saveForgeDraftToStorage();
+      }
+    });
 
     // Cross-Tab Session Lock: Prevents a stale background tab from overwriting newer work in localStorage
     const CURRENT_TAB_ID = 'tab_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
@@ -17490,6 +17682,7 @@
       updateBrushBar();
       renderSidebarSprites();
       updateTopWorldLabel();
+      restoreForgeDraftFromStorageIfAny();
 
       const bootScreen = document.getElementById('boot-loading-screen');
       const bootFill = document.getElementById('boot-progress-fill');

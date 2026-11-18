@@ -1794,7 +1794,7 @@
       },
       {
         id: 'harmful', name: 'HARMFUL', category: 'solid', defaultW: 19, defaultH: 19,
-        frames: ['Cell 1', 'Cell 2'],
+        frames: ['Cell 1'],
         subtypes: ['Harmful', 'Changing Harmful', 'Deadly', 'Changing Deadly', 'Deadly Emerging']
       },
       {
@@ -1983,6 +1983,7 @@
         invulnTimer: 0,
         hurtFlash: 0,
         regenDelay: 0,
+        hpBarTimer: 0,
         respawnAnim: 1,       // Smooth scale-in on spawn/respawn
         onGround: false,
         onLadder: false,
@@ -4384,6 +4385,9 @@
       if (typeId === 'thing') {
         return subtype === 'Thing in Front' ? 2 : 1;
       }
+      if (typeId === 'harmful' && (subtype === 'Harmful' || subtype === 'Deadly')) {
+        return 1;
+      }
       return null;
     }
 
@@ -5195,6 +5199,8 @@
       p.displayHp = p.maxHp;
       p.invulnTimer = 30;
       p.hurtFlash = 0;
+      p.regenDelay = 0;
+      p.hpBarTimer = 0;
       p.deadTimer = 0;
       p.deathRot = 0;
       p.deathVr = 0;
@@ -5529,7 +5535,30 @@
 
       p.deathOriginX = p.x;
       p.deathOriginY = p.y;
+
+      // Non-deadly Harmful blocks slowly hurt the player over multiple ticks before killing
+      if (!isInstantDeadly && !isFallDeath) {
+        const dmg = Math.max(1, amount || 20);
+        p.hp = Math.max(0, p.hp - dmg);
+        p.regenDelay = 160;
+        p.hpBarTimer = 210;
+        p.hurtFlash = 12;
+
+        if (p.hp > 0) {
+          p.invulnTimer = 24;
+          sfx.hurt();
+          spawnBloodParticles(p.x + p.w / 2, p.y + p.h / 2, 7);
+          p.squashX = 1.18;
+          p.squashY = 0.84;
+          if (p.onGround) {
+            p.vy = -1.9;
+          }
+          return;
+        }
+      }
+
       p.hp = 0;
+      p.hpBarTimer = 0;
       p.motionBarOpen = false;
       p.activeMotionId = null;
       p.grappleTarget = null;
@@ -6532,7 +6561,16 @@
       if (p.hurtFlash > 0) p.hurtFlash--;
       if (p.jumpCooldown > 0) p.jumpCooldown--;
       if (p.respawnAnim < 1) p.respawnAnim = Math.min(1, p.respawnAnim + 0.12);
-      p.displayHp += (p.hp - p.displayHp) * 0.25;
+      if (p.deadTimer === 0) {
+        if (p.regenDelay > 0) {
+          p.regenDelay--;
+        } else if (p.hp < p.maxHp) {
+          p.hp = Math.min(p.maxHp, p.hp + 0.35);
+          p.hpBarTimer = Math.max(p.hpBarTimer || 0, 75);
+        }
+        if (p.hpBarTimer > 0) p.hpBarTimer--;
+      }
+      p.displayHp += (p.hp - p.displayHp) * 0.18;
 
       // Physics-object death fall: player tumbles off the bottom of the screen while camera stays still
       if (p.deadTimer > 0) {
@@ -7586,8 +7624,9 @@
             if (!isTargetWiredByAnyActivator(cell) && cell.subtype === 'Deadly Emerging' && harmFrames > 1 && (harmStep % harmFrames === 0)) {
               continue;
             }
+            cell._interactTick = 14;
             const isDeadly = (cell.subtype && cell.subtype.includes('Deadly')) || dynAttrs.has('DEADLY');
-            damagePlayer(isDeadly ? 100 : 25, cell.x + cell.w / 2, isDeadly);
+            damagePlayer(isDeadly ? 100 : 20, cell.x + cell.w / 2, isDeadly);
             if (p.deadTimer > 0) return;
           }
         } else {
@@ -10444,7 +10483,12 @@
 
       // Render player here during normal play; on death (p.deadTimer > 0), defer so the ragdoll renders on top of everything!
       if (p.deadTimer === 0) {
+        worldCtx.save();
+        if (p.hurtFlash > 0 && (p.hurtFlash % 4 < 2)) {
+          worldCtx.filter = 'brightness(1.45) sepia(0.8) hue-rotate(-35deg) saturate(3)';
+        }
         renderPlayerAvatarLayer();
+        worldCtx.restore();
       }
 
       // 7.25 Render Solids Over Player (Default for Solids unless set to "Layer: Under Player") + Main Layer Lights/Environments
@@ -10577,16 +10621,38 @@
       }
 
       // Player Overhead Health Bar (Shows smoothly when damaged or regenerating)
-      if (p.displayHp < p.maxHp - 0.5 && p.deadTimer === 0) {
-        const barW = Math.max(26, Math.round(19 * zoom));
-        const barH = 4;
+      const showHealthBar =
+        p.deadTimer === 0 &&
+        (p.hp < p.maxHp - 0.1 || p.displayHp < p.maxHp - 0.25 || (p.hpBarTimer || 0) > 0);
+      if (showHealthBar) {
+        const bodyTopWorldY = getAvatarTopPixelWorldY(p, wornBody, wornWearable, activeMotionSprite);
+        const topScreenY = Math.round(camScreenX !== undefined ? (camScreenY + bodyTopWorldY * zoom) : py);
+        const barW = Math.max(30, Math.round(20 * zoom));
+        const barH = Math.max(4, Math.round(1.6 * zoom));
         const bx = Math.round(px + pw / 2 - barW / 2);
-        const by = Math.round(py - 9);
-        const ratio = Math.max(0, Math.min(1, p.displayHp / p.maxHp));
-        worldCtx.fillStyle = 'rgba(15, 15, 20, 0.85)';
+        const by = Math.round(topScreenY - barH - Math.max(5, Math.round(2.5 * zoom)));
+        const hpRatio = Math.max(0, Math.min(1, p.hp / p.maxHp));
+        const trailRatio = Math.max(hpRatio, Math.min(1, p.displayHp / p.maxHp));
+        const fadeAlpha = (p.hp >= p.maxHp - 0.1 && p.hpBarTimer > 0 && p.hpBarTimer < 30)
+          ? (p.hpBarTimer / 30)
+          : 1;
+
+        worldCtx.save();
+        worldCtx.globalAlpha = fadeAlpha;
+        // Outer dark border & background track
+        worldCtx.fillStyle = 'rgba(9, 9, 11, 0.92)';
         worldCtx.fillRect(bx - 1, by - 1, barW + 2, barH + 2);
-        worldCtx.fillStyle = ratio > 0.5 ? '#22c55e' : (ratio > 0.25 ? '#f59e0b' : '#ef4444');
-        worldCtx.fillRect(bx, by, Math.round(barW * ratio), barH);
+        worldCtx.fillStyle = '#27272a';
+        worldCtx.fillRect(bx, by, barW, barH);
+        // Trailing damage bar
+        if (trailRatio > hpRatio + 0.005) {
+          worldCtx.fillStyle = '#fca5a5';
+          worldCtx.fillRect(bx, by, Math.round(barW * trailRatio), barH);
+        }
+        // Current HP fill
+        worldCtx.fillStyle = hpRatio > 0.5 ? '#22c55e' : (hpRatio > 0.25 ? '#f59e0b' : '#ef4444');
+        worldCtx.fillRect(bx, by, Math.round(barW * hpRatio), barH);
+        worldCtx.restore();
       }
 
       // Floating Damage / Status Texts
@@ -15842,82 +15908,6 @@
       renderPaintCanvas();
     }
 
-    function pasteEditorSelectionOrCel() {
-      if (editor.clipboardSelection && editor.clipboardSelection.data) {
-        commitMarqueeSelection();
-        pushEditorUndo();
-        const cs = editor.clipboardSelection;
-        if (cs.isFullCel || (cs.w === editor.w && cs.h === editor.h && editor.tool !== 'marquee')) {
-          const srcData = (cs.w === editor.w && cs.h === editor.h)
-            ? cs.data
-            : resizeSingleBuffer(cs.data, cs.w, cs.h, editor.w, editor.h);
-          editor.frames[editor.activeFrame].set(srcData.subarray(0, editor.frames[editor.activeFrame].length));
-        } else {
-          selectTool('marquee');
-          editor.marquee = {
-            x: Math.max(0, Math.min(editor.w - cs.w, cs.x || 0)),
-            y: Math.max(0, Math.min(editor.h - cs.h, cs.y || 0)),
-            w: cs.w,
-            h: cs.h,
-            mask: null,
-            floatingData: new Uint8ClampedArray(cs.data)
-          };
-        }
-        renderFrameTabs();
-        renderPaintCanvas();
-        sfx.ui(520);
-      } else if (editor.clipboardBuf) {
-        commitMarqueeSelection();
-        pushEditorUndo();
-        const dst = editor.frames[editor.activeFrame];
-        dst.set(editor.clipboardBuf.subarray(0, dst.length));
-        renderFrameTabs();
-        renderPaintCanvas();
-        sfx.ui(520);
-      }
-    }
-
-    // PNG Import, Spritesheet Strip Slicer, Clipboard PNG & Strip Export
-    function applyImportedImageToEditor(img) {
-      if (!img) return;
-      commitMarqueeSelection();
-      pushEditorUndo();
-
-      const fitPaste = document.getElementById('auto-resize-paste')?.checked;
-      // Check if this is a multi-frame horizontal spritesheet strip (disabled for 1-cel locked THING subtypes)
-      const isMultipleOfW = img.width > editor.w && (img.width % editor.w === 0) && img.height === editor.h;
-      const isSquareStrip = img.width >= img.height * 2 && (img.width % img.height === 0);
-
-      if (getFixedCelCountForType(editor.type, editor.subtype) !== 1 && (isMultipleOfW || isSquareStrip)) {
-        editor.lastPastedImage = img;
-        const frameW = isMultipleOfW ? editor.w : img.height;
-        const count = Math.floor(img.width / frameW);
-        stripNoticeText.textContent = `Spritesheet strip (${img.width}x${img.height}) detected — Slice into ${count} cels?`;
-        stripNoticeBar.classList.remove('hidden');
-        stripNoticeBar.classList.add('flex');
-      } else {
-        stripNoticeBar.classList.add('hidden');
-        stripNoticeBar.classList.remove('flex');
-      }
-
-      if (fitPaste && img.width >= 4 && img.height >= 4 && img.width <= 128 && img.height <= 128) {
-        applyEditorResize(img.width, img.height);
-      }
-
-      const c = document.createElement('canvas');
-      c.width = editor.w;
-      c.height = editor.h;
-      const ctx = c.getContext('2d');
-      ctx.imageSmoothingEnabled = false;
-      const drawW = Math.min(editor.w, img.width);
-      const drawH = Math.min(editor.h, img.height);
-      ctx.drawImage(img, 0, 0, drawW, drawH, 0, 0, drawW, drawH);
-      const imgData = ctx.getImageData(0, 0, editor.w, editor.h).data;
-      editor.frames[editor.activeFrame] = new Uint8ClampedArray(imgData);
-      renderFrameTabs();
-      renderPaintCanvas();
-    }
-
     document.getElementById('slice-strip-btn').addEventListener('click', () => {
       const img = editor.lastPastedImage;
       if (!img) return;
@@ -17089,6 +17079,10 @@
           finalDims = [finalDims[0] || { w, h }];
           finalStates = ['Cell 1'];
         }
+      } else if (type === 'harmful' && (subtype === 'Harmful' || subtype === 'Deadly') && finalFrames.length > 1) {
+        finalFrames = [finalFrames[0]];
+        finalDims = [finalDims[0] || { w, h }];
+        finalStates = ['Cell 1'];
       } else if (type === 'body' && subtype === 'Body' && Array.isArray(finalStates) && finalFrames.length > 1) {
         const keep = finalStates
           .map((st, idx) => (String(st).toLowerCase() === 'create' ? -1 : idx))

@@ -738,7 +738,7 @@
           <!-- Smart Footstep Surface Sound Selector (Auto-detects from name or explicit override) -->
           <select
             id="surface-type-select"
-            title="Footstep Sound Material (Auto-detects grass, sand, metal, stone, mud, wood, snow from name, or choose manually)"
+            title="Footstep Sound Material (Auto-detects grass, sand, metal, stone, mud, wood, snow, glass from name, or choose manually)"
             class="hidden bg-[#222228] border border-[#34343e] rounded-sm px-2 py-1 text-xs text-sky-300 focus:outline-none focus:border-blue-500"
           >
             <option value="auto">Step: Auto</option>
@@ -749,6 +749,7 @@
             <option value="mud">Step: Mud</option>
             <option value="wood">Step: Wood</option>
             <option value="snow">Step: Snow</option>
+            <option value="glass">Step: Glass</option>
             <option value="carpet">Step: Soft</option>
           </select>
 
@@ -1860,7 +1861,7 @@
       {
         id: 'liquid', name: 'LIQUID', category: 'dynamic', defaultW: 19, defaultH: 19,
         frames: ['Cell 1', 'Cell 2'],
-        subtypes: ['Liquid']
+        subtypes: ['Liquid', 'Breathable Liquid', 'Harming Liquid']
       },
       {
         id: 'activator', name: 'ACTIVATOR', category: 'dynamic', defaultW: 19, defaultH: 19,
@@ -1984,11 +1985,15 @@
         hurtFlash: 0,
         regenDelay: 0,
         hpBarTimer: 0,
+        breath: 100,
+        maxBreath: 100,
+        breathBarTimer: 0,
         respawnAnim: 1,       // Smooth scale-in on spawn/respawn
         onGround: false,
         onLadder: false,
         ladderX: null,
         inLiquid: false,
+        liquidKind: 'normal', // 'normal' | 'breathable' | 'harming'
         liquidViscosity: 'normal',
         liquidSurfaceY: null,
         onSlidey: false,
@@ -2851,6 +2856,43 @@
           return;
         }
 
+        if (surface === 'glass') {
+          // Crisp crystalline glass clink with high harmonic partials + short glassy tap
+          const partials = [1480 * footShift, 2320 * footShift, 3480 * footShift];
+          const amps = [0.048, 0.034, 0.022];
+          const durs = [0.055, 0.072, 0.045];
+          partials.forEach((f, idx) => {
+            const osc = this.ctx.createOscillator();
+            const g = this.ctx.createGain();
+            osc.type = idx === 0 ? 'triangle' : 'sine';
+            osc.frequency.setValueAtTime(f, now);
+            osc.frequency.exponentialRampToValueAtTime(f * 0.96, now + durs[idx]);
+            g.gain.setValueAtTime(0.001, now);
+            g.gain.linearRampToValueAtTime(amps[idx], now + 0.003);
+            g.gain.exponentialRampToValueAtTime(0.0005, now + durs[idx]);
+            osc.connect(g);
+            g.connect(this.out);
+            osc.start(now);
+            osc.stop(now + durs[idx] + 0.006);
+          });
+
+          const tick = this.ctx.createBufferSource();
+          tick.buffer = this.noiseBuf;
+          const hp = this.ctx.createBiquadFilter();
+          hp.type = 'bandpass';
+          hp.frequency.setValueAtTime(3200 * footShift, now);
+          hp.Q.setValueAtTime(4.2, now);
+          const tGain = this.ctx.createGain();
+          tGain.gain.setValueAtTime(0.032, now);
+          tGain.gain.exponentialRampToValueAtTime(0.0006, now + 0.018);
+          tick.connect(hp);
+          hp.connect(tGain);
+          tGain.connect(this.out);
+          tick.start(now, Math.random() * 0.4, 0.02);
+          tick.stop(now + 0.022);
+          return;
+        }
+
         if (surface === 'carpet') {
           // Soft muffled fabric step
           const pad = this.ctx.createOscillator();
@@ -2914,10 +2956,12 @@
           const t0 = now + delay;
           const osc = this.ctx.createOscillator();
           const g = this.ctx.createGain();
-          osc.type = surface === 'metal' ? 'sine' : 'triangle';
-          const fStart = surface === 'metal' ? (idx === 0 ? 180 : 240) : (idx === 0 ? 92 : 114);
+          osc.type = (surface === 'metal' || surface === 'glass') ? 'sine' : 'triangle';
+          const fStart = surface === 'glass'
+            ? (idx === 0 ? 420 : 560)
+            : (surface === 'metal' ? (idx === 0 ? 180 : 240) : (idx === 0 ? 92 : 114));
           osc.frequency.setValueAtTime(fStart, t0);
-          osc.frequency.exponentialRampToValueAtTime(32, t0 + 0.06);
+          osc.frequency.exponentialRampToValueAtTime(surface === 'glass' ? 140 : 32, t0 + 0.06);
           g.gain.setValueAtTime(0.055 * intensity * (idx === 0 ? 1 : 0.75), t0);
           g.gain.exponentialRampToValueAtTime(0.0008, t0 + 0.065);
           osc.connect(g);
@@ -4719,11 +4763,12 @@
       const n = nameStr.toLowerCase();
       if (/\b(grass|grassy|turf|lawn|moss|mossy|leaf|leaves|bush|hedge|fern|vine|foliage|shrub|hay|straw|clover|meadow)\b/.test(n)) return 'grass';
       if (/\b(sand|sandy|dune|beach|gravel|pebble|desert|dust|ash|dirt|soil|earth)\b/.test(n)) return 'sand';
+      if (/\b(glass|glassy|window|pane|mirror|crystal|crystalline|quartz|stained|prism|lens|bottle|jar|vial|beaker|bulb|chandelier)\b/.test(n)) return 'glass';
       if (/\b(metal|metallic|iron|steel|copper|bronze|brass|gold|silver|tin|aluminum|chrome|pipe|vent|grate|plate|hull|mech|robot|anvil|chain|beam|girder|cyber|tech|factory)\b/.test(n)) return 'metal';
       if (/\b(stone|rock|rocky|cobble|cobblestone|brick|concrete|cement|marble|granite|slate|tile|pavement|ruin|pillar|statue|castle|obsidian|basalt|asphalt|boulder)\b/.test(n)) return 'stone';
       if (/\b(mud|muddy|slime|slimy|swamp|bog|clay|ooze|goo|mire|wet|flesh|jelly|sludge|tar)\b/.test(n)) return 'mud';
       if (/\b(wood|wooden|plank|log|timber|oak|pine|birch|mahogany|bamboo|crate|barrel|deck|floorboard|bridge|tree|trunk|bark|fence|ladder)\b/.test(n)) return 'wood';
-      if (/\b(snow|snowy|ice|icy|frost|glacier|slush|crystal|glass)\b/.test(n)) return 'snow';
+      if (/\b(snow|snowy|ice|icy|frost|glacier|slush)\b/.test(n)) return 'snow';
       if (/\b(carpet|rug|cloth|fabric|wool|pillow|cushion|mattress|felt|velvet|sponge|cloud)\b/.test(n)) return 'carpet';
       return null;
     }
@@ -5202,6 +5247,9 @@
       p.hurtFlash = 0;
       p.regenDelay = 0;
       p.hpBarTimer = 0;
+      p.breath = p.maxBreath;
+      p.breathBarTimer = 0;
+      p.liquidKind = 'normal';
       p.deadTimer = 0;
       p.deathRot = 0;
       p.deathVr = 0;
@@ -6595,6 +6643,52 @@
       // Check overlapping environment triggers
       checkOverlapTriggers(p);
 
+      // Liquid Breath & Harming Liquid update (Play Mode)
+      if (p.deadTimer === 0) {
+        if (p.inLiquid && p.liquidKind === 'harming') {
+          // Harming liquids immediately start hurting the player without showing a breath bar
+          p.breath = p.maxBreath;
+          p.breathBarTimer = 0;
+          p.regenDelay = Math.max(p.regenDelay, 60);
+          damagePlayer(15, undefined, false);
+          if (p.deadTimer > 0) return;
+        } else if (p.inLiquid && p.liquidKind === 'normal') {
+          // Standard liquid: slowly deplete breath bar (10 bubbles over ~10 seconds = 600 ticks)
+          const prevBubbles = Math.ceil(p.breath / 10);
+          p.breath = Math.max(0, p.breath - (100 / 600));
+          p.breathBarTimer = 90;
+          const curBubbles = Math.ceil(p.breath / 10);
+          if (curBubbles < prevBubbles) {
+            state.particles.push({
+              x: p.x + p.w * 0.5 + (Math.random() - 0.5) * 6,
+              y: p.y + 3,
+              vx: (Math.random() - 0.5) * 0.35,
+              vy: -0.55 - Math.random() * 0.3,
+              ay: -0.015,
+              drag: 0.96,
+              size: 1.8,
+              color: 'rgba(186, 230, 253, 0.9)',
+              life: 22,
+              maxLife: 22
+            });
+          }
+          if (p.breath <= 0) {
+            // Once breath hits 0, player's health slowly depletes
+            p.regenDelay = Math.max(p.regenDelay, 75);
+            damagePlayer(12, undefined, false);
+            if (p.deadTimer > 0) return;
+          }
+        } else {
+          // Out of liquid or inside a Breathable Liquid: smoothly replenish breath
+          if (p.breath < p.maxBreath) {
+            p.breath = Math.min(p.maxBreath, p.breath + 0.85);
+            p.breathBarTimer = Math.max(p.breathBarTimer || 0, 45);
+          } else if (p.breathBarTimer > 0) {
+            p.breathBarTimer--;
+          }
+        }
+      }
+
       const isMountedFlying = (() => {
         const m = getSpriteById(state.activeMountId);
         return m && m.subtype === 'Flying Mountable';
@@ -7457,10 +7551,14 @@
       p.onLadder = false;
       p.ladderX = null;
       p.inLiquid = false;
+      p.liquidKind = 'normal';
       p.liquidViscosity = 'normal';
       p.liquidSurfaceY = null;
       p.inPushingGustX = 0;
       let bestLadderDist = Infinity;
+      let sawHarmingLiquid = false;
+      let sawNormalLiquid = false;
+      let sawBreathableLiquid = false;
 
       for (const [key, cell] of state.worldCells.entries()) {
         // Guarantee orphaned cells whose sprite was deleted never trigger anything
@@ -7505,6 +7603,14 @@
 
           if (cell.type === 'liquid' || dynAttrs.has('LIQUID')) {
             p.inLiquid = true;
+            const liqSub = (cell.subtype || sp?.subtype || 'Liquid');
+            if (liqSub === 'Harming Liquid') {
+              sawHarmingLiquid = true;
+            } else if (liqSub === 'Breathable Liquid') {
+              sawBreathableLiquid = true;
+            } else {
+              sawNormalLiquid = true;
+            }
             if (sp && sp.liquidViscosity === 'thick') {
               p.liquidViscosity = 'thick';
             }
@@ -7634,6 +7740,12 @@
         } else {
           cell._touched = false;
         }
+      }
+
+      if (p.inLiquid) {
+        if (sawHarmingLiquid) p.liquidKind = 'harming';
+        else if (sawNormalLiquid) p.liquidKind = 'normal';
+        else if (sawBreathableLiquid) p.liquidKind = 'breathable';
       }
 
       // Trigger splash animation & sound when jumping into or leaping out of a liquid
@@ -10654,6 +10766,62 @@
         // Current HP fill
         worldCtx.fillStyle = hpRatio > 0.5 ? '#22c55e' : (hpRatio > 0.25 ? '#f59e0b' : '#ef4444');
         worldCtx.fillRect(bx, by, Math.round(barW * hpRatio), barH);
+        worldCtx.restore();
+      }
+
+      // Minecraft-Style 10-Bubble Overhead Breath Bar (Shown in standard Liquid; hidden for Breathable & Harming Liquids)
+      const showBreathBar =
+        p.deadTimer === 0 &&
+        p.liquidKind !== 'harming' &&
+        ((p.inLiquid && p.liquidKind === 'normal') || p.breath < p.maxBreath - 0.05 || (p.breathBarTimer || 0) > 0);
+      if (showBreathBar) {
+        const bodyTopWorldY = getAvatarTopPixelWorldY(p, wornBody, wornWearable, activeMotionSprite);
+        const topScreenY = Math.round(camScreenX !== undefined ? (camScreenY + bodyTopWorldY * zoom) : py);
+        const hpBarH = Math.max(4, Math.round(1.6 * zoom));
+        const hpOffset = showHealthBar ? (hpBarH + Math.max(4, Math.round(1.6 * zoom))) : 0;
+
+        const bubbleCount = 10;
+        const bubbleSize = Math.max(4, Math.round(2.1 * zoom));
+        const bubbleGap = Math.max(1, Math.round(0.55 * zoom));
+        const totalW = bubbleCount * bubbleSize + (bubbleCount - 1) * bubbleGap;
+        const startX = Math.round(px + pw / 2 - totalW / 2);
+        const bubbleY = Math.round(topScreenY - bubbleSize - Math.max(5, Math.round(2.5 * zoom)) - hpOffset);
+        const fadeAlpha = (!p.inLiquid && p.breath >= p.maxBreath - 0.05 && p.breathBarTimer > 0 && p.breathBarTimer < 25)
+          ? (p.breathBarTimer / 25)
+          : 1;
+
+        worldCtx.save();
+        worldCtx.globalAlpha = fadeAlpha;
+        for (let i = 0; i < bubbleCount; i++) {
+          const bx = startX + i * (bubbleSize + bubbleGap);
+          const lowThresh = i * 10;
+          const highThresh = (i + 1) * 10;
+
+          if (p.breath >= highThresh) {
+            // Full Air Bubble
+            worldCtx.fillStyle = 'rgba(9, 9, 11, 0.9)';
+            worldCtx.fillRect(bx - 1, bubbleY - 1, bubbleSize + 2, bubbleSize + 2);
+            worldCtx.fillStyle = '#0284c7';
+            worldCtx.fillRect(bx, bubbleY, bubbleSize, bubbleSize);
+            worldCtx.fillStyle = '#38bdf8';
+            worldCtx.fillRect(bx, bubbleY, Math.max(1, bubbleSize - 1), Math.max(1, bubbleSize - 1));
+            worldCtx.fillStyle = '#e0f2fe';
+            const hl = Math.max(1, Math.floor(bubbleSize * 0.35));
+            worldCtx.fillRect(bx + 1, bubbleY + 1, hl, hl);
+          } else if (p.breath > lowThresh) {
+            // Depleting / Popping Bubble
+            const frac = (p.breath - lowThresh) / 10;
+            const shrink = frac < 0.35 ? 1 : 0;
+            worldCtx.fillStyle = 'rgba(9, 9, 11, 0.85)';
+            worldCtx.fillRect(bx - 1 + shrink, bubbleY - 1 + shrink, bubbleSize + 2 - shrink * 2, bubbleSize + 2 - shrink * 2);
+            worldCtx.fillStyle = frac < 0.35 ? '#bae6fd' : '#0ea5e9';
+            worldCtx.fillRect(bx + shrink, bubbleY + shrink, Math.max(1, bubbleSize - shrink * 2), Math.max(1, bubbleSize - shrink * 2));
+          } else {
+            // Empty / Popped Bubble Outline Slot
+            worldCtx.fillStyle = 'rgba(9, 9, 11, 0.55)';
+            worldCtx.fillRect(bx, bubbleY, bubbleSize, bubbleSize);
+          }
+        }
         worldCtx.restore();
       }
 

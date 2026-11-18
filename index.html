@@ -2334,6 +2334,7 @@
       keyPanActive: false,
       panStartScreen: { x: 0, y: 0 },
       panStartCam: { x: 0, y: 0 },
+      middleClickStart: null,
       dragStart: null,
       pendingHoldGrab: null,
       wireDragSource: null
@@ -11562,9 +11563,9 @@
 
     function spawnBrushClearFeedback() {
       sfx.poof(false);
-      const fxX = mouseWorld.inside ? mouseWorld.wx : (state.player.x + state.player.w / 2);
-      const fxY = mouseWorld.inside ? mouseWorld.wy : (state.player.y + state.player.h / 2);
-      spawnDustParticles(fxX, fxY, TILE_SIZE, TILE_SIZE, 9);
+      if (mouseWorld.inside) {
+        spawnDustParticles(mouseWorld.wx, mouseWorld.wy, TILE_SIZE, TILE_SIZE, 9);
+      }
     }
 
     function startHoldingWorldBlock(targetCell, mode, awaitingClickToPlace = false) {
@@ -12331,11 +12332,13 @@
       }
       updateMouseWorldCoords(e);
 
-      // Middle-Mouse Click (button === 1) in Build Mode drags/pans the camera
+      // Middle-Mouse (button === 1): Dragging in Build Mode pans the camera (keeping your brush!),
+      // while a stationary Middle-Mouse click & release deselects your active brush / held block.
       if (e.button === 1) {
+        clearPendingHoldGrab();
+        mouseWorld.downButton = 1;
+        mouseWorld.middleClickStart = { x: e.clientX, y: e.clientY, moved: false };
         if (state.mode === 'build') {
-          clearPendingHoldGrab();
-          mouseWorld.downButton = 1;
           mouseWorld.isPanning = true;
           mouseWorld.panStartScreen = { x: e.clientX, y: e.clientY };
           mouseWorld.panStartCam = { x: state.camera.x, y: state.camera.y };
@@ -12583,6 +12586,7 @@
       // Failsafe: if physical mouse buttons were released outside the window, clean up immediately
       if (e.buttons === 0) {
         clearPendingHoldGrab();
+        mouseWorld.middleClickStart = null;
         if (mouseWorld.isPanning) mouseWorld.isPanning = false;
         if (mouseWorld.downButton !== null || mouseWorld.isRightErasing || mouseWorld.isCtrlLeftErasing || mouseWorld.dragStart || mouseWorld.wireDragSource) {
           mouseWorld.downButton = null;
@@ -12594,6 +12598,12 @@
           updateWorldCursor(e);
         }
         return;
+      }
+
+      if (mouseWorld.middleClickStart && !mouseWorld.middleClickStart.moved) {
+        if (Math.hypot(e.clientX - mouseWorld.middleClickStart.x, e.clientY - mouseWorld.middleClickStart.y) >= 4) {
+          mouseWorld.middleClickStart.moved = true;
+        }
       }
 
       if (mouseWorld.isPanning) {
@@ -12677,7 +12687,32 @@
     });
 
     window.addEventListener('mouseup', (e) => {
-      if (mouseWorld.isPanning && (e.button === 1 || e.button === 0)) {
+      if (e.button === 1) {
+        const wasStationaryClick = mouseWorld.middleClickStart && !mouseWorld.middleClickStart.moved;
+        mouseWorld.middleClickStart = null;
+        if (mouseWorld.isPanning) {
+          mouseWorld.isPanning = false;
+        }
+        if (mouseWorld.downButton === 1) {
+          mouseWorld.downButton = null;
+        }
+        if (wasStationaryClick && !editor.isOpen) {
+          if (state.heldWorldBlock) {
+            spawnBrushClearFeedback();
+            commitHeldWorldBlock(true);
+          } else if (state.activeBrushId) {
+            state.activeBrushId = null;
+            state.brushOrient = 0;
+            spawnBrushClearFeedback();
+            updateBrushBar();
+            renderSidebarSprites();
+          }
+        }
+        updateWorldCursor(e);
+        return;
+      }
+
+      if (mouseWorld.isPanning && e.button === 0) {
         mouseWorld.isPanning = false;
         if (mouseWorld.downButton === e.button) {
           mouseWorld.downButton = null;
@@ -18241,6 +18276,11 @@
           sfx.ui(420);
           return;
         }
+        if (state.player.motionBarOpen) {
+          state.player.motionBarOpen = false;
+          updateWorldMotionBarUI();
+          return;
+        }
         if (state.heldWorldBlock) {
           spawnBrushClearFeedback();
           commitHeldWorldBlock(true);
@@ -18252,12 +18292,7 @@
           spawnBrushClearFeedback();
           updateBrushBar();
           renderSidebarSprites();
-          updateWorldCursor();
-          return;
-        }
-        if (state.player.motionBarOpen) {
-          state.player.motionBarOpen = false;
-          updateWorldMotionBarUI();
+          updateWorldCursor(e);
           return;
         }
       }

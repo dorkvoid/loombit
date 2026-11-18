@@ -936,7 +936,7 @@
 
         <!-- Left Tool Strip (Aseprite Arsenal: 2-Column Grid) -->
         <div class="w-20 bg-[#17171b] border-r border-[#2a2a32] p-1.5 grid grid-cols-2 gap-1 content-start shrink-0 overflow-y-auto">
-          <button data-tool="marquee" title="Selection Tool (M) - Rect, Circle, or Magic Wand" class="tool-btn">
+          <button data-tool="marquee" title="Selection Tool (M) - Rect, Lasso, or Magic Wand" class="tool-btn">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"><rect x="3" y="3" width="18" height="18" rx="1"/></svg>
           </button>
           <button data-tool="move" title="Move Drawing Tool (V or Hold Ctrl + Drag)" class="tool-btn">
@@ -1109,11 +1109,11 @@
 
           <!-- Top-Left Selection / Shape / Brush Context Subbar -->
           <div class="absolute top-2.5 left-3 z-20 flex items-center gap-1.5 pointer-events-auto">
-            <!-- Marquee Mode Switcher (Rect, Circle, Magic Wand) -->
+            <!-- Marquee Mode Switcher (Rect, Lasso, Magic Wand) -->
             <div id="marquee-subbar" class="hidden items-center bg-[#1b1b22] border border-[#343440] p-0.5 rounded-sm gap-0.5 shadow-md">
               <button data-mtype="rect" title="Rectangular Marquee" class="mtype-btn ase-btn active px-2 py-0.5 text-[9px]">Rect</button>
-              <button data-mtype="circle" title="Elliptical / Circle Marquee" class="mtype-btn ase-btn px-2 py-0.5 text-[9px]">Circle</button>
-              <button data-mtype="wand" title="Magic Wand Contiguous Color Select (W)" class="mtype-btn ase-btn px-2 py-0.5 text-[9px]">Wand</button>
+              <button data-mtype="lasso" title="Freehand Lasso Selection (Hold Shift to Add)" class="mtype-btn ase-btn px-2 py-0.5 text-[9px]">Lasso</button>
+              <button data-mtype="wand" title="Magic Wand Contiguous Color Select (W - Hold Shift to Select Multiple)" class="mtype-btn ase-btn px-2 py-0.5 text-[9px]">Wand</button>
             </div>
             <!-- Aseprite Shape Mode Subbar (Lined vs Filled for Square/Rect & Circle/Ellipse) -->
             <div id="shape-subbar" class="hidden items-center bg-[#1b1b22] border border-[#343440] p-0.5 rounded-sm gap-0.5 shadow-md">
@@ -2097,7 +2097,10 @@
       sprayRadius: 5,
       fillMode: 'contiguous', // 'contiguous' | 'replace'
       fillAllCels: false,     // Replace color across all cels when in 'replace' mode
-      marqueeType: 'rect',    // 'rect' | 'circle' | 'wand'
+      marqueeType: 'rect',    // 'rect' | 'lasso' | 'wand'
+      lassoPoints: [],
+      lassoAdditive: false,
+      wandPendingSingleClick: null,
       symmetryOpen: false,
       symmetryX: false,       // Vertical axis |
       symmetryY: false,       // Horizontal axis -
@@ -13220,6 +13223,250 @@
       m.floatingData = floatBuf;
     }
 
+    function isPixelSelectedInMarquee(px, py) {
+      const m = editor.marquee;
+      if (!m) return false;
+      if (px < m.x || px >= m.x + m.w || py < m.y || py >= m.y + m.h) return false;
+      if (!m.mask) return true;
+      return Boolean(m.mask[(py - m.y) * m.w + (px - m.x)]);
+    }
+
+    function getCurrentMarqueeFullMask(W, H) {
+      const full = new Uint8Array(W * H);
+      const m = editor.marquee;
+      if (!m) return full;
+      for (let my = 0; my < m.h; my++) {
+        const ty = m.y + my;
+        if (ty < 0 || ty >= H) continue;
+        for (let mx = 0; mx < m.w; mx++) {
+          const tx = m.x + mx;
+          if (tx < 0 || tx >= W) continue;
+          if (!m.mask || m.mask[my * m.w + mx]) {
+            full[ty * W + tx] = 1;
+          }
+        }
+      }
+      return full;
+    }
+
+    // Extracts only non-transparent (alpha > 0) pixels from a buffer region and trims tightly to the drawing
+    function extractTrimmedOpaqueRegion(srcBuf, srcW, srcH, rx = 0, ry = 0, rw = srcW, rh = srcH, regionMask = null) {
+      if (!srcBuf) return null;
+      let minX = rw, maxX = -1, minY = rh, maxY = -1;
+
+      for (let my = 0; my < rh; my++) {
+        const sy = ry + my;
+        if (sy < 0 || sy >= srcH) continue;
+        for (let mx = 0; mx < rw; mx++) {
+          const sx = rx + mx;
+          if (sx < 0 || sx >= srcW) continue;
+          if (regionMask && !regionMask[my * rw + mx]) continue;
+          const a = srcBuf[(sy * srcW + sx) * 4 + 3];
+          if (a > 0) {
+            if (mx < minX) minX = mx;
+            if (mx > maxX) maxX = mx;
+            if (my < minY) minY = my;
+            if (my > maxY) maxY = my;
+          }
+        }
+      }
+
+      if (maxX < minX || maxY < minY) return null;
+
+      const tw = maxX - minX + 1;
+      const th = maxY - minY + 1;
+      const data = new Uint8ClampedArray(tw * th * 4);
+      const mask = new Uint8Array(tw * th);
+
+      for (let ty = 0; ty < th; ty++) {
+        const my = minY + ty;
+        const sy = ry + my;
+        for (let tx = 0; tx < tw; tx++) {
+          const mx = minX + tx;
+          const sx = rx + mx;
+          if (regionMask && !regionMask[my * rw + mx]) continue;
+          const sIdx = (sy * srcW + sx) * 4;
+          const a = srcBuf[sIdx + 3];
+          if (a > 0) {
+            const dIdx = (ty * tw + tx) * 4;
+            data[dIdx] = srcBuf[sIdx];
+            data[dIdx + 1] = srcBuf[sIdx + 1];
+            data[dIdx + 2] = srcBuf[sIdx + 2];
+            data[dIdx + 3] = a;
+            mask[ty * tw + tx] = 1;
+          }
+        }
+      }
+
+      return {
+        x: rx + minX,
+        y: ry + minY,
+        w: tw,
+        h: th,
+        data,
+        mask
+      };
+    }
+
+    function applyFullMaskToMarquee(newFullMask, W, H, additive = false) {
+      const buf = editor.frames[editor.activeFrame];
+      // Filter incoming mask so transparent background pixels (alpha === 0) are never selected
+      const opaqueNewMask = new Uint8Array(W * H);
+      if (buf) {
+        for (let i = 0; i < newFullMask.length; i++) {
+          if (newFullMask[i] && buf[i * 4 + 3] > 0) {
+            opaqueNewMask[i] = 1;
+          }
+        }
+      } else {
+        opaqueNewMask.set(newFullMask);
+      }
+
+      let combined = opaqueNewMask;
+      if (additive && editor.marquee) {
+        if (editor.marquee.floatingData) {
+          commitMarqueeSelection();
+        }
+        const existingFull = getCurrentMarqueeFullMask(W, H);
+        combined = new Uint8Array(W * H);
+        for (let i = 0; i < combined.length; i++) {
+          combined[i] = (existingFull[i] || opaqueNewMask[i]) ? 1 : 0;
+        }
+      } else if (editor.marquee) {
+        commitMarqueeSelection();
+      }
+
+      let minX = W, maxX = -1, minY = H, maxY = -1;
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          if (combined[y * W + x]) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+
+      if (maxX < minX || maxY < minY) {
+        editor.marquee = null;
+        editor.marqueeAction = null;
+        return;
+      }
+
+      const mw = Math.max(1, maxX - minX + 1);
+      const mh = Math.max(1, maxY - minY + 1);
+      const croppedMask = new Uint8Array(mw * mh);
+      for (let my = 0; my < mh; my++) {
+        for (let mx = 0; mx < mw; mx++) {
+          if (combined[(minY + my) * W + (minX + mx)]) {
+            croppedMask[my * mw + mx] = 1;
+          }
+        }
+      }
+
+      editor.marquee = {
+        x: minX,
+        y: minY,
+        w: mw,
+        h: mh,
+        mask: croppedMask,
+        floatingData: null
+      };
+      editor.marqueeAction = null;
+    }
+
+    function computeWandFullMask(buf, W, H, startX, startY) {
+      const fullMask = new Uint8Array(W * H);
+      if (startX < 0 || startX >= W || startY < 0 || startY >= H) return fullMask;
+      const sIdx = (startY * W + startX) * 4;
+      const tr = buf[sIdx], tg = buf[sIdx + 1], tb = buf[sIdx + 2], ta = buf[sIdx + 3];
+      if (ta === 0) return fullMask;
+      const visited = new Uint8Array(W * H);
+      const stack = [[startX, startY]];
+      visited[startY * W + startX] = 1;
+
+      while (stack.length > 0) {
+        const [cx, cy] = stack.pop();
+        fullMask[cy * W + cx] = 1;
+
+        const neighbors = [[cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]];
+        for (const [nx, ny] of neighbors) {
+          if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
+          const nPos = ny * W + nx;
+          if (visited[nPos]) continue;
+          const nIdx = nPos * 4;
+          const same = buf[nIdx + 3] > 0 &&
+            Math.abs(buf[nIdx] - tr) <= 8 &&
+            Math.abs(buf[nIdx + 1] - tg) <= 8 &&
+            Math.abs(buf[nIdx + 2] - tb) <= 8;
+          if (same) {
+            visited[nPos] = 1;
+            stack.push([nx, ny]);
+          }
+        }
+      }
+      return fullMask;
+    }
+
+    function rasterizeLassoFullMask(points, W, H) {
+      const fullMask = new Uint8Array(W * H);
+      if (!points || points.length === 0) return fullMask;
+      if (points.length === 1) {
+        const p = points[0];
+        if (p.x >= 0 && p.x < W && p.y >= 0 && p.y < H) {
+          fullMask[p.y * W + p.x] = 1;
+        }
+        return fullMask;
+      }
+
+      // 1. Mark all boundary pixels along the closed lasso polygon
+      const markSegment = (x0, y0, x1, y1) => {
+        let cx = x0, cy = y0;
+        const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+        const dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+        let err = dx + dy;
+        while (true) {
+          if (cx >= 0 && cx < W && cy >= 0 && cy < H) {
+            fullMask[cy * W + cx] = 1;
+          }
+          if (cx === x1 && cy === y1) break;
+          const e2 = 2 * err;
+          if (e2 >= dy) { err += dy; cx += sx; }
+          if (e2 <= dx) { err += dx; cy += sy; }
+        }
+      };
+
+      for (let i = 0; i < points.length; i++) {
+        const a = points[i];
+        const b = points[(i + 1) % points.length];
+        markSegment(a.x, a.y, b.x, b.y);
+      }
+
+      if (points.length < 3) return fullMask;
+
+      // 2. Ray-casting point-in-polygon fill for interior pixels
+      for (let y = 0; y < H; y++) {
+        const py = y + 0.5;
+        for (let x = 0; x < W; x++) {
+          if (fullMask[y * W + x]) continue;
+          const px = x + 0.5;
+          let inside = false;
+          for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+            const xi = points[i].x + 0.5, yi = points[i].y + 0.5;
+            const xj = points[j].x + 0.5, yj = points[j].y + 0.5;
+            const intersect = ((yi > py) !== (yj > py)) &&
+              (px < ((xj - xi) * (py - yi)) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+          }
+          if (inside) {
+            fullMask[y * W + x] = 1;
+          }
+        }
+      }
+      return fullMask;
+    }
+
     function selectTool(toolName) {
       if (editor.tool === 'marquee' && toolName !== 'marquee') {
         commitMarqueeSelection();
@@ -13276,19 +13523,17 @@
         return;
       }
       if (editor.tool === 'marquee') {
-        if (editor.marqueeType === 'wand') {
-          paintCanvas.style.cursor = WAND_CURSOR;
-          return;
-        }
         if (
           editor.marquee &&
           editor.hoverPixel &&
-          editor.hoverPixel.x >= editor.marquee.x &&
-          editor.hoverPixel.x < editor.marquee.x + editor.marquee.w &&
-          editor.hoverPixel.y >= editor.marquee.y &&
-          editor.hoverPixel.y < editor.marquee.y + editor.marquee.h
+          !(editor.shiftHeld && (editor.marqueeType === 'wand' || editor.marqueeType === 'lasso')) &&
+          isPixelSelectedInMarquee(editor.hoverPixel.x, editor.hoverPixel.y)
         ) {
           paintCanvas.style.cursor = 'move';
+          return;
+        }
+        if (editor.marqueeType === 'wand') {
+          paintCanvas.style.cursor = WAND_CURSOR;
           return;
         }
         paintCanvas.style.cursor = 'crosshair';
@@ -13641,19 +13886,74 @@
           blitBufferToCtx(paintCtx, m.floatingData, m.w, m.h, m.x * scale, m.y * scale, m.w * scale, m.h * scale);
         }
         paintCtx.save();
-        paintCtx.strokeStyle = '#ffffff';
         paintCtx.lineWidth = 1;
         paintCtx.setLineDash([4, 4]);
-        if (editor.marqueeType === 'circle' && !m.floatingData && m.mask) {
-          paintCtx.beginPath();
-          paintCtx.ellipse((m.x + m.w / 2) * scale, (m.y + m.h / 2) * scale, (m.w / 2) * scale, (m.h / 2) * scale, 0, 0, Math.PI * 2);
+        if (m.mask) {
+          const isMaskedAt = (mx, my) => {
+            if (mx < 0 || mx >= m.w || my < 0 || my >= m.h) return false;
+            return Boolean(m.mask[my * m.w + mx]);
+          };
+          const traceMaskEdges = () => {
+            paintCtx.beginPath();
+            for (let my = 0; my < m.h; my++) {
+              for (let mx = 0; mx < m.w; mx++) {
+                if (!isMaskedAt(mx, my)) continue;
+                const px0 = (m.x + mx) * scale;
+                const py0 = (m.y + my) * scale;
+                const px1 = px0 + scale;
+                const py1 = py0 + scale;
+                if (!isMaskedAt(mx, my - 1)) {
+                  paintCtx.moveTo(px0, py0 + 0.5);
+                  paintCtx.lineTo(px1, py0 + 0.5);
+                }
+                if (!isMaskedAt(mx, my + 1)) {
+                  paintCtx.moveTo(px0, py1 - 0.5);
+                  paintCtx.lineTo(px1, py1 - 0.5);
+                }
+                if (!isMaskedAt(mx - 1, my)) {
+                  paintCtx.moveTo(px0 + 0.5, py0);
+                  paintCtx.lineTo(px0 + 0.5, py1);
+                }
+                if (!isMaskedAt(mx + 1, my)) {
+                  paintCtx.moveTo(px1 - 0.5, py0);
+                  paintCtx.lineTo(px1 - 0.5, py1);
+                }
+              }
+            }
+          };
+          traceMaskEdges();
+          paintCtx.strokeStyle = '#ffffff';
+          paintCtx.stroke();
+          paintCtx.strokeStyle = '#000000';
+          paintCtx.lineDashOffset = 4;
           paintCtx.stroke();
         } else {
+          paintCtx.strokeStyle = '#ffffff';
           paintCtx.strokeRect(m.x * scale + 0.5, m.y * scale + 0.5, m.w * scale - 1, m.h * scale - 1);
           paintCtx.strokeStyle = '#000000';
           paintCtx.lineDashOffset = 4;
           paintCtx.strokeRect(m.x * scale + 0.5, m.y * scale + 0.5, m.w * scale - 1, m.h * scale - 1);
         }
+        paintCtx.restore();
+      }
+
+      // Live Freehand Lasso Path Preview
+      if (editor.tool === 'marquee' && editor.marqueeAction === 'lasso' && editor.lassoPoints && editor.lassoPoints.length > 0) {
+        paintCtx.save();
+        paintCtx.lineWidth = 1.25;
+        paintCtx.setLineDash([3, 3]);
+        paintCtx.beginPath();
+        editor.lassoPoints.forEach((p, idx) => {
+          const sx = (p.x + 0.5) * scale;
+          const sy = (p.y + 0.5) * scale;
+          if (idx === 0) paintCtx.moveTo(sx, sy);
+          else paintCtx.lineTo(sx, sy);
+        });
+        paintCtx.strokeStyle = '#ffffff';
+        paintCtx.stroke();
+        paintCtx.strokeStyle = '#000000';
+        paintCtx.lineDashOffset = 3;
+        paintCtx.stroke();
         paintCtx.restore();
       }
 
@@ -14569,59 +14869,51 @@
       if (editor.tool === 'marquee') {
         if (e.button === 2) {
           commitMarqueeSelection();
+          editor.lassoPoints = [];
           return;
         }
         if (editor.marqueeType === 'wand') {
+          if (e.shiftKey) {
+            const wandMask = computeWandFullMask(buf, W, H, pt.x, pt.y);
+            applyFullMaskToMarquee(wandMask, W, H, true);
+            sfx.ui(540);
+            renderPaintCanvas();
+            return;
+          }
+          if (editor.marquee && isPixelSelectedInMarquee(pt.x, pt.y)) {
+            editor.wandPendingSingleClick = { x: pt.x, y: pt.y, moved: false };
+            editor.marqueeAction = 'moving';
+            editor.marqueeDragOrigin = { x: pt.x - editor.marquee.x, y: pt.y - editor.marquee.y };
+            editor.isDrawing = true;
+            return;
+          }
           commitMarqueeSelection();
-          const sIdx = (pt.y * W + pt.x) * 4;
-          const tr = buf[sIdx], tg = buf[sIdx + 1], tb = buf[sIdx + 2], ta = buf[sIdx + 3];
-          const visited = new Uint8Array(W * H);
-          const stack = [[pt.x, pt.y]];
-          visited[pt.y * W + pt.x] = 1;
-          let minX = pt.x, maxX = pt.x, minY = pt.y, maxY = pt.y;
-          const matched = [];
-
-          while (stack.length > 0) {
-            const [cx, cy] = stack.pop();
-            matched.push([cx, cy]);
-            if (cx < minX) minX = cx;
-            if (cx > maxX) maxX = cx;
-            if (cy < minY) minY = cy;
-            if (cy > maxY) maxY = cy;
-
-            const neighbors = [[cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]];
-            for (const [nx, ny] of neighbors) {
-              if (nx < 0 || nx >= W || ny < 0 || ny >= H) continue;
-              const nPos = ny * W + nx;
-              if (visited[nPos]) continue;
-              const nIdx = nPos * 4;
-              const same = ta === 0
-                ? buf[nIdx + 3] === 0
-                : (buf[nIdx + 3] > 0 && Math.abs(buf[nIdx] - tr) <= 8 && Math.abs(buf[nIdx + 1] - tg) <= 8 && Math.abs(buf[nIdx + 2] - tb) <= 8);
-              if (same) {
-                visited[nPos] = 1;
-                stack.push([nx, ny]);
-              }
-            }
+          const wandMask = computeWandFullMask(buf, W, H, pt.x, pt.y);
+          applyFullMaskToMarquee(wandMask, W, H, false);
+          renderPaintCanvas();
+          return;
+        }
+        if (editor.marqueeType === 'lasso') {
+          if (!e.shiftKey && editor.marquee && isPixelSelectedInMarquee(pt.x, pt.y)) {
+            liftMarqueeToFloating();
+            editor.marqueeAction = 'moving';
+            editor.marqueeDragOrigin = { x: pt.x - editor.marquee.x, y: pt.y - editor.marquee.y };
+            editor.isDrawing = true;
+            return;
           }
-
-          const mw = Math.max(1, maxX - minX + 1);
-          const mh = Math.max(1, maxY - minY + 1);
-          const mask = new Uint8Array(mw * mh);
-          for (const [mx, my] of matched) {
-            mask[(my - minY) * mw + (mx - minX)] = 1;
+          editor.lassoAdditive = Boolean(e.shiftKey && editor.marquee);
+          if (!editor.lassoAdditive) {
+            commitMarqueeSelection();
           }
-          editor.marquee = { x: minX, y: minY, w: mw, h: mh, mask, floatingData: null };
-          editor.marqueeAction = null;
+          editor.marqueeAction = 'lasso';
+          editor.lassoPoints = [{ x: pt.x, y: pt.y }];
+          editor.isDrawing = true;
           renderPaintCanvas();
           return;
         }
         if (
           editor.marquee &&
-          pt.x >= editor.marquee.x &&
-          pt.x < editor.marquee.x + editor.marquee.w &&
-          pt.y >= editor.marquee.y &&
-          pt.y < editor.marquee.y + editor.marquee.h
+          isPixelSelectedInMarquee(pt.x, pt.y)
         ) {
           liftMarqueeToFloating();
           editor.marqueeAction = 'moving';
@@ -14753,6 +15045,16 @@
         return;
       }
 
+      if (editor.tool === 'marquee' && editor.marqueeAction === 'lasso') {
+        const pts = editor.lassoPoints;
+        const last = pts[pts.length - 1];
+        if (!last || last.x !== pt.x || last.y !== pt.y) {
+          pts.push({ x: pt.x, y: pt.y });
+          renderPaintCanvas();
+        }
+        return;
+      }
+
       if (editor.tool === 'marquee' && editor.marquee) {
         if (editor.marqueeAction === 'selecting' && editor.marqueeDragOrigin) {
           let x0 = editor.marqueeDragOrigin.x;
@@ -14774,24 +15076,16 @@
           editor.marquee.y = minY;
           editor.marquee.w = mw;
           editor.marquee.h = mh;
-          if (editor.marqueeType === 'circle') {
-            const mask = new Uint8Array(mw * mh);
-            const rx = mw / 2;
-            const ry = mh / 2;
-            for (let my = 0; my < mh; my++) {
-              for (let mx = 0; mx < mw; mx++) {
-                const nx = rx > 0.5 ? (mx + 0.5 - rx) / rx : 0;
-                const ny = ry > 0.5 ? (my + 0.5 - ry) / ry : 0;
-                if (nx * nx + ny * ny <= 1.05) {
-                  mask[my * mw + mx] = 1;
-                }
-              }
-            }
-            editor.marquee.mask = mask;
-          } else {
-            editor.marquee.mask = null;
-          }
+          editor.marquee.mask = null;
         } else if (editor.marqueeAction === 'moving' && editor.marqueeDragOrigin) {
+          if (editor.wandPendingSingleClick && !editor.wandPendingSingleClick.moved) {
+            if (pt.x !== editor.wandPendingSingleClick.x || pt.y !== editor.wandPendingSingleClick.y) {
+              editor.wandPendingSingleClick.moved = true;
+              liftMarqueeToFloating();
+            } else {
+              return;
+            }
+          }
           editor.marquee.x = pt.x - editor.marqueeDragOrigin.x;
           editor.marquee.y = pt.y - editor.marqueeDragOrigin.y;
         }
@@ -14849,6 +15143,35 @@
       }
 
       if (editor.tool === 'marquee') {
+        if (editor.marqueeAction === 'lasso') {
+          const lassoMask = rasterizeLassoFullMask(editor.lassoPoints, W, H);
+          applyFullMaskToMarquee(lassoMask, W, H, editor.lassoAdditive);
+          editor.lassoPoints = [];
+          editor.lassoAdditive = false;
+        } else if (editor.marqueeAction === 'selecting' && editor.marquee) {
+          const m = editor.marquee;
+          const trimmed = extractTrimmedOpaqueRegion(buf, W, H, m.x, m.y, m.w, m.h, null);
+          if (trimmed) {
+            editor.marquee = {
+              x: trimmed.x,
+              y: trimmed.y,
+              w: trimmed.w,
+              h: trimmed.h,
+              mask: trimmed.mask,
+              floatingData: null
+            };
+          } else {
+            editor.marquee = null;
+          }
+        } else if (editor.wandPendingSingleClick) {
+          const clickInfo = editor.wandPendingSingleClick;
+          editor.wandPendingSingleClick = null;
+          if (!clickInfo.moved) {
+            commitMarqueeSelection();
+            const wandMask = computeWandFullMask(editor.frames[editor.activeFrame], W, H, clickInfo.x, clickInfo.y);
+            applyFullMaskToMarquee(wandMask, W, H, false);
+          }
+        }
         editor.marqueeAction = null;
         editor.isDrawing = false;
         renderPaintCanvas();
@@ -15045,6 +15368,7 @@
         if (m.floatingData) {
           const oldW = m.w, oldH = m.h;
           const nextData = new Uint8ClampedArray(oldW * oldH * 4);
+          const nextMask = m.mask ? new Uint8Array(oldW * oldH) : null;
           for (let y = 0; y < oldH; y++) {
             for (let x = 0; x < oldW; x++) {
               const s = (y * oldW + x) * 4;
@@ -15055,12 +15379,15 @@
               nextData[d + 1] = m.floatingData[s + 1];
               nextData[d + 2] = m.floatingData[s + 2];
               nextData[d + 3] = m.floatingData[s + 3];
+              if (nextMask && m.mask) {
+                nextMask[ny * oldH + nx] = m.mask[y * oldW + x];
+              }
             }
           }
           m.w = oldH;
           m.h = oldW;
           m.floatingData = nextData;
-          m.mask = null;
+          m.mask = nextMask;
           renderPaintCanvas();
           return;
         }
@@ -15139,15 +15466,17 @@
     document.getElementById('clear-canvas-btn').addEventListener('click', () => {
       pushEditorUndo();
       if (editor.marquee) {
-        editor.marquee.floatingData = null;
         const m = editor.marquee;
-        const buf = editor.frames[editor.activeFrame];
-        for (let my = 0; my < m.h; my++) {
-          for (let mx = 0; mx < m.w; mx++) {
-            const tx = m.x + mx, ty = m.y + my;
-            if (tx < 0 || tx >= editor.w || ty < 0 || ty >= editor.h) continue;
-            const idx = (ty * editor.w + tx) * 4;
-            buf[idx] = 0; buf[idx + 1] = 0; buf[idx + 2] = 0; buf[idx + 3] = 0;
+        if (!m.floatingData) {
+          const buf = editor.frames[editor.activeFrame];
+          for (let my = 0; my < m.h; my++) {
+            for (let mx = 0; mx < m.w; mx++) {
+              if (m.mask && !m.mask[my * m.w + mx]) continue;
+              const tx = m.x + mx, ty = m.y + my;
+              if (tx < 0 || tx >= editor.w || ty < 0 || ty >= editor.h) continue;
+              const idx = (ty * editor.w + tx) * 4;
+              buf[idx] = 0; buf[idx + 1] = 0; buf[idx + 2] = 0; buf[idx + 3] = 0;
+            }
           }
         }
         editor.marquee = null;
@@ -15305,58 +15634,6 @@
       renderPaintCanvas();
     });
 
-    document.getElementById('del-frame-btn').addEventListener('click', () => {
-      if (isSingleCelLockedType(editor.type)) {
-        sfx.buzzer();
-        return;
-      }
-      commitMarqueeSelection();
-      pushEditorUndo();
-      if (editor.frames.length <= 1) {
-        editor.frames[0].fill(0);
-      } else {
-        const deletedIndex = editor.activeFrame;
-        editor.frames.splice(deletedIndex, 1);
-        editor.frameDims.splice(deletedIndex, 1);
-        editor.frameStates.splice(deletedIndex, 1);
-        editor.activeFrame = Math.max(0, deletedIndex - 1);
-      }
-      syncActiveFrameDimensions();
-      populateCelStateDropdown();
-      renderFrameTabs();
-      renderPaintCanvas();
-    });
-
-    document.getElementById('move-cel-left-btn').addEventListener('click', () => {
-      if (editor.activeFrame <= 0) return;
-      commitMarqueeSelection();
-      pushEditorUndo();
-      const i = editor.activeFrame;
-      [editor.frames[i - 1], editor.frames[i]] = [editor.frames[i], editor.frames[i - 1]];
-      [editor.frameDims[i - 1], editor.frameDims[i]] = [editor.frameDims[i], editor.frameDims[i - 1]];
-      if (!(editor.type === 'thing' && editor.subtype === 'Thing in Front')) {
-        [editor.frameStates[i - 1], editor.frameStates[i]] = [editor.frameStates[i], editor.frameStates[i - 1]];
-      }
-      editor.activeFrame--;
-      renderFrameTabs();
-      renderPaintCanvas();
-    });
-
-    document.getElementById('move-cel-right-btn').addEventListener('click', () => {
-      if (editor.activeFrame >= editor.frames.length - 1) return;
-      commitMarqueeSelection();
-      pushEditorUndo();
-      const i = editor.activeFrame;
-      [editor.frames[i + 1], editor.frames[i]] = [editor.frames[i], editor.frames[i + 1]];
-      [editor.frameDims[i + 1], editor.frameDims[i]] = [editor.frameDims[i], editor.frameDims[i + 1]];
-      if (!(editor.type === 'thing' && editor.subtype === 'Thing in Front')) {
-        [editor.frameStates[i + 1], editor.frameStates[i]] = [editor.frameStates[i], editor.frameStates[i + 1]];
-      }
-      editor.activeFrame++;
-      renderFrameTabs();
-      renderPaintCanvas();
-    });
-
     document.getElementById('copy-cel-btn').addEventListener('click', () => {
       copyEditorSelectionOrCel();
     });
@@ -15397,50 +15674,69 @@
       });
     }
 
-    // Marquee / Cel Copy, Cut, Paste & Select All Helpers
+    // Marquee / Cel Copy, Cut, Paste & Select All Helpers (Opaque Drawing Only — Ignores Transparent Background)
     function selectAllEditorCel() {
+      commitMarqueeSelection();
+      const buf = editor.frames[editor.activeFrame];
+      const trimmed = extractTrimmedOpaqueRegion(buf, editor.w, editor.h, 0, 0, editor.w, editor.h, null);
       selectTool('marquee');
-      editor.marquee = {
-        x: 0,
-        y: 0,
-        w: editor.w,
-        h: editor.h,
-        mask: null,
-        floatingData: null
-      };
+      if (trimmed) {
+        editor.marquee = {
+          x: trimmed.x,
+          y: trimmed.y,
+          w: trimmed.w,
+          h: trimmed.h,
+          mask: trimmed.mask,
+          floatingData: null
+        };
+      } else {
+        editor.marquee = null;
+      }
       renderPaintCanvas();
     }
 
     function copyEditorSelectionOrCel() {
       const buf = editor.frames[editor.activeFrame];
       const W = editor.w, H = editor.h;
+      let extracted = null;
+
       if (editor.marquee) {
         const m = editor.marquee;
-        const copyBuf = new Uint8ClampedArray(m.w * m.h * 4);
         if (m.floatingData) {
-          copyBuf.set(m.floatingData);
-        } else {
-          for (let my = 0; my < m.h; my++) {
-            for (let mx = 0; mx < m.w; mx++) {
-              const sx = m.x + mx, sy = m.y + my;
-              if (sx < 0 || sx >= W || sy < 0 || sy >= H) continue;
-              if (m.mask && !m.mask[my * m.w + mx]) continue;
-              const sIdx = (sy * W + sx) * 4;
-              const dIdx = (my * m.w + mx) * 4;
-              copyBuf[dIdx] = buf[sIdx];
-              copyBuf[dIdx + 1] = buf[sIdx + 1];
-              copyBuf[dIdx + 2] = buf[sIdx + 2];
-              copyBuf[dIdx + 3] = buf[sIdx + 3];
-            }
+          const sub = extractTrimmedOpaqueRegion(m.floatingData, m.w, m.h, 0, 0, m.w, m.h, m.mask);
+          if (sub) {
+            extracted = {
+              x: m.x + sub.x,
+              y: m.y + sub.y,
+              w: sub.w,
+              h: sub.h,
+              data: sub.data,
+              mask: sub.mask
+            };
           }
+        } else {
+          extracted = extractTrimmedOpaqueRegion(buf, W, H, m.x, m.y, m.w, m.h, m.mask);
         }
-        editor.clipboardSelection = { w: m.w, h: m.h, x: m.x, y: m.y, data: copyBuf, isFullCel: false };
-        editor.preferInternalClipboard = true;
       } else {
-        editor.clipboardBuf = new Uint8ClampedArray(buf);
-        editor.clipboardSelection = { w: W, h: H, x: 0, y: 0, data: new Uint8ClampedArray(buf), isFullCel: true };
-        editor.preferInternalClipboard = true;
+        extracted = extractTrimmedOpaqueRegion(buf, W, H, 0, 0, W, H, null);
       }
+
+      if (!extracted) {
+        sfx.buzzer();
+        return;
+      }
+
+      editor.clipboardSelection = {
+        w: extracted.w,
+        h: extracted.h,
+        x: extracted.x,
+        y: extracted.y,
+        data: new Uint8ClampedArray(extracted.data),
+        mask: new Uint8Array(extracted.mask),
+        isFullCel: false
+      };
+      editor.clipboardBuf = null;
+      editor.preferInternalClipboard = true;
       sfx.ui(560);
     }
 
@@ -15465,6 +15761,82 @@
         editor.marquee = null;
       } else {
         buf.fill(0);
+      }
+      renderFrameTabs();
+      renderPaintCanvas();
+    }
+
+    function pasteEditorSelectionOrCel() {
+      if (editor.clipboardSelection && editor.clipboardSelection.data) {
+        commitMarqueeSelection();
+        pushEditorUndo();
+        const cs = editor.clipboardSelection;
+        const trimmed = extractTrimmedOpaqueRegion(cs.data, cs.w, cs.h, 0, 0, cs.w, cs.h, cs.mask || null);
+        if (!trimmed) return;
+
+        const targetX = Math.max(0, Math.min(editor.w - trimmed.w, (cs.x || 0) + trimmed.x));
+        const targetY = Math.max(0, Math.min(editor.h - trimmed.h, (cs.y || 0) + trimmed.y));
+
+        selectTool('marquee');
+        editor.marquee = {
+          x: targetX,
+          y: targetY,
+          w: trimmed.w,
+          h: trimmed.h,
+          mask: new Uint8Array(trimmed.mask),
+          floatingData: new Uint8ClampedArray(trimmed.data)
+        };
+        renderFrameTabs();
+        renderPaintCanvas();
+        sfx.ui(520);
+      }
+    }
+
+    // PNG Import, Spritesheet Strip Slicer, Clipboard PNG & Strip Export
+    function applyImportedImageToEditor(img) {
+      if (!img) return;
+      commitMarqueeSelection();
+      pushEditorUndo();
+
+      const fitPaste = document.getElementById('auto-resize-paste')?.checked;
+      // Check if this is a multi-frame horizontal spritesheet strip (disabled for 1-cel locked THING subtypes)
+      const isMultipleOfW = img.width > editor.w && (img.width % editor.w === 0) && img.height === editor.h;
+      const isSquareStrip = img.width >= img.height * 2 && (img.width % img.height === 0);
+
+      if (getFixedCelCountForType(editor.type, editor.subtype) !== 1 && (isMultipleOfW || isSquareStrip)) {
+        editor.lastPastedImage = img;
+        const frameW = isMultipleOfW ? editor.w : img.height;
+        const count = Math.floor(img.width / frameW);
+        stripNoticeText.textContent = `Spritesheet strip (${img.width}x${img.height}) detected — Slice into ${count} cels?`;
+        stripNoticeBar.classList.remove('hidden');
+        stripNoticeBar.classList.add('flex');
+      } else {
+        stripNoticeBar.classList.add('hidden');
+        stripNoticeBar.classList.remove('flex');
+      }
+
+      if (fitPaste && img.width >= 4 && img.height >= 4 && img.width <= 128 && img.height <= 128) {
+        applyEditorResize(img.width, img.height);
+      }
+
+      const c = document.createElement('canvas');
+      c.width = editor.w;
+      c.height = editor.h;
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      const drawW = Math.min(editor.w, img.width);
+      const drawH = Math.min(editor.h, img.height);
+      ctx.drawImage(img, 0, 0, drawW, drawH, 0, 0, drawW, drawH);
+      const imgData = ctx.getImageData(0, 0, editor.w, editor.h).data;
+      // Composite only non-transparent pixels from the pasted image so transparent background never erases existing art
+      const dstBuf = editor.frames[editor.activeFrame];
+      for (let i = 0; i < imgData.length && i < dstBuf.length; i += 4) {
+        if (imgData[i + 3] > 0) {
+          dstBuf[i] = imgData[i];
+          dstBuf[i + 1] = imgData[i + 1];
+          dstBuf[i + 2] = imgData[i + 2];
+          dstBuf[i + 3] = imgData[i + 3];
+        }
       }
       renderFrameTabs();
       renderPaintCanvas();

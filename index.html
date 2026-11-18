@@ -4384,6 +4384,54 @@
       return null;
     }
 
+    function hasNamedCelStates(typeId = editor.type, subtype = editor.subtype) {
+      return (typeId === 'body' && subtype === 'Body') || typeId === 'wearable';
+    }
+
+    function getSequentialCelLabel(typeId, subtype, idx) {
+      if (typeId === 'body' && subtype === 'Motion') return `Motion ${idx + 1}`;
+      if ((typeId === 'thing' && subtype === 'Thing in Front') || (typeId === 'big_thing' && subtype === 'Back + Front')) {
+        return idx === 0 ? 'Back Cell' : 'Front Cell';
+      }
+      if (typeId === 'light' && subtype === 'Light Glow') {
+        return idx === 0 ? 'Source (19x19)' : 'Glow (38x38)';
+      }
+      if (typeId === 'activator' && subtype === 'Change on Activate') {
+        if (idx === 0) return 'Off Cell';
+        if (idx === 1) return 'On Cell';
+        return `On Cell ${idx}`;
+      }
+      if (typeId === 'holdable' && (subtype === 'Emitter' || subtype === 'Equipment')) {
+        return idx === 0 ? 'Held Cell' : 'Emitted / Active';
+      }
+      if (typeId === 'slope') {
+        if (idx === 0) return 'Slope /|';
+        if (idx === 1) return 'Slope |\\';
+        return `Cell ${idx + 1}`;
+      }
+      return `Cell ${idx + 1}`;
+    }
+
+    function normalizeEditorCelStates() {
+      const count = editor.frames ? editor.frames.length : 0;
+      if (count === 0) return;
+      if (hasNamedCelStates(editor.type, editor.subtype)) {
+        const validStates = getFrameLabelsForSubtype(editor.type, editor.subtype);
+        if (!Array.isArray(editor.frameStates)) editor.frameStates = [];
+        for (let i = 0; i < count; i++) {
+          const st = editor.frameStates[i];
+          if (!st || !validStates.includes(st)) {
+            editor.frameStates[i] = validStates[Math.min(i, validStates.length - 1)] || validStates[0];
+          }
+        }
+        editor.frameStates.length = count;
+      } else {
+        editor.frameStates = Array.from({ length: count }, (_, i) =>
+          getSequentialCelLabel(editor.type, editor.subtype, i)
+        );
+      }
+    }
+
     function isSingleCelLockedType(typeId = editor.type, subtype = editor.subtype) {
       return getFixedCelCountForType(typeId, subtype) !== null;
     }
@@ -4549,6 +4597,7 @@
         }
         syncActiveFrameDimensions();
       }
+      normalizeEditorCelStates();
       syncSingleCelToolbarUI();
       populateCelStateDropdown();
       renderPreviewControlsForType();
@@ -4785,6 +4834,7 @@
       editor.frameDims = targetFrameDims;
       editor.frameStates = newStates;
       if (editor.activeFrame >= editor.frames.length) editor.activeFrame = 0;
+      normalizeEditorCelStates();
       syncSingleCelToolbarUI();
       syncActiveFrameDimensions();
       populateCelStateDropdown();
@@ -11496,18 +11546,18 @@
       };
       const createBtn = document.getElementById('open-create-btn');
       if (createBtn) {
-        createBtn.textContent = '+ Clone';
+        createBtn.textContent = 'Edit';
         createBtn.classList.add('ring-2', 'ring-amber-300');
       }
       updateWorldCursor();
     }
 
-    function cloneHeldWorldBlockIntoEditor(held) {
+    function openHeldWorldBlockInEditor(held) {
       if (!held) return;
       const heldSp = held.sprite || getSpriteById(held.item?.spriteId);
       if (heldSp) {
         sfx.ui(640);
-        openSpriteEditor(heldSp.id, true);
+        openSpriteEditor(heldSp.id, false);
         return;
       }
       if (held.item && held.item.spriteId === '__starter_ground__') {
@@ -12593,7 +12643,7 @@
       }
 
       // If releasing Left-Click while holding a cloned/moved single block:
-      // - If dropped onto the Vault (#right-drawer / + Clone button), clone the block in the Creation Editor!
+      // - If dropped onto the Vault (#right-drawer / Edit button), open the block in the Creation Editor!
       // - If dragged to a new grid cell inside the viewport, place/clone it immediately!
       // - If released on the exact same origin cell (or over other UI), cancel the grab cleanly!
       if (state.heldWorldBlock && e.button === 0 && !state.heldWorldBlock.awaitingClickToPlace) {
@@ -12607,7 +12657,7 @@
 
         if (droppedOnVault) {
           commitHeldWorldBlock(true);
-          cloneHeldWorldBlockIntoEditor(heldSnapshot);
+          openHeldWorldBlockInEditor(heldSnapshot);
         } else if (droppedOnOtherUI) {
           spawnBrushClearFeedback();
           commitHeldWorldBlock(true);
@@ -12834,7 +12884,7 @@
         resetCreateCloneButtonUI();
         if (spId && getSpriteById(spId)) {
           sfx.ui(640);
-          openSpriteEditor(spId, true);
+          openSpriteEditor(spId, false);
         }
       });
     }
@@ -13718,6 +13768,7 @@
     }
 
     function renderFrameTabs() {
+      normalizeEditorCelStates();
       framesContainer.innerHTML = '';
       const labels = getFrameLabelsForSubtype(editor.type, editor.subtype);
 
@@ -15185,12 +15236,71 @@
       commitMarqueeSelection();
       pushEditorUndo();
       const nextBuf = new Uint8ClampedArray(editor.w * editor.h * 4);
-      const curState = (editor.frameStates && editor.frameStates[editor.activeFrame]) || `Cell ${editor.frames.length + 1}`;
-      editor.frames.splice(editor.activeFrame + 1, 0, nextBuf);
-      editor.frameDims.splice(editor.activeFrame + 1, 0, { w: editor.w, h: editor.h });
-      editor.frameStates.splice(editor.activeFrame + 1, 0, curState);
-      editor.activeFrame++;
+      const insertIdx = editor.activeFrame + 1;
+      const curState = hasNamedCelStates(editor.type, editor.subtype)
+        ? ((editor.frameStates && editor.frameStates[editor.activeFrame]) || 'Stand')
+        : getSequentialCelLabel(editor.type, editor.subtype, insertIdx);
+      editor.frames.splice(insertIdx, 0, nextBuf);
+      editor.frameDims.splice(insertIdx, 0, { w: editor.w, h: editor.h });
+      editor.frameStates.splice(insertIdx, 0, curState);
+      editor.activeFrame = insertIdx;
+      normalizeEditorCelStates();
       populateCelStateDropdown();
+      renderFrameTabs();
+      renderPaintCanvas();
+    });
+
+    document.getElementById('del-frame-btn').addEventListener('click', () => {
+      if (isSingleCelLockedType(editor.type)) {
+        sfx.buzzer();
+        return;
+      }
+      commitMarqueeSelection();
+      pushEditorUndo();
+      if (editor.frames.length <= 1) {
+        editor.frames[0].fill(0);
+      } else {
+        const deletedIndex = editor.activeFrame;
+        editor.frames.splice(deletedIndex, 1);
+        editor.frameDims.splice(deletedIndex, 1);
+        editor.frameStates.splice(deletedIndex, 1);
+        editor.activeFrame = Math.max(0, deletedIndex - 1);
+      }
+      normalizeEditorCelStates();
+      syncActiveFrameDimensions();
+      populateCelStateDropdown();
+      renderFrameTabs();
+      renderPaintCanvas();
+    });
+
+    document.getElementById('move-cel-left-btn').addEventListener('click', () => {
+      if (editor.activeFrame <= 0) return;
+      commitMarqueeSelection();
+      pushEditorUndo();
+      const i = editor.activeFrame;
+      [editor.frames[i - 1], editor.frames[i]] = [editor.frames[i], editor.frames[i - 1]];
+      [editor.frameDims[i - 1], editor.frameDims[i]] = [editor.frameDims[i], editor.frameDims[i - 1]];
+      if (hasNamedCelStates(editor.type, editor.subtype)) {
+        [editor.frameStates[i - 1], editor.frameStates[i]] = [editor.frameStates[i], editor.frameStates[i - 1]];
+      }
+      editor.activeFrame--;
+      normalizeEditorCelStates();
+      renderFrameTabs();
+      renderPaintCanvas();
+    });
+
+    document.getElementById('move-cel-right-btn').addEventListener('click', () => {
+      if (editor.activeFrame >= editor.frames.length - 1) return;
+      commitMarqueeSelection();
+      pushEditorUndo();
+      const i = editor.activeFrame;
+      [editor.frames[i + 1], editor.frames[i]] = [editor.frames[i], editor.frames[i + 1]];
+      [editor.frameDims[i + 1], editor.frameDims[i]] = [editor.frameDims[i], editor.frameDims[i + 1]];
+      if (hasNamedCelStates(editor.type, editor.subtype)) {
+        [editor.frameStates[i + 1], editor.frameStates[i]] = [editor.frameStates[i], editor.frameStates[i + 1]];
+      }
+      editor.activeFrame++;
+      normalizeEditorCelStates();
       renderFrameTabs();
       renderPaintCanvas();
     });
@@ -16144,7 +16254,7 @@
           }
           const createBtn = document.getElementById('open-create-btn');
           if (createBtn) {
-            createBtn.textContent = '+ Clone';
+            createBtn.textContent = 'Edit';
             createBtn.classList.add('ring-2', 'ring-amber-300');
           }
           if (customDragPreview && customDragPreviewImg) {
@@ -16616,6 +16726,10 @@
           finalDims = keep.map(i => finalDims[i]);
           finalStates = keep.map(i => finalStates[i]);
         }
+      } else if (!hasNamedCelStates(type, subtype)) {
+        finalStates = Array.from({ length: finalFrames.length }, (_, i) =>
+          getSequentialCelLabel(type, subtype, i)
+        );
       }
       const isBackFront = (type === 'thing' && subtype === 'Thing in Front') || (type === 'big_thing' && subtype === 'Back + Front');
       const thumb = raw.thumbnail || createThumbnailDataUrl(finalFrames, w, h, finalDims, isBackFront);

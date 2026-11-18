@@ -6864,6 +6864,7 @@
       const stepMoveDist = Math.hypot(p.x - tickStartX, p.y - tickStartY);
       if (stepMoveDist > 0.02) {
         p.worldMovePhase = (p.worldMovePhase || 0) + stepMoveDist * 0.065;
+        scheduleWorldAutoBackup(600);
       }
 
       // Track continuous downward falling time & off-world void threshold:
@@ -10885,7 +10886,7 @@
         !isActivelyScrollingWorld &&
         !state.heldWorldBlock &&
         !(state.mode === 'build' && state.worldTool === 'wire') &&
-        (state.mode === 'build' || state.activeBrushId)
+        (state.mode === 'build' || state.activeBrushId || activeDraggedSpriteId)
       ) {
         renderWorldBrushPreview(camScreenX, camScreenY, zoom);
       }
@@ -11415,7 +11416,7 @@
     }
 
     function renderWorldBrushPreview(camScreenX, camScreenY, zoom) {
-      const brushSp = getSpriteById(state.activeBrushId);
+      const brushSp = getSpriteById(activeDraggedSpriteId || state.activeBrushId);
       const gridW = TILE_SIZE;
       const gridH = TILE_SIZE;
       const drawW = brushSp ? brushSp.w : TILE_SIZE;
@@ -11425,7 +11426,7 @@
       const snapX = Math.floor(mouseWorld.wx / gridW) * gridW;
       const snapY = Math.floor(mouseWorld.wy / gridH) * gridH;
 
-      const activeTool = state.mode === 'build' ? state.worldTool : 'stamp';
+      const activeTool = (state.mode === 'build' && !activeDraggedSpriteId) ? state.worldTool : 'stamp';
 
       if (state.mode === 'build' && mouseWorld.dragStart && (activeTool === 'rect' || activeTool === 'line' || activeTool === 'erase')) {
         const sW = activeTool === 'erase' ? TILE_SIZE : stepW;
@@ -12929,7 +12930,64 @@
       }
     });
 
-    // Drag-and-drop onto "+ Create" (which becomes "+ Clone") to clone a creation in the Forge
+    // Drag-and-drop creations directly from the Vault into the World Viewport
+    worldCanvas.addEventListener('dragover', (e) => {
+      if (!activeDraggedSpriteId && (!e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes('text/loombit-sprite-id'))) {
+        return;
+      }
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      updateMouseWorldCoords(e);
+    });
+
+    worldCanvas.addEventListener('dragleave', () => {
+      mouseWorld.inside = false;
+    });
+
+    worldCanvas.addEventListener('drop', (e) => {
+      if (editor.isOpen) return;
+      const spId = (e.dataTransfer && e.dataTransfer.getData('text/loombit-sprite-id')) || activeDraggedSpriteId;
+      if (!spId) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (customDragPreview) {
+        customDragPreview.classList.add('hidden');
+        customDragPreview.classList.remove('flex');
+      }
+      activeDraggedSpriteId = null;
+      resetCreateCloneButtonUI();
+
+      updateMouseWorldCoords(e);
+      const sp = getSpriteById(spId);
+      if (!sp) return;
+
+      if (sp.type === 'body' && sp.subtype === 'Motion') {
+        addMotionToCurrentBody(sp.id);
+        return;
+      }
+      if (['body', 'wearable', 'holdable', 'mountable'].includes(sp.type)) {
+        equipOrSelectSprite(sp, true);
+        return;
+      }
+
+      const snapX = Math.floor(mouseWorld.wx / TILE_SIZE) * TILE_SIZE;
+      const snapY = Math.floor(mouseWorld.wy / TILE_SIZE) * TILE_SIZE;
+      state.activeBrushId = sp.id;
+      if (state.mode === 'build' && ['erase', 'wire', 'spawn'].includes(state.worldTool)) {
+        setWorldBuildTool('stamp');
+      }
+      if (canBrushPlaceOrOverwrite(sp, snapX, snapY, state.brushOrient)) {
+        pushWorldUndo();
+        mouseWorld.lastCommitTime = performance.now();
+        placeSpriteAtWorld(sp, snapX, snapY, 0, true, state.brushOrient, true);
+      }
+      updateBrushBar();
+      renderSidebarSprites();
+      updateWorldCursor(e);
+    });
+
+    // Drag-and-drop onto "+ Create" (which becomes "Edit") to edit a creation in the Forge
     const openCreateBtnEl = document.getElementById('open-create-btn');
     if (openCreateBtnEl) {
       openCreateBtnEl.addEventListener('dragover', (e) => {
@@ -16820,12 +16878,14 @@
       if (editor.isOpen) {
         saveForgeDraftToStorage();
       }
+      saveAutoBackup();
     });
 
     window.addEventListener('beforeunload', () => {
       if (editor.isOpen) {
         saveForgeDraftToStorage();
       }
+      saveAutoBackup();
     });
 
     // Cross-Tab Session Lock: Prevents a stale background tab from overwriting newer work in localStorage
@@ -17113,6 +17173,9 @@
     }
 
     function serializeCurrentState() {
+      const p = state.player;
+      const savedPlayerX = p.deadTimer > 0 ? (p.lastSafePos?.x ?? state.spawnPoint.x) : p.x;
+      const savedPlayerY = p.deadTimer > 0 ? (p.lastSafePos?.y ?? state.spawnPoint.y) : p.y;
       return {
         version: 2,
         activeWorldId: state.activeWorldId,
@@ -17120,6 +17183,14 @@
         worldCells: Array.from(state.worldCells.entries()),
         dynamicEntities: state.dynamicEntities.map(e => ({ ...e })),
         spawnPoint: { ...state.spawnPoint },
+        playerPos: {
+          x: savedPlayerX,
+          y: savedPlayerY,
+          facing: p.facing || 1,
+          sitting: Boolean(p.sitting),
+          lying: Boolean(p.lying),
+          lastSafePos: p.lastSafePos ? { ...p.lastSafePos } : null
+        },
         hardFloorY0: state.hardFloorY0,
         activeBodyId: state.activeBodyId,
         activeWearableId: state.activeWearableId,
@@ -17186,6 +17257,27 @@
       state.worldRedoStack = [];
       setEngineMode('play');
       respawnPlayer(false);
+      if (data.playerPos && typeof data.playerPos.x === 'number' && typeof data.playerPos.y === 'number') {
+        const p = state.player;
+        p.x = data.playerPos.x;
+        p.y = data.playerPos.y;
+        p.prevX = data.playerPos.x;
+        p.prevY = data.playerPos.y;
+        p.renderX = data.playerPos.x;
+        p.renderY = data.playerPos.y;
+        p.respawnAnim = 1;
+        if (data.playerPos.facing === 1 || data.playerPos.facing === -1) {
+          p.facing = data.playerPos.facing;
+          p.visualScaleX = data.playerPos.facing;
+        }
+        p.sitting = Boolean(data.playerPos.sitting);
+        p.lying = Boolean(data.playerPos.lying);
+        if (data.playerPos.lastSafePos && typeof data.playerPos.lastSafePos.x === 'number') {
+          p.lastSafePos = { ...data.playerPos.lastSafePos };
+        }
+        state.camera.x = p.x + p.w / 2;
+        state.camera.y = p.y + p.h / 2 - 28;
+      }
       updateBrushBar();
       renderSidebarSprites();
       updateTopWorldLabel();
@@ -17257,12 +17349,15 @@
       c.width = width;
       c.height = height;
       const ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
       ctx.fillStyle = '#121318';
       ctx.fillRect(0, 0, width, height);
       if (!wData || !Array.isArray(wData.worldCells)) return c;
 
       const spMap = new Map();
       const spColorMap = new Map();
+      const previewFrameCache = new Map();
+
       if (Array.isArray(wData.sprites)) {
         for (const s of wData.sprites) {
           if (!s) continue;
@@ -17287,6 +17382,34 @@
           }
         }
       }
+
+      const getMiniFrameCanvas = (spriteId, frameIdx = 0) => {
+        const liveSp = getSpriteById(spriteId);
+        if (liveSp) {
+          return getCachedFrameCanvas(liveSp, frameIdx);
+        }
+        const s = spMap.get(spriteId);
+        if (!s || !Array.isArray(s.frames) || s.frames.length === 0) return null;
+        const safeIdx = Math.max(0, Math.min(frameIdx, s.frames.length - 1));
+        const cacheKey = `${spriteId}_${safeIdx}`;
+        if (previewFrameCache.has(cacheKey)) return previewFrameCache.get(cacheKey);
+
+        const dim = (Array.isArray(s.frameDims) && s.frameDims[safeIdx]) || { w: s.w || 19, h: s.h || 19 };
+        const fw = Math.max(1, dim.w || 19);
+        const fh = Math.max(1, dim.h || 19);
+        const rawFrame = s.frames[safeIdx];
+        const decoded = typeof rawFrame === 'string'
+          ? decodeFrameFromSerialized(rawFrame, fw * fh * 4)
+          : new Uint8ClampedArray(rawFrame);
+        const off = document.createElement('canvas');
+        off.width = fw;
+        off.height = fh;
+        const safeBuf = new Uint8ClampedArray(fw * fh * 4);
+        safeBuf.set(decoded.subarray(0, safeBuf.length));
+        off.getContext('2d').putImageData(new ImageData(safeBuf, fw, fh), 0, 0);
+        previewFrameCache.set(cacheKey, off);
+        return off;
+      };
 
       // 1. Render Skylights (Fill Light, Top Light, Surround Light) placed in the world
       const seenLights = new Set();
@@ -17343,19 +17466,9 @@
         ctx.fillRect(0, 0, width, gradH);
       }
 
-      for (const sl of surroundLights) {
-        const { r, g, b, alpha } = sl;
-        const outerR = Math.hypot(width, height) * 0.55;
-        const grad = ctx.createRadialGradient(width / 2, height / 2, outerR * 0.35, width / 2, height / 2, outerR);
-        grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
-        grad.addColorStop(1, `rgba(${r},${g},${b},${alpha})`);
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, width, height);
-      }
-
       if (wData.worldCells.length === 0) return c;
 
-      // 2. Compute bounding box of non-light blocks for framing the map
+      // 2. Compute bounding box & camera framing so pixel art is crisp and readable
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
       for (const [, cell] of wData.worldCells) {
         if (!cell || cell.type === 'light' || cell.type === 'environment') continue;
@@ -17375,49 +17488,126 @@
       }
       if (!Number.isFinite(minX)) return c;
 
-      const spanW = Math.max(19 * 10, maxX - minX + 57);
-      const spanH = Math.max(19 * 6, maxY - minY + 57);
-      const scale = Math.min((width - 16) / spanW, (height - 16) / spanH);
-      const cx = (minX + maxX) / 2;
-      const cy = (minY + maxY) / 2;
+      const spanW = Math.max(TILE_SIZE * 10, maxX - minX + TILE_SIZE * 2);
+      const spanH = Math.max(TILE_SIZE * 5, maxY - minY + TILE_SIZE * 2);
+      const fitScale = Math.min((width - 8) / spanW, (height - 8) / spanH);
+      // Keep scale large enough so individual block pixel art is recognizable even in wide worlds
+      const minReadableScale = width / (TILE_SIZE * 32);
+      const maxScale = width / (TILE_SIZE * 11);
+      const scale = Math.min(maxScale, Math.max(minReadableScale, fitScale));
+
+      const viewWorldW = width / scale;
+      const viewWorldH = height / scale;
+      let cx = (minX + maxX) / 2;
+      let cy = (minY + maxY) / 2;
+
+      const focusPos = (wData.playerPos && typeof wData.playerPos.x === 'number')
+        ? wData.playerPos
+        : wData.spawnPoint;
+      if (focusPos && typeof focusPos.x === 'number') {
+        if ((maxX - minX) > viewWorldW) {
+          const halfW = viewWorldW * 0.45;
+          cx = Math.max(minX + halfW, Math.min(maxX - halfW, focusPos.x + TILE_SIZE * 0.5));
+        }
+        if ((maxY - minY) > viewWorldH) {
+          const halfH = viewWorldH * 0.45;
+          cy = Math.max(minY + halfH, Math.min(maxY - halfH, focusPos.y));
+        }
+      }
+
+      // Build map lookup for Smart Auto-Back Fill in preview
+      const cellMap = new Map(wData.worldCells);
+      const renderCells = [];
+      for (const [, cell] of wData.worldCells) {
+        if (!cell || cell.type === 'light' || cell.type === 'environment') continue;
+        renderCells.push(cell);
+      }
+
+      const neighborOffsets = [
+        [-TILE_SIZE, 0], [TILE_SIZE, 0], [0, -TILE_SIZE], [0, TILE_SIZE],
+        [-TILE_SIZE, -TILE_SIZE], [TILE_SIZE, -TILE_SIZE], [-TILE_SIZE, TILE_SIZE], [TILE_SIZE, TILE_SIZE]
+      ];
+      for (const cell of renderCells.slice()) {
+        if (cell.layer === 'back' || cell.layer === 'farback' || cell.type === 'back') continue;
+        if (cellMap.has(`${cell.x},${cell.y},back`) || cellMap.has(`${cell.x},${cell.y},farback`)) continue;
+        let backScore = 0;
+        let bestBack = null;
+        for (let i = 0; i < neighborOffsets.length; i++) {
+          const [ox, oy] = neighborOffsets[i];
+          const nb = cellMap.get(`${cell.x + ox},${cell.y + oy},back`) || cellMap.get(`${cell.x + ox},${cell.y + oy},farback`);
+          if (nb && nb.type === 'back') {
+            backScore += i < 4 ? 1 : 0.6;
+            if (!bestBack) bestBack = nb;
+          }
+        }
+        if (backScore >= 1.5 && bestBack) {
+          renderCells.push({
+            ...bestBack,
+            x: cell.x,
+            y: cell.y,
+            w: TILE_SIZE,
+            h: TILE_SIZE
+          });
+        }
+      }
 
       // Sort cells back-to-front so foreground blocks sit cleanly over background walls
       const layerOrder = { farback: 0, back: 1, main: 2, front: 3 };
-      const sortedCells = wData.worldCells
-        .map(([, cell]) => cell)
-        .filter(Boolean)
-        .sort((a, b) => (layerOrder[a.layer] ?? 2) - (layerOrder[b.layer] ?? 2));
+      renderCells.sort((a, b) => (layerOrder[a.layer] ?? 2) - (layerOrder[b.layer] ?? 2));
 
-      for (const cell of sortedCells) {
-        if (cell.type === 'light' || cell.type === 'environment') continue;
+      for (const cell of renderCells) {
+        const w = cell.w || TILE_SIZE;
+        const h = cell.h || TILE_SIZE;
+        // Edge-to-edge rounding eliminates 1px seams between adjacent tiles at any fractional scale
         const sx = Math.round(width / 2 + (cell.x - cx) * scale);
         const sy = Math.round(height / 2 + (cell.y - cy) * scale);
-        const sw = Math.max(2, Math.round((cell.w || 19) * scale));
-        const sh = Math.max(2, Math.round((cell.h || 19) * scale));
-        const liveSp = getSpriteById(cell.spriteId);
-        let fillHex = '#71717a';
-        if (cell.spriteId === '__starter_ground__') {
-          fillHex = '#343442';
-        } else if (spColorMap.has(cell.spriteId)) {
-          fillHex = spColorMap.get(cell.spriteId);
-        } else if (liveSp) {
-          fillHex = getPrimaryColorFromSprite(liveSp, '#71717a');
-        }
+        const sxEnd = Math.round(width / 2 + (cell.x + w - cx) * scale);
+        const syEnd = Math.round(height / 2 + (cell.y + h - cy) * scale);
+        if (sxEnd < 0 || sx > width || syEnd < 0 || sy > height) continue;
+        const sw = Math.max(1, sxEnd - sx);
+        const sh = Math.max(1, syEnd - sy);
+
         ctx.save();
-        if (cell.layer === 'farback') ctx.globalAlpha = 0.6;
-        else if (cell.layer === 'back') ctx.globalAlpha = 0.82;
-        else if (cell.type === 'liquid') ctx.globalAlpha = 0.65;
-        ctx.fillStyle = fillHex;
-        ctx.fillRect(sx, sy, sw, sh);
+        if (cell.layer === 'farback') ctx.globalAlpha = 0.65;
+        else if (cell.type === 'liquid') ctx.globalAlpha = 0.68;
+
+        if (cell.spriteId === '__starter_ground__') {
+          ctx.fillStyle = '#23232b';
+          ctx.fillRect(sx, sy, sw, sh);
+          ctx.fillStyle = '#343442';
+          ctx.fillRect(sx, sy, sw, Math.max(1, Math.round(scale)));
+        } else {
+          const fc = getMiniFrameCanvas(cell.spriteId, cell.frameIdx || 0);
+          if (fc) {
+            const cellOrient = (cell.orient ?? cell.rotation ?? 0) % 8;
+            drawImageWithOrient(ctx, fc, sx, sy, sw, sh, cellOrient, 1);
+            const sp = spMap.get(cell.spriteId) || getSpriteById(cell.spriteId);
+            if (
+              sp &&
+              ((cell.type === 'thing' && cell.subtype === 'Thing in Front') ||
+               (cell.type === 'big_thing' && cell.subtype === 'Back + Front'))
+            ) {
+              const fcFront = getMiniFrameCanvas(cell.spriteId, 1);
+              if (fcFront) drawImageWithOrient(ctx, fcFront, sx, sy, sw, sh, cellOrient, 1);
+            }
+          } else {
+            ctx.fillStyle = spColorMap.get(cell.spriteId) || '#71717a';
+            ctx.fillRect(sx, sy, sw, sh);
+          }
+        }
         ctx.restore();
       }
 
-      if (wData.spawnPoint) {
-        const spx = Math.round(width / 2 + (wData.spawnPoint.x - cx) * scale);
-        const spy = Math.round(height / 2 + (wData.spawnPoint.y - cy) * scale);
-        ctx.fillStyle = '#38bdf8';
-        ctx.fillRect(spx - 1, spy - 1, 4, 4);
+      for (const sl of surroundLights) {
+        const { r, g, b, alpha } = sl;
+        const outerR = Math.hypot(width, height) * 0.55;
+        const grad = ctx.createRadialGradient(width / 2, height / 2, outerR * 0.35, width / 2, height / 2, outerR);
+        grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
+        grad.addColorStop(1, `rgba(${r},${g},${b},${alpha})`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
       }
+
       return c;
     }
 
